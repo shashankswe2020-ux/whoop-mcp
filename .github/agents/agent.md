@@ -62,6 +62,7 @@ When invoked with **"triage"** (or no specific issue number):
 Use GitHub MCP tools to list all open issues in the repository:
 
 ```
+# Pseudocode — use the GitHub MCP list_issues tool
 list_issues(owner, repo, state: "OPEN")
 ```
 
@@ -79,14 +80,14 @@ Assign each issue to exactly one category:
 
 ### Step 3 — Prioritize
 
-Sort issues by priority:
+Sort discovered issues by priority tier:
 
-1. **HIGH security** — command injection (#14), XSS (#15)
-2. **MEDIUM security** — binding (#18), retry-after cap (#17), timeout (#16)
-3. **Bugs** — silent errors (#3), flaky tests (#2), missing handlers (#21)
-4. **Code quality** — type improvements (#11), deduplication (#12), validation (#7)
-5. **Testing** — missing test coverage (#9)
-6. **Low / enhancement** — PKCE (#20), token validation (#19), dependency (#6)
+1. **Critical / HIGH security** — injection, XSS, authentication bypass
+2. **MEDIUM security** — binding, uncapped retries, missing timeouts
+3. **Bugs** — crashes, silent errors, flaky tests, missing handlers
+4. **Code quality** — refactors, type improvements, validation gaps
+5. **Testing** — missing coverage, test infrastructure
+6. **Low / enhancement** — nice-to-haves, dependency updates
 
 ### Step 4 — Dispatch
 
@@ -135,6 +136,7 @@ You are resolving GitHub issue #{number}: {title}
 {output from the planning/security/debugging skill}
 
 ## Project Conventions
+See CLAUDE.md for full conventions. Key points:
 - TypeScript strict mode, no `any`
 - TDD: write failing test first, then fix
 - Run `npm test` after every change
@@ -182,38 +184,3 @@ An issue is considered **resolved** when:
   1. Do NOT dispatch a sub-agent.
   2. Report the issue as needing human review with a clear explanation of what
      decision is needed.
-
----
-
-## Current Open Issues Reference
-
-These are the known open issues as of the last triage (for bootstrapping):
-
-### Security (dispatch → security-auditor)
-- **#14** [HIGH] OS command injection in openBrowser — replace exec with spawn
-- **#15** [HIGH] Reflected XSS in OAuth callback error page — HTML-encode message
-- **#18** [MEDIUM] Callback server binds 0.0.0.0 — bind to 127.0.0.1 only
-- **#17** [MEDIUM] Retry-After header not capped — server can force arbitrary sleep
-- **#16** [MEDIUM] No request timeout on API client fetch — add AbortSignal.timeout
-- **#20** [LOW] OAuth flow does not use PKCE
-- **#19** [LOW] No token shape validation in loadTokens
-
-### Bugs (dispatch → code-reviewer)
-- **#3** Refresh failure silently swallowed in authenticate()
-- **#2** Callback server tests use random port range — flaky in CI
-- **#21** [LOW] No server.on('error') handler in callback server
-- **#5** API client fetch has no request timeout — can hang indefinitely
-
-### Code Quality (dispatch → code-reviewer)
-- **#13** Sync MCP server version with package.json instead of hardcoding
-- **#11** Use z.infer for tool handler arg types
-- **#12** Extract shared createMockClient test helper to reduce duplication
-- **#8** Include error.body in WhoopApiError MCP error message
-- **#7** Add Zod validation (.int().min(1).max(25)) to limit field
-- **#10** Address open action items from Checkpoint-1 code review
-
-### Testing (dispatch → test-engineer)
-- **#9** Add dedicated tests for collection-utils.ts (buildCollectionQuery)
-
-### Dependencies (dispatch → code-reviewer)
-- **#6** Missing devDependency: @vitest/coverage-v8
