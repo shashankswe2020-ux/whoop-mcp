@@ -3,6 +3,11 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createWhoopServer } from "../src/server.js";
 import type { WhoopClient } from "../src/api/client.js";
+import {
+  WhoopApiError,
+  WhoopNetworkError,
+  WhoopAuthError,
+} from "../src/api/client.js";
 import type {
   UserProfile,
   BodyMeasurement,
@@ -392,5 +397,121 @@ describe("createWhoopServer", () => {
       const parsed = JSON.parse(content[0].text) as unknown;
       expect(parsed).toEqual(CYCLE_FIXTURE);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 8d: Tool-level error handling
+// ---------------------------------------------------------------------------
+
+describe("createWhoopServer (error handling)", () => {
+  /**
+   * Helper to create a test setup where the mock client throws the given error.
+   * Returns a connected MCP Client and a cleanup function.
+   */
+  async function createErrorServer(
+    error: Error,
+  ): Promise<{ client: Client; cleanup: () => Promise<void> }> {
+    const errorClient: WhoopClient = {
+      get: async <T>(): Promise<T> => {
+        throw error;
+      },
+    };
+    const server = createWhoopServer(errorClient);
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    const mcpClient = new Client({ name: "error-test-client", version: "1.0.0" });
+    await Promise.all([
+      mcpClient.connect(clientTransport),
+      server.connect(serverTransport),
+    ]);
+    return {
+      client: mcpClient,
+      cleanup: async () => {
+        await mcpClient.close();
+        await server.close();
+      },
+    };
+  }
+
+  it("returns isError with message for WhoopApiError", async () => {
+    const apiError = new WhoopApiError(403, "Forbidden", { message: "No access" });
+    const { client: errClient, cleanup } = await createErrorServer(apiError);
+
+    try {
+      const result = await errClient.callTool({ name: "get_profile", arguments: {} });
+
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0].text).toContain("403");
+      expect(content[0].text).toContain("Forbidden");
+      expect(content[0].text).toContain("WHOOP API returned");
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("returns isError with network message for WhoopNetworkError", async () => {
+    const netError = new WhoopNetworkError(new TypeError("fetch failed"));
+    const { client: errClient, cleanup } = await createErrorServer(netError);
+
+    try {
+      const result = await errClient.callTool({ name: "get_profile", arguments: {} });
+
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0].text).toContain("Network error");
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("returns isError with auth message for WhoopAuthError", async () => {
+    const authError = new WhoopAuthError(new Error("token expired"));
+    const { client: errClient, cleanup } = await createErrorServer(authError);
+
+    try {
+      const result = await errClient.callTool({ name: "get_profile", arguments: {} });
+
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0].text).toContain("Authentication error");
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("returns isError with generic message for unknown errors", async () => {
+    const unknownError = new Error("Something went wrong");
+    const { client: errClient, cleanup } = await createErrorServer(unknownError);
+
+    try {
+      const result = await errClient.callTool({ name: "get_profile", arguments: {} });
+
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0].text).toContain("Unexpected error");
+      expect(content[0].text).toContain("Something went wrong");
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("error handling works for collection tools too", async () => {
+    const apiError = new WhoopApiError(500, "Internal Server Error", null);
+    const { client: errClient, cleanup } = await createErrorServer(apiError);
+
+    try {
+      const result = await errClient.callTool({
+        name: "get_recovery_collection",
+        arguments: {},
+      });
+
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0].text).toContain("500");
+    } finally {
+      await cleanup();
+    }
   });
 });

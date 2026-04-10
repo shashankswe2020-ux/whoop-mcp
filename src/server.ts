@@ -8,6 +8,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { WhoopClient } from "./api/client.js";
+import {
+  WhoopApiError,
+  WhoopNetworkError,
+  WhoopAuthError,
+} from "./api/client.js";
 import { getProfile } from "./tools/get-profile.js";
 import { getBodyMeasurement } from "./tools/get-body-measurement.js";
 import { getRecoveryCollection } from "./tools/get-recovery.js";
@@ -56,6 +61,49 @@ function jsonContent(data: unknown): {
 }
 
 // ---------------------------------------------------------------------------
+// Error response helper
+// ---------------------------------------------------------------------------
+
+/** Format a caught error into an MCP-compatible isError response */
+function errorResponse(error: unknown): {
+  isError: true;
+  content: Array<{ type: "text"; text: string }>;
+} {
+  let message: string;
+
+  if (error instanceof WhoopApiError) {
+    message = `WHOOP API returned ${error.statusCode} ${error.statusText}`;
+  } else if (error instanceof WhoopAuthError) {
+    message = error.message;
+  } else if (error instanceof WhoopNetworkError) {
+    message = error.message;
+  } else if (error instanceof Error) {
+    message = `Unexpected error: ${error.message}`;
+  } else {
+    message = "An unexpected error occurred";
+  }
+
+  return {
+    isError: true,
+    content: [{ type: "text" as const, text: message }],
+  };
+}
+
+/** Wrap a tool handler with error-to-MCP-error conversion */
+async function safeTool<T>(
+  fn: () => Promise<T>,
+): Promise<
+  | { content: Array<{ type: "text"; text: string }> }
+  | { isError: true; content: Array<{ type: "text"; text: string }> }
+> {
+  try {
+    return jsonContent(await fn());
+  } catch (error: unknown) {
+    return errorResponse(error);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Server factory
 // ---------------------------------------------------------------------------
 
@@ -84,7 +132,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
         "Get the authenticated user's basic profile — name and email.",
       annotations: { readOnlyHint: true },
     },
-    async () => jsonContent(await getProfile(client)),
+    async () => safeTool(() => getProfile(client)),
   );
 
   // -------------------------------------------------------------------------
@@ -97,7 +145,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
         "Get the user's body measurements — height, weight, and max heart rate.",
       annotations: { readOnlyHint: true },
     },
-    async () => jsonContent(await getBodyMeasurement(client)),
+    async () => safeTool(() => getBodyMeasurement(client)),
   );
 
   // -------------------------------------------------------------------------
@@ -112,7 +160,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (args: { start?: string; end?: string; limit?: number; nextToken?: string }) =>
-      jsonContent(await getRecoveryCollection(client, args)),
+      safeTool(() => getRecoveryCollection(client, args)),
   );
 
   // -------------------------------------------------------------------------
@@ -127,7 +175,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (args: { start?: string; end?: string; limit?: number; nextToken?: string }) =>
-      jsonContent(await getSleepCollection(client, args)),
+      safeTool(() => getSleepCollection(client, args)),
   );
 
   // -------------------------------------------------------------------------
@@ -142,7 +190,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (args: { start?: string; end?: string; limit?: number; nextToken?: string }) =>
-      jsonContent(await getWorkoutCollection(client, args)),
+      safeTool(() => getWorkoutCollection(client, args)),
   );
 
   // -------------------------------------------------------------------------
@@ -157,7 +205,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (args: { start?: string; end?: string; limit?: number; nextToken?: string }) =>
-      jsonContent(await getCycleCollection(client, args)),
+      safeTool(() => getCycleCollection(client, args)),
   );
 
   return server;
