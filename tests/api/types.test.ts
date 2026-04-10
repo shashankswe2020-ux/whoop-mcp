@@ -13,6 +13,19 @@ import type {
   Workout,
   WorkoutCollection,
 } from "../../src/api/types.js";
+import {
+  WHOOP_API_BASE_URL,
+  WHOOP_AUTH_URL,
+  WHOOP_TOKEN_URL,
+  WHOOP_REQUIRED_SCOPES,
+  WHOOP_REDIRECT_URI,
+  ENDPOINT_USER_PROFILE,
+  ENDPOINT_BODY_MEASUREMENT,
+  ENDPOINT_RECOVERY,
+  ENDPOINT_SLEEP,
+  ENDPOINT_WORKOUT,
+  ENDPOINT_CYCLE,
+} from "../../src/api/endpoints.js";
 
 describe("shared types", () => {
   describe("ScoreState", () => {
@@ -368,5 +381,44 @@ describe("workout types", () => {
 
     expect(collection.records).toHaveLength(1);
     expect(collection.next_token).toBe("nextPage123");
+  });
+});
+
+describe("endpoint constants", () => {
+  it("defines the correct WHOOP API base URL", () => {
+    expect(WHOOP_API_BASE_URL).toBe(
+      "https://api.prod.whoop.com/developer",
+    );
+  });
+
+  it("defines the correct OAuth URLs", () => {
+    expect(WHOOP_AUTH_URL).toBe(
+      "https://api.prod.whoop.com/oauth/oauth2/auth",
+    );
+    expect(WHOOP_TOKEN_URL).toBe(
+      "https://api.prod.whoop.com/oauth/oauth2/token",
+    );
+  });
+
+  it("defines all required OAuth scopes", () => {
+    expect(WHOOP_REQUIRED_SCOPES).toContain("read:recovery");
+    expect(WHOOP_REQUIRED_SCOPES).toContain("read:cycles");
+    expect(WHOOP_REQUIRED_SCOPES).toContain("read:workout");
+    expect(WHOOP_REQUIRED_SCOPES).toContain("read:sleep");
+    expect(WHOOP_REQUIRED_SCOPES).toContain("read:profile");
+    expect(WHOOP_REQUIRED_SCOPES).toContain("read:body_measurement");
+  });
+
+  it("defines the default redirect URI", () => {
+    expect(WHOOP_REDIRECT_URI).toBe("http://localhost:3000/callback");
+  });
+
+  it("defines all 6 endpoint paths as v2 routes", () => {
+    expect(ENDPOINT_USER_PROFILE).toBe("/v2/user/profile/basic");
+    expect(ENDPOINT_BODY_MEASUREMENT).toBe("/v2/user/measurement/body");
+    expect(ENDPOINT_RECOVERY).toBe("/v2/recovery");
+    expect(ENDPOINT_SLEEP).toBe("/v2/activity/sleep");
+    expect(ENDPOINT_WORKOUT).toBe("/v2/activity/workout");
+    expect(ENDPOINT_CYCLE).toBe("/v2/cycle");
   });
 });
