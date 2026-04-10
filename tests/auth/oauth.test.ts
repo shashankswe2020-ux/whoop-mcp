@@ -12,6 +12,7 @@ import {
   refreshAccessToken,
   toOAuthTokens,
   openBrowser,
+  authenticate,
   type OAuthConfig,
   type TokenResponse,
 } from "../../src/auth/oauth.js";
@@ -412,5 +413,169 @@ describe("openBrowser", () => {
 
     // Should not throw
     expect(() => openBrowser("https://example.com/auth")).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// authenticate
+// ---------------------------------------------------------------------------
+
+vi.mock("../../src/auth/token-store.js", () => ({
+  loadTokens: vi.fn(),
+  saveTokens: vi.fn(),
+  isTokenExpired: vi.fn(),
+}));
+
+vi.mock("../../src/auth/callback-server.js", () => ({
+  startCallbackServer: vi.fn(),
+}));
+
+import {
+  loadTokens,
+  saveTokens,
+  isTokenExpired,
+} from "../../src/auth/token-store.js";
+import { startCallbackServer } from "../../src/auth/callback-server.js";
+import type { OAuthTokens } from "../../src/auth/token-store.js";
+
+const mockLoadTokens = loadTokens as ReturnType<typeof vi.fn>;
+const mockSaveTokens = saveTokens as ReturnType<typeof vi.fn>;
+const mockIsTokenExpired = isTokenExpired as ReturnType<typeof vi.fn>;
+const mockStartCallbackServer = startCallbackServer as ReturnType<
+  typeof vi.fn
+>;
+
+const VALID_TOKENS: OAuthTokens = {
+  access_token: "existing-access-token",
+  refresh_token: "existing-refresh-token",
+  expires_at: Date.now() + 3_600_000,
+  token_type: "Bearer",
+};
+
+describe("authenticate", () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    mockLoadTokens.mockReset();
+    mockSaveTokens.mockReset();
+    mockIsTokenExpired.mockReset();
+    mockStartCallbackServer.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns existing access_token if tokens are valid (not expired)", async () => {
+    mockLoadTokens.mockResolvedValueOnce(VALID_TOKENS);
+    mockIsTokenExpired.mockReturnValueOnce(false);
+
+    const token = await authenticate(TEST_CONFIG);
+
+    expect(token).toBe("existing-access-token");
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockStartCallbackServer).not.toHaveBeenCalled();
+  });
+
+  it("refreshes and returns new access_token if tokens are expired", async () => {
+    const expiredTokens: OAuthTokens = {
+      ...VALID_TOKENS,
+      expires_at: Date.now() - 1000,
+    };
+    mockLoadTokens.mockResolvedValueOnce(expiredTokens);
+    mockIsTokenExpired.mockReturnValueOnce(true);
+    mockSaveTokens.mockResolvedValueOnce(undefined);
+
+    // Mock the refresh fetch call
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    const token = await authenticate(TEST_CONFIG);
+
+    expect(token).toBe("access-token-123");
+    expect(mockFetch).toHaveBeenCalledOnce();
+    expect(mockSaveTokens).toHaveBeenCalledOnce();
+    expect(mockStartCallbackServer).not.toHaveBeenCalled();
+  });
+
+  it("runs full OAuth flow when no tokens exist", async () => {
+    mockLoadTokens.mockResolvedValueOnce(null);
+    mockSaveTokens.mockResolvedValueOnce(undefined);
+
+    // Mock callback server
+    mockStartCallbackServer.mockResolvedValueOnce({
+      code: "new-auth-code",
+      state: "mock-state", // Will be ignored — authenticate generates its own
+    });
+
+    // Mock token exchange fetch
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    const token = await authenticate(TEST_CONFIG);
+
+    expect(token).toBe("access-token-123");
+    expect(mockStartCallbackServer).toHaveBeenCalledOnce();
+    expect(mockSaveTokens).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to full OAuth flow when refresh fails", async () => {
+    const expiredTokens: OAuthTokens = {
+      ...VALID_TOKENS,
+      expires_at: Date.now() - 1000,
+    };
+    mockLoadTokens.mockResolvedValueOnce(expiredTokens);
+    mockIsTokenExpired.mockReturnValueOnce(true);
+    mockSaveTokens.mockResolvedValueOnce(undefined);
+
+    // Mock the refresh fetch — fails
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          error: "invalid_grant",
+          error_description: "Refresh token expired",
+        }),
+    });
+
+    // Mock callback server for fallback flow
+    mockStartCallbackServer.mockResolvedValueOnce({
+      code: "fallback-auth-code",
+      state: "mock-state",
+    });
+
+    // Mock token exchange fetch — succeeds
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    const token = await authenticate(TEST_CONFIG);
+
+    expect(token).toBe("access-token-123");
+    expect(mockStartCallbackServer).toHaveBeenCalledOnce();
+    // fetch called twice: once for failed refresh, once for successful exchange
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws a clear error if clientId is missing", async () => {
+    const badConfig = { ...TEST_CONFIG, clientId: "" };
+    await expect(authenticate(badConfig)).rejects.toThrow(
+      /WHOOP_CLIENT_ID|client.*id/i,
+    );
+  });
+
+  it("throws a clear error if clientSecret is missing", async () => {
+    const badConfig = { ...TEST_CONFIG, clientSecret: "" };
+    await expect(authenticate(badConfig)).rejects.toThrow(
+      /WHOOP_CLIENT_SECRET|client.*secret/i,
+    );
   });
 });

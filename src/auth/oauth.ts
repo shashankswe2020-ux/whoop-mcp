@@ -7,12 +7,19 @@
 
 import type { OAuthTokens } from "./token-store.js";
 import {
+  loadTokens,
+  saveTokens,
+  isTokenExpired,
+} from "./token-store.js";
+import { startCallbackServer } from "./callback-server.js";
+import {
   WHOOP_AUTH_URL,
   WHOOP_TOKEN_URL,
   WHOOP_REDIRECT_URI,
   WHOOP_REQUIRED_SCOPES,
 } from "../api/endpoints.js";
 import { exec } from "node:child_process";
+import { randomBytes } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -196,4 +203,88 @@ export function openBrowser(url: string): void {
       `\nCould not open browser automatically. Please open this URL manually:\n${url}\n`,
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// authenticate
+// ---------------------------------------------------------------------------
+
+/**
+ * Main entry point. Returns a valid access token.
+ *
+ * - If valid (non-expired) tokens exist on disk → returns `access_token`
+ * - If tokens exist but are expired → refreshes and returns new `access_token`
+ * - If no tokens or refresh fails → starts full OAuth flow
+ */
+export async function authenticate(config: OAuthConfig): Promise<string> {
+  // Validate required credentials
+  if (!config.clientId) {
+    throw new Error(
+      "Missing WHOOP_CLIENT_ID. Set it in your environment variables.",
+    );
+  }
+  if (!config.clientSecret) {
+    throw new Error(
+      "Missing WHOOP_CLIENT_SECRET. Set it in your environment variables.",
+    );
+  }
+
+  // 1. Check for existing tokens
+  const existing = await loadTokens(config.tokenDir);
+
+  if (existing) {
+    // 2a. If valid, return immediately
+    if (!isTokenExpired(existing)) {
+      return existing.access_token;
+    }
+
+    // 2b. If expired, try to refresh
+    try {
+      const refreshed = await refreshAccessToken(
+        existing.refresh_token,
+        config,
+      );
+      const tokens = toOAuthTokens(refreshed);
+      await saveTokens(tokens, config.tokenDir);
+      return tokens.access_token;
+    } catch {
+      // Refresh failed — fall through to full OAuth flow
+    }
+  }
+
+  // 3. Full OAuth flow
+  return performOAuthFlow(config);
+}
+
+/**
+ * Run the full OAuth Authorization Code flow:
+ * start callback server → open browser → wait for code → exchange → save.
+ */
+async function performOAuthFlow(config: OAuthConfig): Promise<string> {
+  const state = randomBytes(16).toString("hex");
+  const port = config.port ?? 3000;
+
+  // Start the callback server before opening the browser
+  const callbackPromise = startCallbackServer({
+    port,
+    expectedState: state,
+  });
+
+  // Build the authorization URL and open the browser
+  const authUrl = buildAuthorizationUrl(config, state);
+  openBrowser(authUrl);
+
+  console.error(
+    `\nWaiting for WHOOP authorization...\nIf the browser didn't open, visit:\n${authUrl}\n`,
+  );
+
+  // Wait for the callback
+  const { code } = await callbackPromise;
+
+  // Exchange the code for tokens
+  const tokenResponse = await exchangeCodeForTokens(code, config);
+  const tokens = toOAuthTokens(tokenResponse);
+  await saveTokens(tokens, config.tokenDir);
+
+  return tokens.access_token;
 }
