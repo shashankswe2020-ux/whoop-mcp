@@ -58,6 +58,66 @@ npm run dev         # Dev mode (tsx)
 - **Next:** Task 9 — Entry point + CLI (`src/index.ts`)
 - After that: Task 10 (docs + publish prep)
 
+## Task 9 Context — Entry Point + CLI
+
+### Goal
+Wire everything together in `src/index.ts`. Start OAuth if needed, create API client, create MCP server, connect stdio transport. Must work as `node dist/index.js` and `npx whoop-mcp`.
+
+### Current `src/index.ts` (stub)
+```typescript
+#!/usr/bin/env node
+async function main(): Promise<void> {
+  // TODO: Initialize OAuth, create API client, start MCP server
+}
+main().catch((error: unknown) => { console.error("Fatal error:", error); process.exit(1); });
+```
+
+### What `main()` must do
+1. Read `WHOOP_CLIENT_ID` and `WHOOP_CLIENT_SECRET` from `process.env`
+2. Call `authenticate({ clientId, clientSecret })` → returns `accessToken`
+3. Create `WhoopClient` via `createWhoopClient({ accessToken, onTokenRefresh })` — `onTokenRefresh` should call `refreshAccessToken` with stored refresh token
+4. Call `createWhoopServer(client)` → returns `McpServer`
+5. Connect server to `StdioServerTransport` from `@modelcontextprotocol/sdk/server/stdio.js`
+6. Log startup to stderr (never stdout — stdout is the MCP stdio channel)
+
+### Key APIs available
+- `authenticate(config: OAuthConfig): Promise<string>` — from `src/auth/oauth.ts`
+- `refreshAccessToken(refreshToken, config): Promise<TokenResponse>` — from `src/auth/oauth.ts`
+- `loadTokens(tokenDir?): Promise<OAuthTokens | null>` — from `src/auth/token-store.ts`
+- `saveTokens(tokens, tokenDir?): Promise<void>` — from `src/auth/token-store.ts`
+- `toOAuthTokens(response: TokenResponse): OAuthTokens` — from `src/auth/oauth.ts`
+- `createWhoopClient(options: WhoopClientOptions): WhoopClient` — from `src/api/client.ts`
+- `createWhoopServer(client: WhoopClient): McpServer` — from `src/server.ts`
+- `StdioServerTransport` — from `@modelcontextprotocol/sdk/server/stdio.js`
+
+### Claude Desktop config example
+```jsonc
+{
+  "mcpServers": {
+    "whoop": {
+      "command": "npx",
+      "args": ["whoop-mcp"],
+      "env": {
+        "WHOOP_CLIENT_ID": "your_client_id",
+        "WHOOP_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+### Acceptance Criteria
+- `node dist/index.js` starts the MCP server on stdio
+- `npx whoop-mcp` works after npm publish (bin field already set in package.json)
+- All stderr logging, never stdout (stdout = MCP transport)
+- Claude Desktop can connect and use all 6 tools
+- Verify: `npm run build && node dist/index.js` + MCP Inspector test
+
+### Package.json bin field (already configured)
+```json
+"bin": { "whoop-mcp": "dist/index.js" }
+```
+
 ## Boundaries
 - **Always:** Run tests before commits, validate input with Zod, store tokens securely (0600)
 - **Ask first:** New runtime dependencies, token storage changes, new API endpoints, OAuth flow changes
