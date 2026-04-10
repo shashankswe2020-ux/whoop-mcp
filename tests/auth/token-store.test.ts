@@ -4,7 +4,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { OAuthTokens } from "../../src/auth/token-store.js";
-import { isTokenExpired, saveTokens, loadTokens } from "../../src/auth/token-store.js";
+import { isTokenExpired, saveTokens, loadTokens, deleteTokens } from "../../src/auth/token-store.js";
 
 // ---------------------------------------------------------------------------
 // Task 3a: Token types + expiry check
@@ -224,5 +224,54 @@ describe("loadTokens", () => {
     const loaded = await loadTokens(tempDir);
 
     expect(loaded).toEqual(sampleTokens);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 3d: Delete tokens from disk
+// ---------------------------------------------------------------------------
+
+describe("deleteTokens", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "whoop-mcp-test-"));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true });
+  });
+
+  const sampleTokens: OAuthTokens = {
+    access_token: "access_abc",
+    refresh_token: "refresh_xyz",
+    expires_at: Date.now() + 3600_000,
+    token_type: "Bearer",
+  };
+
+  it("removes the token file", async () => {
+    await saveTokens(sampleTokens, tempDir);
+    await deleteTokens(tempDir);
+
+    const loaded = await loadTokens(tempDir);
+    expect(loaded).toBeNull();
+  });
+
+  it("does not throw if file does not exist", async () => {
+    // tempDir exists but has no tokens.json — should not throw
+    await expect(deleteTokens(tempDir)).resolves.toBeUndefined();
+  });
+
+  it("after delete, loadTokens returns null", async () => {
+    await saveTokens(sampleTokens, tempDir);
+
+    // Confirm it exists
+    const before = await loadTokens(tempDir);
+    expect(before).not.toBeNull();
+
+    // Delete and confirm
+    await deleteTokens(tempDir);
+    const after = await loadTokens(tempDir);
+    expect(after).toBeNull();
   });
 });
