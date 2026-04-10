@@ -8,6 +8,8 @@ import type {
   RecoveryCollection,
   Sleep,
   SleepCollection,
+  Cycle,
+  CycleCollection,
 } from "../../src/api/types.js";
 
 describe("shared types", () => {
@@ -210,5 +212,65 @@ describe("sleep types", () => {
 
     expect(collection.records).toHaveLength(0);
     expect(collection.next_token).toBeUndefined();
+  });
+});
+
+describe("cycle types", () => {
+  it("accepts a scored cycle with strain data", () => {
+    const cycle: Cycle = {
+      id: 93845,
+      user_id: 10129,
+      created_at: "2022-04-24T11:25:44.774Z",
+      updated_at: "2022-04-24T14:25:44.774Z",
+      start: "2022-04-24T02:25:44.774Z",
+      end: "2022-04-24T10:25:44.774Z",
+      timezone_offset: "-05:00",
+      score_state: "SCORED",
+      score: {
+        strain: 5.2951527,
+        kilojoule: 8288.297,
+        average_heart_rate: 68,
+        max_heart_rate: 141,
+      },
+    };
+
+    expect(cycle.score_state).toBe("SCORED");
+    expect(cycle.score?.strain).toBeCloseTo(5.295);
+    expect(cycle.score?.kilojoule).toBeCloseTo(8288.297);
+  });
+
+  it("accepts a cycle without end time (user currently in cycle)", () => {
+    const cycle: Cycle = {
+      id: 93846,
+      user_id: 10129,
+      created_at: "2022-04-25T11:25:44.774Z",
+      updated_at: "2022-04-25T14:25:44.774Z",
+      start: "2022-04-25T02:25:44.774Z",
+      timezone_offset: "-05:00",
+      score_state: "PENDING_SCORE",
+    };
+
+    expect(cycle.end).toBeUndefined();
+    expect(cycle.score).toBeUndefined();
+  });
+
+  it("accepts a paginated cycle collection", () => {
+    const collection: CycleCollection = {
+      records: [
+        {
+          id: 93845,
+          user_id: 10129,
+          created_at: "2022-04-24T11:25:44.774Z",
+          updated_at: "2022-04-24T14:25:44.774Z",
+          start: "2022-04-24T02:25:44.774Z",
+          timezone_offset: "-05:00",
+          score_state: "UNSCORABLE",
+        },
+      ],
+      next_token: "abc123",
+    };
+
+    expect(collection.records).toHaveLength(1);
+    expect(collection.records[0]?.score_state).toBe("UNSCORABLE");
   });
 });

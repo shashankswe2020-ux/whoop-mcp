@@ -117,3 +117,31 @@ export interface Sleep {
 
 /** GET /v2/activity/sleep — paginated */
 export type SleepCollection = PaginatedResponse<Sleep>;
+
+// ---------------------------------------------------------------------------
+// Cycle types
+// ---------------------------------------------------------------------------
+
+/** Score details for a physiological cycle — strain and heart rate */
+export interface CycleScore {
+  strain: number;
+  kilojoule: number;
+  average_heart_rate: number;
+  max_heart_rate: number;
+}
+
+/** A single physiological cycle */
+export interface Cycle {
+  id: number;
+  user_id: number;
+  created_at: string;
+  updated_at: string;
+  start: string;
+  end?: string;
+  timezone_offset: string;
+  score_state: ScoreState;
+  score?: CycleScore;
+}
+
+/** GET /v2/cycle — paginated */
+export type CycleCollection = PaginatedResponse<Cycle>;
