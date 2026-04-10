@@ -200,7 +200,11 @@ export function openBrowser(url: string): void {
         : process.platform === "darwin"
           ? "darwin"
           : "linux";
-    const [cmd, args] = commands[platform];
+    const entry = commands[platform];
+    if (!entry) {
+      throw new Error(`Unsupported platform: ${platform}`);
+    }
+    const [cmd, args] = entry;
     spawn(cmd, args, { stdio: "ignore", detached: true }).unref();
   } catch {
     // Best-effort — log the URL for manual copy/paste
