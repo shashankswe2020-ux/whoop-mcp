@@ -50,6 +50,26 @@ export function isTokenExpired(tokens: OAuthTokens): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+/** Validate that the parsed data has the expected OAuthTokens shape */
+function isValidTokenShape(data: unknown): data is OAuthTokens {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "access_token" in data &&
+    typeof (data as Record<string, unknown>).access_token === "string" &&
+    "refresh_token" in data &&
+    typeof (data as Record<string, unknown>).refresh_token === "string" &&
+    "expires_at" in data &&
+    typeof (data as Record<string, unknown>).expires_at === "number" &&
+    "token_type" in data &&
+    typeof (data as Record<string, unknown>).token_type === "string"
+  );
+}
+
+// ---------------------------------------------------------------------------
 // File I/O helpers
 // ---------------------------------------------------------------------------
 
@@ -87,7 +107,11 @@ export async function loadTokens(
 ): Promise<OAuthTokens | null> {
   try {
     const raw = await readFile(tokenFilePath(tokenDir), { encoding: "utf-8" });
-    return JSON.parse(raw) as OAuthTokens;
+    const data: unknown = JSON.parse(raw);
+    if (!isValidTokenShape(data)) {
+      return null;
+    }
+    return data;
   } catch {
     return null;
   }

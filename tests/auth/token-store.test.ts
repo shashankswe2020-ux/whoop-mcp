@@ -219,6 +219,53 @@ describe("loadTokens", () => {
     expect(loaded).toBeNull();
   });
 
+  it("returns null for JSON with missing required fields", async () => {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(
+      join(tempDir, "tokens.json"),
+      JSON.stringify({ access_token: "x" }),
+      "utf-8",
+    );
+
+    const loaded = await loadTokens(tempDir);
+    expect(loaded).toBeNull();
+  });
+
+  it("returns null when field types are wrong", async () => {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(
+      join(tempDir, "tokens.json"),
+      JSON.stringify({
+        access_token: 123,
+        refresh_token: "x",
+        expires_at: "not-a-number",
+        token_type: "Bearer",
+      }),
+      "utf-8",
+    );
+
+    const loaded = await loadTokens(tempDir);
+    expect(loaded).toBeNull();
+  });
+
+  it("returns valid tokens when shape is correct", async () => {
+    const { writeFile } = await import("node:fs/promises");
+    const validTokens = {
+      access_token: "a",
+      refresh_token: "r",
+      expires_at: 9999999999999,
+      token_type: "Bearer",
+    };
+    await writeFile(
+      join(tempDir, "tokens.json"),
+      JSON.stringify(validTokens),
+      "utf-8",
+    );
+
+    const loaded = await loadTokens(tempDir);
+    expect(loaded).toEqual(validTokens);
+  });
+
   it("round-trips: saveTokens then loadTokens returns same data", async () => {
     await saveTokens(sampleTokens, tempDir);
     const loaded = await loadTokens(tempDir);
