@@ -11,6 +11,7 @@ import {
   exchangeCodeForTokens,
   refreshAccessToken,
   toOAuthTokens,
+  openBrowser,
   type OAuthConfig,
   type TokenResponse,
 } from "../../src/auth/oauth.js";
@@ -340,5 +341,76 @@ describe("toOAuthTokens", () => {
     });
 
     vi.restoreAllMocks();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// openBrowser
+// ---------------------------------------------------------------------------
+
+vi.mock("node:child_process", () => ({
+  exec: vi.fn(),
+}));
+
+describe("openBrowser", () => {
+  let mockExec: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    const cp = await import("node:child_process");
+    mockExec = cp.exec as unknown as ReturnType<typeof vi.fn>;
+    mockExec.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("calls exec with the correct platform-specific open command on macOS", () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "darwin" });
+
+    openBrowser("https://example.com/auth");
+
+    expect(mockExec).toHaveBeenCalledOnce();
+    const cmd = mockExec.mock.calls[0]![0] as string;
+    expect(cmd).toContain("open");
+    expect(cmd).toContain("https://example.com/auth");
+
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  });
+
+  it("calls exec with xdg-open on Linux", () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "linux" });
+
+    openBrowser("https://example.com/auth");
+
+    expect(mockExec).toHaveBeenCalledOnce();
+    const cmd = mockExec.mock.calls[0]![0] as string;
+    expect(cmd).toContain("xdg-open");
+
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  });
+
+  it("calls exec with start on Windows", () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "win32" });
+
+    openBrowser("https://example.com/auth");
+
+    expect(mockExec).toHaveBeenCalledOnce();
+    const cmd = mockExec.mock.calls[0]![0] as string;
+    expect(cmd).toContain("start");
+
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  });
+
+  it("does not throw if exec fails", () => {
+    mockExec.mockImplementation(() => {
+      throw new Error("Command not found");
+    });
+
+    // Should not throw
+    expect(() => openBrowser("https://example.com/auth")).not.toThrow();
   });
 });

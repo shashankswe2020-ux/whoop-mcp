@@ -12,6 +12,7 @@ import {
   WHOOP_REDIRECT_URI,
   WHOOP_REQUIRED_SCOPES,
 } from "../api/endpoints.js";
+import { exec } from "node:child_process";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -167,4 +168,32 @@ export function toOAuthTokens(response: TokenResponse): OAuthTokens {
     expires_at: Date.now() + response.expires_in * 1000,
     token_type: response.token_type,
   };
+}
+
+// ---------------------------------------------------------------------------
+// openBrowser
+// ---------------------------------------------------------------------------
+
+/**
+ * Open a URL in the user's default browser.
+ *
+ * Best-effort — if the open command fails, the URL is logged to stderr
+ * so the user can copy/paste it manually. Never throws.
+ */
+export function openBrowser(url: string): void {
+  try {
+    const command =
+      process.platform === "darwin"
+        ? `open "${url}"`
+        : process.platform === "win32"
+          ? `start "${url}"`
+          : `xdg-open "${url}"`;
+
+    exec(command);
+  } catch {
+    // Best-effort — log the URL for manual copy/paste
+    console.error(
+      `\nCould not open browser automatically. Please open this URL manually:\n${url}\n`,
+    );
+  }
 }
