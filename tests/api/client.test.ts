@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   WhoopApiError,
   WhoopNetworkError,
+  WhoopAuthError,
   createWhoopClient,
 } from "../../src/api/client.js";
 import type { WhoopClient } from "../../src/api/client.js";
@@ -483,6 +484,146 @@ describe("createWhoopClient", () => {
 
       await expect(client.get("/v2/recovery")).rejects.toThrow(WhoopApiError);
       await expect(client.get("/v2/recovery")).rejects.not.toThrow(WhoopNetworkError);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Task 8c: 401 token refresh
+  // -------------------------------------------------------------------------
+
+  describe("get (401 token refresh)", () => {
+    function mock401Response(): Response {
+      return {
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+        headers: { get: () => null },
+        json: () => Promise.resolve({ message: "Invalid token" }),
+        text: () => Promise.resolve("Unauthorized"),
+      } as unknown as Response;
+    }
+
+    it("refreshes token and retries on 401", async () => {
+      const NEW_TOKEN = "refreshed_token_xyz";
+      mockFetch
+        .mockResolvedValueOnce(mock401Response())
+        .mockResolvedValueOnce(mockJsonResponse({ user_id: 42 }));
+      const onTokenRefresh = vi.fn().mockResolvedValue(NEW_TOKEN);
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      const result = await client.get<{ user_id: number }>("/v2/user/profile/basic");
+
+      expect(result.user_id).toBe(42);
+      expect(onTokenRefresh).toHaveBeenCalledOnce();
+      // Second fetch should use the refreshed token
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const retryCall = mockFetch.mock.calls[1] as [string, RequestInit];
+      expect(retryCall[1].headers).toEqual(
+        expect.objectContaining({ Authorization: `Bearer ${NEW_TOKEN}` }),
+      );
+    });
+
+    it("throws WhoopApiError if retry after refresh also returns 401", async () => {
+      mockFetch
+        .mockResolvedValueOnce(mock401Response())
+        .mockResolvedValueOnce(mock401Response());
+      const onTokenRefresh = vi.fn().mockResolvedValue("new_token");
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      try {
+        await client.get("/v2/recovery");
+        expect.fail("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(WhoopApiError);
+        expect((error as WhoopApiError).statusCode).toBe(401);
+      }
+      // Should NOT retry again (no infinite loop)
+      expect(onTokenRefresh).toHaveBeenCalledOnce();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("throws WhoopApiError immediately when no onTokenRefresh callback", async () => {
+      mockFetch.mockResolvedValueOnce(mock401Response());
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        // no onTokenRefresh
+      });
+
+      try {
+        await client.get("/v2/recovery");
+        expect.fail("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(WhoopApiError);
+        expect((error as WhoopApiError).statusCode).toBe(401);
+      }
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("throws WhoopAuthError when onTokenRefresh callback fails", async () => {
+      mockFetch.mockResolvedValueOnce(mock401Response());
+      const refreshError = new Error("Refresh token expired");
+      const onTokenRefresh = vi.fn().mockRejectedValue(refreshError);
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      try {
+        await client.get("/v2/recovery");
+        expect.fail("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(WhoopAuthError);
+        expect((error as WhoopAuthError).message).toContain("refresh token");
+        expect((error as WhoopAuthError).cause).toBe(refreshError);
+      }
+    });
+
+    it("WhoopAuthError has name 'WhoopAuthError'", async () => {
+      mockFetch.mockResolvedValueOnce(mock401Response());
+      const onTokenRefresh = vi.fn().mockRejectedValue(new Error("fail"));
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      try {
+        await client.get("/v2/recovery");
+        expect.fail("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(WhoopAuthError);
+        expect((error as WhoopAuthError).name).toBe("WhoopAuthError");
+      }
+    });
+
+    it("does not call onTokenRefresh for non-401 errors", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        statusText: "Forbidden",
+        headers: { get: () => null },
+        json: () => Promise.resolve({ message: "Forbidden" }),
+        text: () => Promise.resolve("Forbidden"),
+      } as unknown as Response);
+      const onTokenRefresh = vi.fn().mockResolvedValue("new_token");
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      await expect(client.get("/v2/recovery")).rejects.toThrow(WhoopApiError);
+      expect(onTokenRefresh).not.toHaveBeenCalled();
     });
   });
 

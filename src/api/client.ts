@@ -17,6 +17,8 @@ export interface WhoopClientOptions {
   accessToken: string;
   /** Override base URL — useful for testing. Defaults to WHOOP_API_BASE_URL. */
   baseUrl?: string;
+  /** Callback to refresh the access token on 401. Returns a new access token. */
+  onTokenRefresh?: () => Promise<string>;
 }
 
 /** WHOOP API client returned by createWhoopClient */
@@ -49,6 +51,18 @@ export class WhoopNetworkError extends Error {
   constructor(cause: unknown) {
     super(
       "Network error: Unable to reach the WHOOP API. Check your internet connection.",
+      { cause },
+    );
+  }
+}
+
+/** Error thrown when token refresh fails during automatic 401 recovery */
+export class WhoopAuthError extends Error {
+  public override readonly name = "WhoopAuthError";
+
+  constructor(cause: unknown) {
+    super(
+      "Authentication error: Failed to refresh token. Re-authentication may be required.",
       { cause },
     );
   }
@@ -133,6 +147,7 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
   return {
     async get<T>(path: string): Promise<T> {
       const url = `${baseUrl}${path}`;
+      let currentToken = options.accessToken;
       let lastError: WhoopApiError | undefined;
       let lastResponse: Response | undefined;
 
@@ -145,7 +160,7 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
           await delay(retryDelay);
         }
 
-        const response = await doFetch(url, options.accessToken);
+        const response = await doFetch(url, currentToken);
 
         if (response.ok) {
           return (await response.json()) as T;
@@ -163,6 +178,30 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
           lastError = apiError;
           lastResponse = response;
           continue;
+        }
+
+        // 401: attempt token refresh once
+        if (response.status === 401 && options.onTokenRefresh) {
+          let newToken: string;
+          try {
+            newToken = await options.onTokenRefresh();
+          } catch (refreshError: unknown) {
+            throw new WhoopAuthError(refreshError);
+          }
+
+          // Retry with the new token
+          const retryResponse = await doFetch(url, newToken);
+          if (retryResponse.ok) {
+            return (await retryResponse.json()) as T;
+          }
+
+          // Retry also failed — throw the original error
+          const retryBody = await parseErrorBody(retryResponse);
+          throw new WhoopApiError(
+            retryResponse.status,
+            retryResponse.statusText,
+            retryBody,
+          );
         }
 
         // All other errors: throw immediately
