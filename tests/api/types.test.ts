@@ -4,6 +4,8 @@ import type {
   PaginatedResponse,
   UserProfile,
   BodyMeasurement,
+  Recovery,
+  RecoveryCollection,
 } from "../../src/api/types.js";
 
 describe("shared types", () => {
@@ -70,5 +72,69 @@ describe("user types", () => {
       expect(body.weight_kilogram).toBeCloseTo(90.7185);
       expect(body.max_heart_rate).toBe(200);
     });
+  });
+});
+
+describe("recovery types", () => {
+  it("accepts a scored recovery with all score fields", () => {
+    const recovery: Recovery = {
+      cycle_id: 93845,
+      sleep_id: "123e4567-e89b-12d3-a456-426614174000",
+      user_id: 10129,
+      created_at: "2022-04-24T11:25:44.774Z",
+      updated_at: "2022-04-24T14:25:44.774Z",
+      score_state: "SCORED",
+      score: {
+        user_calibrating: false,
+        recovery_score: 44.0,
+        resting_heart_rate: 64.0,
+        hrv_rmssd_milli: 31.813562,
+        spo2_percentage: 95.6875,
+        skin_temp_celsius: 33.7,
+      },
+    };
+
+    expect(recovery.score_state).toBe("SCORED");
+    expect(recovery.score?.recovery_score).toBe(44.0);
+    expect(recovery.score?.spo2_percentage).toBe(95.6875);
+    expect(recovery.score?.skin_temp_celsius).toBe(33.7);
+  });
+
+  it("accepts a pending recovery without score", () => {
+    const recovery: Recovery = {
+      cycle_id: 93846,
+      sleep_id: "223e4567-e89b-12d3-a456-426614174000",
+      user_id: 10129,
+      created_at: "2022-04-25T11:25:44.774Z",
+      updated_at: "2022-04-25T14:25:44.774Z",
+      score_state: "PENDING_SCORE",
+    };
+
+    expect(recovery.score).toBeUndefined();
+  });
+
+  it("accepts a paginated recovery collection", () => {
+    const collection: RecoveryCollection = {
+      records: [
+        {
+          cycle_id: 93845,
+          sleep_id: "123e4567-e89b-12d3-a456-426614174000",
+          user_id: 10129,
+          created_at: "2022-04-24T11:25:44.774Z",
+          updated_at: "2022-04-24T14:25:44.774Z",
+          score_state: "SCORED",
+          score: {
+            user_calibrating: false,
+            recovery_score: 78.0,
+            resting_heart_rate: 55.0,
+            hrv_rmssd_milli: 45.2,
+          },
+        },
+      ],
+      next_token: "MTIzOjEyMzEyMw",
+    };
+
+    expect(collection.records).toHaveLength(1);
+    expect(collection.next_token).toBe("MTIzOjEyMzEyMw");
   });
 });
