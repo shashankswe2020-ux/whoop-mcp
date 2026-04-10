@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   buildAuthorizationUrl,
   exchangeCodeForTokens,
+  refreshAccessToken,
   type OAuthConfig,
   type TokenResponse,
 } from "../../src/auth/oauth.js";
@@ -199,5 +200,100 @@ describe("exchangeCodeForTokens", () => {
     await expect(
       exchangeCodeForTokens("used-code", TEST_CONFIG),
     ).rejects.toThrow(/Code has been used already/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// refreshAccessToken
+// ---------------------------------------------------------------------------
+
+describe("refreshAccessToken", () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("POSTs to WHOOP_TOKEN_URL with grant_type=refresh_token", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    await refreshAccessToken("refresh-token-abc", TEST_CONFIG);
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(WHOOP_TOKEN_URL);
+    expect(options.method).toBe("POST");
+
+    const body = new URLSearchParams(options.body as string);
+    expect(body.get("grant_type")).toBe("refresh_token");
+    expect(body.get("refresh_token")).toBe("refresh-token-abc");
+    expect(body.get("client_id")).toBe("test-client-id");
+    expect(body.get("client_secret")).toBe("test-client-secret");
+  });
+
+  it("uses application/x-www-form-urlencoded content type", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    await refreshAccessToken("refresh-token", TEST_CONFIG);
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(options.headers).toEqual(
+      expect.objectContaining({
+        "Content-Type": "application/x-www-form-urlencoded",
+      }),
+    );
+  });
+
+  it("returns the parsed TokenResponse on success", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    const result = await refreshAccessToken("refresh-token", TEST_CONFIG);
+    expect(result).toEqual(MOCK_TOKEN_RESPONSE);
+  });
+
+  it("throws a descriptive error on non-2xx response", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          error: "invalid_grant",
+          error_description: "Refresh token has expired",
+        }),
+    });
+
+    await expect(
+      refreshAccessToken("expired-refresh", TEST_CONFIG),
+    ).rejects.toThrow(/token refresh failed.*401/i);
+  });
+
+  it("includes error_description in the thrown error", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          error: "invalid_grant",
+          error_description: "Refresh token revoked",
+        }),
+    });
+
+    await expect(
+      refreshAccessToken("revoked-token", TEST_CONFIG),
+    ).rejects.toThrow(/Refresh token revoked/);
   });
 });

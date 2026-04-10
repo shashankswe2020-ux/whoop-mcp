@@ -106,3 +106,46 @@ export async function exchangeCodeForTokens(
 
   return (await response.json()) as TokenResponse;
 }
+
+// ---------------------------------------------------------------------------
+// refreshAccessToken
+// ---------------------------------------------------------------------------
+
+/**
+ * Use the refresh token to obtain a new access token.
+ *
+ * POSTs to the WHOOP token endpoint with `grant_type=refresh_token`.
+ */
+export async function refreshAccessToken(
+  refreshToken: string,
+  config: OAuthConfig,
+): Promise<TokenResponse> {
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+  });
+
+  const response = await fetch(WHOOP_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    const errorBody = (await response.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    const description =
+      typeof errorBody.error_description === "string"
+        ? errorBody.error_description
+        : "unknown error";
+    throw new Error(
+      `Token refresh failed (${response.status}): ${description}`,
+    );
+  }
+
+  return (await response.json()) as TokenResponse;
+}
