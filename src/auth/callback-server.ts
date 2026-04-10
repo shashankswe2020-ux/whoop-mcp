@@ -40,12 +40,21 @@ const SUCCESS_HTML = `<!DOCTYPE html>
 <p>You can close this window and return to your terminal.</p>
 </body></html>`;
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 function errorHtml(message: string): string {
   return `<!DOCTYPE html>
 <html><head><title>WHOOP MCP — Error</title></head>
 <body style="font-family:system-ui,sans-serif;text-align:center;padding:3rem">
 <h1>❌ Authentication Failed</h1>
-<p>${message}</p>
+<p>${escapeHtml(message)}</p>
 </body></html>`;
 }
 
@@ -156,6 +165,18 @@ export function startCallbackServer(
       }
     }, timeoutMs);
 
-    server.listen(port);
+    server.on("error", (err: NodeJS.ErrnoException) => {
+      cleanup();
+      if (!settled) {
+        settled = true;
+        const msg =
+          err.code === "EADDRINUSE"
+            ? `Port ${port} is already in use. Close other servers on port ${port} and try again.`
+            : `Callback server error: ${err.message}`;
+        reject(new Error(msg));
+      }
+    });
+
+    server.listen(port, "127.0.0.1");
   });
 }

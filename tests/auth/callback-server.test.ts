@@ -191,6 +191,62 @@ describe("startCallbackServer", () => {
       ).rejects.toThrow();
     });
 
+    it("escapes XSS characters in error_description", async () => {
+      const port = 49152 + Math.floor(Math.random() * 1000);
+
+      const resultPromise = startCallbackServer({
+        port,
+        expectedState: "some-state",
+        timeoutMs: 5_000,
+      });
+      resultPromise.catch(() => {});
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const xssPayload = '<script>alert(1)</script>';
+      const response = await fetch(
+        `http://localhost:${port}/callback?error=bad&error_description=${encodeURIComponent(xssPayload)}`,
+      );
+
+      expect(response.status).toBe(400);
+      const html = await response.text();
+      // The raw script tag must NOT appear in the response
+      expect(html).not.toContain("<script>");
+      // The escaped form should be present instead
+      expect(html).toContain("&lt;script&gt;");
+
+      await expect(resultPromise).rejects.toThrow();
+    });
+
+    it("rejects with EADDRINUSE error when port is already taken", async () => {
+      const port = 49152 + Math.floor(Math.random() * 1000);
+
+      // Start first server on the port
+      const first = startCallbackServer({
+        port,
+        expectedState: "state-1",
+        timeoutMs: 5_000,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Start second server on the same port — should fail
+      const second = startCallbackServer({
+        port,
+        expectedState: "state-2",
+        timeoutMs: 5_000,
+      });
+      second.catch(() => {});
+
+      await expect(second).rejects.toThrow(/already in use/i);
+
+      // Clean up the first server
+      await fetch(
+        `http://localhost:${port}/callback?code=cleanup&state=state-1`,
+      );
+      await first;
+    });
+
     it("returns 404 for non-callback paths", async () => {
       const port = 49152 + Math.floor(Math.random() * 1000);
       const expectedState = "state-404";
