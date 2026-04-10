@@ -78,6 +78,12 @@ const MAX_RETRIES = 3;
 /** Base delay in milliseconds for exponential backoff (1s, 2s, 4s) */
 const BASE_RETRY_DELAY_MS = 1000;
 
+/** Maximum Retry-After delay in milliseconds (cap server-specified values) */
+const MAX_RETRY_AFTER_MS = 60_000;
+
+/** Request timeout in milliseconds */
+const REQUEST_TIMEOUT_MS = 30_000;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -102,7 +108,7 @@ function parseRetryAfter(response: Response): number | null {
   if (Number.isNaN(seconds) || seconds < 0) {
     return null;
   }
-  return seconds * 1000;
+  return Math.min(seconds * 1000, MAX_RETRY_AFTER_MS);
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +133,7 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
     } catch (error: unknown) {
       if (error instanceof WhoopApiError) {

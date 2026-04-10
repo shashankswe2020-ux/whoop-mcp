@@ -631,6 +631,89 @@ describe("createWhoopClient", () => {
   // Task 4d: Edge cases
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // Request timeout
+  // -------------------------------------------------------------------------
+
+  describe("get (request timeout)", () => {
+    it("passes an AbortSignal to fetch", async () => {
+      mockFetch.mockResolvedValue(mockJsonResponse({ ok: true }));
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      await client.get("/v2/recovery");
+
+      const callArgs = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(callArgs[1].signal).toBeDefined();
+    });
+
+    it("wraps abort/timeout errors in WhoopNetworkError", async () => {
+      const abortError = new DOMException("The operation was aborted", "AbortError");
+      mockFetch.mockRejectedValue(abortError);
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      try {
+        await client.get("/v2/recovery");
+        expect.fail("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(WhoopNetworkError);
+        expect((error as WhoopNetworkError).cause).toBe(abortError);
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Retry-After cap
+  // -------------------------------------------------------------------------
+
+  describe("get (Retry-After cap)", () => {
+    function mock429Response(retryAfter?: string): Response {
+      const headers = new Map<string, string>();
+      if (retryAfter !== undefined) {
+        headers.set("retry-after", retryAfter);
+      }
+      return {
+        ok: false,
+        status: 429,
+        statusText: "Too Many Requests",
+        headers: { get: (name: string) => headers.get(name.toLowerCase()) ?? null },
+        json: () => Promise.resolve({ error: "rate_limited" }),
+        text: () => Promise.resolve("rate limited"),
+      } as unknown as Response;
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("caps Retry-After at 60 seconds even if server sends a huge value", async () => {
+      // Server sends Retry-After: 999999 (seconds), should be capped to 60_000ms
+      mockFetch
+        .mockResolvedValueOnce(mock429Response("999999"))
+        .mockResolvedValueOnce(mockJsonResponse({ ok: true }));
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      const promise = client.get("/v2/recovery");
+
+      // Should not have retried yet before 60s
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Should retry at exactly 60s
+      await vi.advanceTimersByTimeAsync(1);
+      const result = await promise;
+      expect(result).toEqual({ ok: true });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Task 4d: Edge cases
+  // -------------------------------------------------------------------------
+
   describe("get (edge cases)", () => {
     it("WhoopClient type can be used to type a variable", () => {
       mockFetch.mockResolvedValue({
