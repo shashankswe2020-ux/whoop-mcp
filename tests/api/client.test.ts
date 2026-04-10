@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { WhoopApiError, createWhoopClient } from "../../src/api/client.js";
+import {
+  WhoopApiError,
+  WhoopNetworkError,
+  createWhoopClient,
+} from "../../src/api/client.js";
 import type { WhoopClient } from "../../src/api/client.js";
 
 // ---------------------------------------------------------------------------
@@ -240,18 +244,76 @@ describe("createWhoopClient", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Task 4d + Task 8a: Network errors
+  // -------------------------------------------------------------------------
+
+  describe("get (network errors)", () => {
+    it("wraps network errors in WhoopNetworkError", async () => {
+      mockFetch.mockRejectedValue(new TypeError("fetch failed"));
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      await expect(client.get("/v2/recovery")).rejects.toThrow(WhoopNetworkError);
+    });
+
+    it("WhoopNetworkError has a user-friendly message", async () => {
+      mockFetch.mockRejectedValue(new TypeError("fetch failed"));
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      await expect(client.get("/v2/recovery")).rejects.toThrow(
+        "Network error: Unable to reach the WHOOP API. Check your internet connection.",
+      );
+    });
+
+    it("WhoopNetworkError preserves the original error as cause", async () => {
+      const originalError = new TypeError("fetch failed");
+      mockFetch.mockRejectedValue(originalError);
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      try {
+        await client.get("/v2/recovery");
+        expect.fail("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(WhoopNetworkError);
+        expect((error as WhoopNetworkError).cause).toBe(originalError);
+      }
+    });
+
+    it("WhoopNetworkError has name 'WhoopNetworkError'", async () => {
+      mockFetch.mockRejectedValue(new TypeError("fetch failed"));
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      try {
+        await client.get("/v2/recovery");
+        expect.fail("should have thrown");
+      } catch (error) {
+        expect((error as WhoopNetworkError).name).toBe("WhoopNetworkError");
+      }
+    });
+
+    it("wraps non-TypeError network errors too", async () => {
+      mockFetch.mockRejectedValue(new Error("DNS resolution failed"));
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      await expect(client.get("/v2/recovery")).rejects.toThrow(WhoopNetworkError);
+    });
+
+    it("does not wrap WhoopApiError as WhoopNetworkError", async () => {
+      // Simulate a case where response processing throws a WhoopApiError
+      // (this shouldn't be wrapped in network error)
+      const apiError = new WhoopApiError(500, "Internal Server Error", null);
+      mockFetch.mockRejectedValue(apiError);
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      await expect(client.get("/v2/recovery")).rejects.toThrow(WhoopApiError);
+      await expect(client.get("/v2/recovery")).rejects.not.toThrow(WhoopNetworkError);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Task 4d: Edge cases
   // -------------------------------------------------------------------------
 
   describe("get (edge cases)", () => {
-    it("propagates network errors from fetch", async () => {
-      mockFetch.mockRejectedValue(new TypeError("fetch failed"));
-      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
-
-      await expect(client.get("/v2/recovery")).rejects.toThrow(TypeError);
-      await expect(client.get("/v2/recovery")).rejects.toThrow("fetch failed");
-    });
-
     it("WhoopClient type can be used to type a variable", () => {
       mockFetch.mockResolvedValue({
         ok: true,

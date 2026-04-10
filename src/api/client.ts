@@ -42,6 +42,18 @@ export class WhoopApiError extends Error {
   }
 }
 
+/** Error thrown when a network-level failure prevents reaching the WHOOP API */
+export class WhoopNetworkError extends Error {
+  public override readonly name = "WhoopNetworkError";
+
+  constructor(cause: unknown) {
+    super(
+      "Network error: Unable to reach the WHOOP API. Check your internet connection.",
+      { cause },
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Client factory
 // ---------------------------------------------------------------------------
@@ -59,13 +71,22 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
     async get<T>(path: string): Promise<T> {
       const url = `${baseUrl}${path}`;
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${options.accessToken}`,
-          "Content-Type": "application/json",
-        },
-      });
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${options.accessToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (error: unknown) {
+        // Don't wrap WhoopApiError — only wrap network-level errors
+        if (error instanceof WhoopApiError) {
+          throw error;
+        }
+        throw new WhoopNetworkError(error);
+      }
 
       if (!response.ok) {
         let body: unknown;
