@@ -350,64 +350,73 @@ describe("toOAuthTokens", () => {
 // ---------------------------------------------------------------------------
 
 vi.mock("node:child_process", () => ({
-  exec: vi.fn(),
+  spawn: vi.fn(() => ({ unref: vi.fn() })),
 }));
 
 describe("openBrowser", () => {
-  let mockExec: ReturnType<typeof vi.fn>;
+  let mockSpawn: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     const cp = await import("node:child_process");
-    mockExec = cp.exec as unknown as ReturnType<typeof vi.fn>;
-    mockExec.mockReset();
+    mockSpawn = cp.spawn as unknown as ReturnType<typeof vi.fn>;
+    mockSpawn.mockReset();
+    mockSpawn.mockReturnValue({ unref: vi.fn() });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("calls exec with the correct platform-specific open command on macOS", () => {
+  it("calls spawn with the correct platform-specific open command on macOS", () => {
     const originalPlatform = process.platform;
     Object.defineProperty(process, "platform", { value: "darwin" });
 
     openBrowser("https://example.com/auth");
 
-    expect(mockExec).toHaveBeenCalledOnce();
-    const cmd = mockExec.mock.calls[0]![0] as string;
-    expect(cmd).toContain("open");
-    expect(cmd).toContain("https://example.com/auth");
+    expect(mockSpawn).toHaveBeenCalledOnce();
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "open",
+      ["https://example.com/auth"],
+      { stdio: "ignore", detached: true },
+    );
 
     Object.defineProperty(process, "platform", { value: originalPlatform });
   });
 
-  it("calls exec with xdg-open on Linux", () => {
+  it("calls spawn with xdg-open on Linux", () => {
     const originalPlatform = process.platform;
     Object.defineProperty(process, "platform", { value: "linux" });
 
     openBrowser("https://example.com/auth");
 
-    expect(mockExec).toHaveBeenCalledOnce();
-    const cmd = mockExec.mock.calls[0]![0] as string;
-    expect(cmd).toContain("xdg-open");
+    expect(mockSpawn).toHaveBeenCalledOnce();
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "xdg-open",
+      ["https://example.com/auth"],
+      { stdio: "ignore", detached: true },
+    );
 
     Object.defineProperty(process, "platform", { value: originalPlatform });
   });
 
-  it("calls exec with start on Windows", () => {
+  it("calls spawn with cmd on Windows", () => {
     const originalPlatform = process.platform;
     Object.defineProperty(process, "platform", { value: "win32" });
 
     openBrowser("https://example.com/auth");
 
-    expect(mockExec).toHaveBeenCalledOnce();
-    const cmd = mockExec.mock.calls[0]![0] as string;
-    expect(cmd).toContain("start");
+    expect(mockSpawn).toHaveBeenCalledOnce();
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "cmd",
+      ["/c", "start", "", "https://example.com/auth"],
+      { stdio: "ignore", detached: true },
+    );
 
     Object.defineProperty(process, "platform", { value: originalPlatform });
   });
 
-  it("does not throw if exec fails", () => {
-    mockExec.mockImplementation(() => {
+  it("does not throw if spawn fails", () => {
+    mockSpawn.mockImplementation(() => {
       throw new Error("Command not found");
     });
 

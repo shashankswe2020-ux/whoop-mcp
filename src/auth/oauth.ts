@@ -18,7 +18,7 @@ import {
   WHOOP_REDIRECT_URI,
   WHOOP_REQUIRED_SCOPES,
 } from "../api/endpoints.js";
-import { exec } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 
 // ---------------------------------------------------------------------------
@@ -189,14 +189,19 @@ export function toOAuthTokens(response: TokenResponse): OAuthTokens {
  */
 export function openBrowser(url: string): void {
   try {
-    const command =
-      process.platform === "darwin"
-        ? `open "${url}"`
-        : process.platform === "win32"
-          ? `start "${url}"`
-          : `xdg-open "${url}"`;
-
-    exec(command);
+    const commands: Record<string, [string, string[]]> = {
+      darwin: ["open", [url]],
+      win32: ["cmd", ["/c", "start", "", url]],
+      linux: ["xdg-open", [url]],
+    };
+    const platform =
+      process.platform === "win32"
+        ? "win32"
+        : process.platform === "darwin"
+          ? "darwin"
+          : "linux";
+    const [cmd, args] = commands[platform];
+    spawn(cmd, args, { stdio: "ignore", detached: true }).unref();
   } catch {
     // Best-effort — log the URL for manual copy/paste
     console.error(
