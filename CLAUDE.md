@@ -158,10 +158,11 @@ export async function getRecoveryCollection(
 
 ## Implementation Status
 
-> **Current phase:** Task 1 complete — scaffold is in place.
-> **Next task:** Task 2 — WHOOP API Types (`src/api/types.ts`, `src/api/endpoints.ts`)
+> **Current phase:** Tasks 1–2 complete — scaffold + API types in place.
+> **Next task:** Task 3 — Token Store (`src/auth/token-store.ts`)
+> **Plan:** `docs/plans/task-3-token-store.md`
 > **Spec:** `docs/specs/whoop-mcp-server.md`
-> **Plan:** `docs/specs/implementation-plan.md`
+> **Implementation plan:** `docs/specs/implementation-plan.md`
 
 ## Implementation Order
 
