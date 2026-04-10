@@ -158,77 +158,110 @@ export async function getRecoveryCollection(
 
 ## Implementation Status
 
-> **Current phase:** Tasks 1–3 complete — scaffold, API types, and token store in place.
-> **Next task:** Task 4 — API Client (`src/api/client.ts`)
-> **Plan:** `docs/plans/task-4-api-client.md`
+> **Current phase:** Tasks 1–4 complete — scaffold, API types, token store, and API client in place.
+> **Next task:** Task 5 — OAuth2 Flow (`src/auth/oauth.ts`, `src/auth/callback-server.ts`)
+> **Plan:** `docs/plans/task-5-oauth-flow.md`
 > **Spec:** `docs/specs/whoop-mcp-server.md`
 > **Implementation plan:** `docs/specs/implementation-plan.md`
 
-## Active Task Context: Task 4 — API Client
+## Active Task Context: Task 5 — OAuth2 Flow
 
 ### What We're Building
-Thin HTTP client wrapper around native `fetch` for the WHOOP REST API. Injects OAuth Bearer token, prepends base URL, parses JSON, throws typed errors on non-2xx. No retry/re-auth — that's Task 8.
+OAuth2 Authorization Code flow for WHOOP API authentication. Two files:
+1. **`src/auth/callback-server.ts`** — temporary local HTTP server that captures the OAuth redirect code, then shuts down.
+2. **`src/auth/oauth.ts`** — orchestrates the full flow: build auth URL → open browser → wait for code → exchange for tokens → save to store. Also handles token refresh.
 
-### API Surface
+This is the **highest-risk task** — browser redirect + local HTTP server + real-time coordination. We mitigate by building the callback server in isolation first, then wiring it into the orchestrator.
+
+### API Surface — callback-server.ts
 ```typescript
-interface WhoopClientOptions {
-  accessToken: string;
-  baseUrl?: string;        // defaults to WHOOP_API_BASE_URL — override for tests
+interface CallbackResult { code: string; state: string; }
+
+interface CallbackServerOptions {
+  port?: number;           // Default: 3000
+  expectedState: string;   // CSRF state to validate
+  timeoutMs?: number;      // Default: 120_000 (2 min)
 }
 
-interface WhoopClient {
-  get<T>(path: string): Promise<T>;
+function startCallbackServer(options: CallbackServerOptions): Promise<CallbackResult>;
+```
+
+### API Surface — oauth.ts
+```typescript
+interface OAuthConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri?: string;    // Default: WHOOP_REDIRECT_URI from endpoints.ts
+  tokenDir?: string;       // Default: ~/.whoop-mcp/
+  port?: number;           // Default: 3000
 }
 
-class WhoopApiError extends Error {
-  statusCode: number;
-  statusText: string;
-  body: unknown;
+interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: string;
+  scope: string;
 }
 
-function createWhoopClient(options: WhoopClientOptions): WhoopClient;
+function authenticate(config: OAuthConfig): Promise<string>;
+function buildAuthorizationUrl(config: OAuthConfig, state: string): string;
+function exchangeCodeForTokens(code: string, config: OAuthConfig): Promise<TokenResponse>;
+function refreshAccessToken(refreshToken: string, config: OAuthConfig): Promise<TokenResponse>;
+function toOAuthTokens(response: TokenResponse): OAuthTokens;
+function openBrowser(url: string): void;
 ```
 
 ### Files to Create
-- `src/api/client.ts` — exports: `WhoopClient`, `WhoopClientOptions`, `WhoopApiError`, `createWhoopClient`
-- `tests/api/client.test.ts` — tests for all of the above
+- `src/auth/callback-server.ts` — exports: `CallbackResult`, `CallbackServerOptions`, `startCallbackServer`
+- `src/auth/oauth.ts` — exports: `OAuthConfig`, `TokenResponse`, `authenticate`, `buildAuthorizationUrl`, `exchangeCodeForTokens`, `refreshAccessToken`, `toOAuthTokens`, `openBrowser`
+- `tests/auth/oauth.test.ts` — tests for all of the above
 
 ### Key Design Decisions
-- **Functional factory** `createWhoopClient()` returns `WhoopClient` object — no class for the client itself
-- **`WhoopApiError` is a class** — enables `instanceof` checks, carries `statusCode`, `statusText`, `body`
-- **`get<T>(path)`** is the only method — all 6 WHOOP endpoints are GET-only
-- **Base URL prepended** — paths like `/v2/recovery` are relative, client adds `WHOOP_API_BASE_URL`
-- **Token at construction** — `accessToken` passed once; new client created after refresh
-- **No retry in MVP** — 429/401 handling is Task 8; the client just throws `WhoopApiError`
-- **`baseUrl` override** — tests set a custom base URL to avoid prod URL in assertions
+- **Two files, not one** — callback server is independently testable
+- **`node:http` for callback server** — no Express. Handles exactly one request then shuts down. Zero deps.
+- **`node:child_process.exec` for browser** — `open` (macOS), `xdg-open` (Linux), `start` (Windows). Best-effort, log URL on failure.
+- **State parameter for CSRF** — random `state` via `node:crypto.randomBytes`, validated in callback
+- **Token exchange uses `application/x-www-form-urlencoded`** — per OAuth2 spec, NOT JSON
+- **`authenticate()` is the main entry point** — checks existing tokens → refreshes if expired → full flow if needed
+- **Environment variables for client creds** — `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET`, `WHOOP_REDIRECT_URI`
+- **Configurable port** — defaults to 3000, tests use random high ports to avoid conflicts
 
 ### Subtask Order (TDD — tests first)
-1. **4a:** `WhoopApiError` class + tests (extends Error, carries structured data)
-2. **4b:** `createWhoopClient()` + `get<T>()` happy path + tests (mocked fetch, auth header, JSON parse)
-3. **4c:** Error handling for non-2xx + tests (401, 429, 500 → throw WhoopApiError)
-4. **4d:** Edge cases + tests (network error, non-JSON error body, exports verification)
-5. **4e:** Full pipeline green
+1. **5a:** Callback server happy path (start server, receive code+state, shut down)
+2. **5b:** Callback server error cases (state mismatch, missing code, OAuth error, timeout)
+3. **5c:** `buildAuthorizationUrl()` (pure function, URL construction)
+4. **5d:** `exchangeCodeForTokens()` (POST to token endpoint, mock fetch)
+5. **5e:** `refreshAccessToken()` (POST with refresh_token, mock fetch)
+6. **5f:** `toOAuthTokens()` (convert TokenResponse → OAuthTokens, mock Date.now)
+7. **5g:** `openBrowser()` (platform-specific exec, mock child_process)
+8. **5h:** `authenticate()` orchestrator (4 scenarios: valid tokens, expired→refresh, no tokens→full flow, refresh fails→full flow)
+9. **5i:** Final verification (all tests + typecheck + lint + build)
 
 ### Dependencies (already complete)
-- `src/api/endpoints.ts` ✅ — `WHOOP_API_BASE_URL` constant
-- `src/api/types.ts` ✅ — response types used as `T` in `get<T>()`
-- `src/auth/token-store.ts` ✅ — `OAuthTokens.access_token` passed to client at creation
+- `src/auth/token-store.ts` ✅ — `OAuthTokens`, `loadTokens`, `saveTokens`, `isTokenExpired`
+- `src/api/endpoints.ts` ✅ — `WHOOP_AUTH_URL`, `WHOOP_TOKEN_URL`, `WHOOP_REQUIRED_SCOPES`, `WHOOP_REDIRECT_URI`
+- `src/api/client.ts` ✅ — NOT imported by oauth.ts (oauth uses raw fetch for token exchange)
 
 ### Consumed By (don't build these yet)
-- `src/tools/*.ts` (Task 7a-7f) — `client.get<RecoveryCollection>(path)`
-- `src/api/client.ts` (Task 8) — adds retry/re-auth wrapping
-- `src/auth/oauth.ts` (Task 5) — may use client for token exchange
+- `src/index.ts` (Task 9) — calls `authenticate()` on startup
+- `src/server.ts` (Task 6) — may call refresh during long-running session
 
 ### Gotchas
-- Mock `fetch` with `vi.stubGlobal("fetch", vi.fn())` — works with Node 18+ native fetch
-- Error body: try `response.json()`, fall back to `response.text()` — WHOOP may return non-JSON errors
-- Don't import token-store — the access token string is passed in, keeping client decoupled
-- Spec example shows `WhoopClient` used as a type in tool signatures — match that interface shape
+- Callback server tests: use random high ports (`0` for OS-assigned) to avoid port conflicts in CI
+- Mock `fetch` with `vi.stubGlobal("fetch", vi.fn())` for token exchange
+- Mock `node:child_process` with `vi.mock("node:child_process")` for browser open
+- Mock `token-store` functions with `vi.mock("../auth/token-store.js")` in orchestrator tests
+- Mock `callback-server` with `vi.mock("./callback-server.js")` in orchestrator tests
+- Token exchange body is `application/x-www-form-urlencoded`, NOT JSON — use `URLSearchParams`
+- `toOAuthTokens` needs `vi.spyOn(Date, "now")` for deterministic `expires_at` assertions
+- Server must close in ALL cases (success, error, timeout) — use `try/finally`
+- The callback HTML response should tell the user auth succeeded/failed (they see it in browser)
 
 ### Verification
 ```bash
-npm test -- tests/api/client.test.ts       # After each subtask
-npm test && npm run typecheck && npm run lint && npm run build  # After 4e (final)
+npm test -- tests/auth/oauth.test.ts                           # After each subtask
+npm test && npm run typecheck && npm run lint && npm run build  # After 5i (final)
 ```
 
 ## Implementation Order
