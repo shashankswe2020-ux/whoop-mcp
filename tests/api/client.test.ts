@@ -215,5 +215,57 @@ describe("createWhoopClient", () => {
         "WHOOP API error: 403 Forbidden",
       );
     });
+
+    it("falls back to text body when error response is not valid JSON", async () => {
+      const htmlBody = "<html>Service Unavailable</html>";
+      const response = {
+        ok: false,
+        status: 503,
+        statusText: "Service Unavailable",
+        json: () => Promise.reject(new SyntaxError("Unexpected token")),
+        text: () => Promise.resolve(htmlBody),
+      } as Response;
+      mockFetch.mockResolvedValue(response);
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      try {
+        await client.get("/v2/recovery");
+        expect.fail("should have thrown");
+      } catch (error) {
+        const apiError = error as WhoopApiError;
+        expect(apiError.statusCode).toBe(503);
+        expect(apiError.body).toBe(htmlBody);
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Task 4d: Edge cases
+  // -------------------------------------------------------------------------
+
+  describe("get (edge cases)", () => {
+    it("propagates network errors from fetch", async () => {
+      mockFetch.mockRejectedValue(new TypeError("fetch failed"));
+      const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
+
+      await expect(client.get("/v2/recovery")).rejects.toThrow(TypeError);
+      await expect(client.get("/v2/recovery")).rejects.toThrow("fetch failed");
+    });
+
+    it("WhoopClient type can be used to type a variable", () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+      } as Response);
+
+      const client: WhoopClient = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+      });
+
+      expect(client).toBeDefined();
+      expect(typeof client.get).toBe("function");
+    });
   });
 });
