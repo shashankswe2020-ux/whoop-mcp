@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-12
+
+### Changed
+- Added Claude Desktop integration screenshots to README (server connected + live chat)
+- Added MCP Inspector testing screenshots to README (OAuth grant flow + `get_profile` result)
+
 ## [0.1.0] - 2026-04-12
 
 ### Added
@@ -29,5 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI entry point** — `npx whoop-mcp` with environment variable configuration
 - **202 tests** with full coverage of auth, API client, tools, and error handling
 
-[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/shashankswe2020-ux/whoop-mcp/releases/tag/v0.1.0
