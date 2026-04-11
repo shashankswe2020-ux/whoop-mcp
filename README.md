@@ -221,6 +221,28 @@ rm ~/.whoop-mcp/tokens.json
 
 If the browser doesn't open automatically, check the terminal output for the authorization URL and open it manually.
 
+## Testing with MCP Inspector
+
+You can interactively test the server using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) — a browser-based tool for exploring and invoking MCP tools.
+
+```bash
+WHOOP_CLIENT_ID=your_client_id \
+WHOOP_CLIENT_SECRET=your_client_secret \
+WHOOP_REDIRECT_URI=http://localhost:3000/callback \
+npx @modelcontextprotocol/inspector node dist/index.js
+```
+
+Then open `http://localhost:6274` in your browser. The Inspector connects to the server, lists all available tools, and lets you invoke them with custom parameters.
+
+**Tools listed in MCP Inspector:**
+
+![MCP Inspector — tools list](images/Screenshot%202026-04-12%20at%202.40.55%E2%80%AFAM.png)
+
+**Live tool invocation result:**
+
+![MCP Inspector — tool invocation](images/Screenshot%202026-04-12%20at%202.43.02%E2%80%AFAM.png)
+
+
 ## Development
 
 ### Setup
