@@ -34,7 +34,7 @@ Add this to your Claude Desktop configuration file:
   "mcpServers": {
     "whoop": {
       "command": "npx",
-      "args": ["whoop-mcp"],
+      "args": ["whoop-ai-mcp"],
       "env": {
         "WHOOP_CLIENT_ID": "your_client_id",
         "WHOOP_CLIENT_SECRET": "your_client_secret"
@@ -65,7 +65,7 @@ No installation needed — Claude Desktop runs it automatically with the config 
 ### Global install
 
 ```bash
-npm install -g whoop-mcp
+npm install -g whoop-ai-mcp
 ```
 
 ### From source
