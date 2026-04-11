@@ -7,7 +7,7 @@ user-invocable: true
 argument-hint: >
   Describe what needs to be planned, or say "next phase" to plan the next
   phase of the implementation plan.
-tools: ["read", "search", "agent"]
+tools: ["read", "search", "create_file", "edit_file","agent"]
 agents:
   - code-reviewer
   - security-auditor
@@ -76,7 +76,11 @@ Invoke the `planning-and-task-breakdown` skill, then:
 ### Step 4: Present and Save
 
 1. Present the plan for human review
-2. Save the plan to `docs/specs/implementation-plan.md`
+2. **Save a detailed task plan file** to `docs/plans/task-<N>-<kebab-name>.md`
+   - Follow the format of existing files in `docs/plans/` (see `task-8-error-handling.md` as a template)
+   - Include: overview, architecture decisions, subtask list with acceptance criteria, dependency graph, checkpoint criteria, files to deliver, and risk mitigations
+   - File naming: `task-<number>-<short-kebab-description>.md` (e.g., `task-9-entry-point.md`)
+3. If this is a new top-level task, update `docs/specs/implementation-plan.md` accordingly
 
 ---
 
@@ -87,3 +91,4 @@ Invoke the `planning-and-task-breakdown` skill, then:
 3. Tasks must be small enough to implement, test, and verify in a single session
 4. Dependency order must be explicit — no circular dependencies
 5. Consult sub-agents before finalizing the plan
+6. **Always save the plan to `docs/plans/`** — a plan that only exists in conversation history is a plan that will be lost

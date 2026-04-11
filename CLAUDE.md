@@ -158,25 +158,22 @@ export async function getRecoveryCollection(
 
 ## Implementation Status
 
-> **Current phase:** Tasks 1–8 complete — scaffold, API types, token store, API client, OAuth flow, MCP server shell, all 6 tool implementations, and full error handling. 169 tests passing, typecheck clean, build clean, lint clean.
-> **Next task:** Task 9 — Entry Point + CLI (`src/index.ts`)
-> **Plan:** `docs/specs/implementation-plan.md` → Task 9
+> **Current phase:** Tasks 1–9 complete — scaffold, API types, token store, API client, OAuth flow, MCP server shell, all 6 tool implementations, error handling, and entry point + CLI. 202 tests passing, typecheck clean, build clean, lint clean.
+> **Next task:** Task 10 — Docs + Publish Prep
+> **Plan:** `docs/specs/implementation-plan.md` → Task 10
 > **Spec:** `docs/specs/whoop-mcp-server.md`
 > **Code review:** `docs/reviews/code-review-checkpoint-1.md` (Tasks 1–5 approved)
 
-## Active Task Context: Task 9 — Entry Point + CLI
+## Active Task Context: Task 10 — Docs + Publish Prep
 
 ### What We're Building
-Wire everything together in `src/index.ts` — authenticate via OAuth, create the WHOOP client with token refresh, and start the MCP server on stdio transport.
+Comprehensive README, finalize .env.example, add LICENSE, prepare for npm publish.
 
 ### Dependencies (already complete)
-- `src/server.ts` ✅ — `createWhoopServer(client)` factory
-- `src/api/client.ts` ✅ — `createWhoopClient(options)` with retry, refresh, error handling
-- `src/auth/oauth.ts` ✅ — OAuth Authorization Code flow
-- `src/auth/token-store.ts` ✅ — Token persistence with refresh
+- All Tasks 1–9 ✅
 
-### After Task 9, Remaining Work
-- Task 10: Docs + publish prep
+### After Task 10, Remaining Work
+- None — ship it!
 
 ## Implementation Order
 
@@ -188,8 +185,8 @@ Wire everything together in `src/index.ts` — authenticate via OAuth, create th
 6. ✅ MCP server shell (`src/server.ts`) — 16 tests
 7. ✅ Tool implementations (`src/tools/*.ts`) — 33 tool tests + 16 server integration tests
 8. ✅ Error handling — WhoopNetworkError, 429 retry w/ backoff, 401 token refresh, safeTool wrapper — 17 new tests
-9. Entry point + CLI (`src/index.ts`) ← **NEXT**
-10. Docs + publish prep
+9. ✅ Entry point + CLI (`src/index.ts`) — env var validation, auth wiring, client w/ token refresh, stdio transport — 14 tests
+10. Docs + publish prep ← **NEXT**
 
 ## Known Issues from Code Review
 - Callback server tests use random port range (flaky in CI) — use port `0` instead
