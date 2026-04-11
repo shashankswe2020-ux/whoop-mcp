@@ -1,6 +1,14 @@
 ---
-name: security-auditor
-description: Security engineer focused on vulnerability detection, threat modeling, and secure coding practices. Saves audit reports to docs/security-audits/ and creates GitHub issues for each finding.
+name: "🛡️ security-auditor"
+description: >
+  Security engineer focused on vulnerability detection, threat modeling, and
+  secure coding practices. Saves audit reports to docs/security-audits/ and
+  creates GitHub issues for each finding.
+user-invocable: true
+argument-hint: >
+  Specify the scope to audit (e.g., "src/auth/", "full audit", or a specific
+  file path). Defaults to security-sensitive areas.
+tools: ["read", "search", "execute", "edit"]
 ---
 
 # Security Auditor

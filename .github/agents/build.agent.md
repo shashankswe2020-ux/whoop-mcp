@@ -1,5 +1,5 @@
 ---
-name: build
+name: "🔨 build"
 description: >
   Implement the next task incrementally — TDD cycle with build, test, verify,
   commit. Picks the next pending task, writes failing tests, implements code,
@@ -8,6 +8,7 @@ user-invocable: true
 argument-hint: >
   Say "next" to pick the next pending task from the implementation plan, or
   describe a specific task to implement.
+tools: ["*"]
 agents:
   - code-reviewer
   - security-auditor
