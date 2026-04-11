@@ -1,5 +1,5 @@
 ---
-name: issue-orchestrator
+name: "🎯 issue-orchestrator"
 description: >
   Reusable orchestrator agent that triages open GitHub issues, categorizes them
   by type (security, bug, code-quality, testing, documentation, dependency), and
@@ -10,6 +10,7 @@ user-invocable: true
 argument-hint: >
   Say "triage" to scan all open issues, or pass a specific issue number like "#14"
   to resolve a single issue.
+tools: ["*"]
 agents:
   - code-reviewer
   - security-auditor

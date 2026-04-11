@@ -1,5 +1,5 @@
 ---
-name: code-simplify
+name: "✨ code-simplify"
 description: >
   Simplify code for clarity and maintainability — reduce complexity without
   changing behavior. Applies targeted refactoring while preserving all existing
@@ -8,6 +8,7 @@ user-invocable: true
 argument-hint: >
   Specify the scope to simplify (e.g., "src/tools/", "recent changes", or a
   specific file path). Defaults to recently changed code.
+tools: ["*"]
 agents:
   - code-reviewer
   - security-auditor

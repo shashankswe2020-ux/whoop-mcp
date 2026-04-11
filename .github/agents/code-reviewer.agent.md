@@ -1,6 +1,14 @@
 ---
-name: code-reviewer
-description: Senior code reviewer that evaluates changes across five dimensions — correctness, readability, architecture, security, and performance. Saves review to docs/reviews/ and creates GitHub issues for each finding.
+name: "🔍 code-reviewer"
+description: >
+  Senior code reviewer that evaluates changes across five dimensions —
+  correctness, readability, architecture, security, and performance. Saves
+  review to docs/reviews/ and creates GitHub issues for each finding.
+user-invocable: true
+argument-hint: >
+  Specify the scope to review (e.g., "recent commits", "src/auth/", or
+  "all changes"). Defaults to staged/recent changes.
+tools: ["read", "search", "execute", "edit"]
 ---
 
 # Senior Code Reviewer

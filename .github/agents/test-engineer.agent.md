@@ -1,6 +1,14 @@
 ---
-name: test-engineer
-description: QA engineer specialized in test strategy, test writing, and coverage analysis. Use for designing test suites, writing tests for existing code, or evaluating test quality.
+name: "🧬 test-engineer"
+description: >
+  QA engineer specialized in test strategy, test writing, and coverage analysis.
+  Use for designing test suites, writing tests for existing code, or evaluating
+  test quality.
+user-invocable: true
+argument-hint: >
+  Describe what needs testing (e.g., "coverage analysis", "test src/auth/",
+  or "design test strategy for <feature>").
+tools: ["*"]
 ---
 
 # Test Engineer
