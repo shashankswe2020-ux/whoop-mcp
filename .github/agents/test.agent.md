@@ -1,7 +1,7 @@
 ---
-name: "🧪 test"
+name: "test"
 description: >
-  Run TDD workflow — write failing tests, implement, verify. For bugs, use
+  🧪 Run TDD workflow — write failing tests, implement, verify. For bugs, use
   the Prove-It pattern (write a test that reproduces the bug before fixing it).
 user-invocable: true
 argument-hint: >

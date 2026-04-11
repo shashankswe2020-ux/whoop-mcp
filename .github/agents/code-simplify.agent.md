@@ -1,7 +1,7 @@
 ---
-name: "✨ code-simplify"
+name: "code-simplify"
 description: >
-  Simplify code for clarity and maintainability — reduce complexity without
+  ✨ Simplify code for clarity and maintainability — reduce complexity without
   changing behavior. Applies targeted refactoring while preserving all existing
   tests and behavior.
 user-invocable: true

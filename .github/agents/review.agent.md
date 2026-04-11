@@ -1,14 +1,14 @@
 ---
-name: "👁️ review"
+name: "review"
 description: >
-  Conduct a five-axis code review — correctness, readability, architecture,
+  👁️ Conduct a five-axis code review — correctness, readability, architecture,
   security, and performance. Tailored to the WHOOP MCP project with
   project-specific checks.
 user-invocable: true
 argument-hint: >
   Specify the scope to review (e.g., "recent commits", "src/auth/", or a
   specific PR). Defaults to staged/recent changes.
-tools: ["read", "search", "execute"]
+tools: ["read", "search", "execute", "agent"]
 agents:
   - code-reviewer
   - security-auditor

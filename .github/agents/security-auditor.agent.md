@@ -1,7 +1,7 @@
 ---
-name: "🛡️ security-auditor"
+name: "security-auditor"
 description: >
-  Security engineer focused on vulnerability detection, threat modeling, and
+  🛡️ Security engineer focused on vulnerability detection, threat modeling, and
   secure coding practices. Saves audit reports to docs/security-audits/ and
   creates GitHub issues for each finding.
 user-invocable: true

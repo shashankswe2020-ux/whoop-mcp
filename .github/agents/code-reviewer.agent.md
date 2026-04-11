@@ -1,7 +1,7 @@
 ---
-name: "🔍 code-reviewer"
+name: "code-reviewer"
 description: >
-  Senior code reviewer that evaluates changes across five dimensions —
+  🔍 Senior code reviewer that evaluates changes across five dimensions —
   correctness, readability, architecture, security, and performance. Saves
   review to docs/reviews/ and creates GitHub issues for each finding.
 user-invocable: true

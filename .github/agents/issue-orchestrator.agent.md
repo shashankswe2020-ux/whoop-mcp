@@ -1,7 +1,7 @@
 ---
-name: "🎯 issue-orchestrator"
+name: "issue-orchestrator"
 description: >
-  Reusable orchestrator agent that triages open GitHub issues, categorizes them
+  🎯 Reusable orchestrator agent that triages open GitHub issues, categorizes them
   by type (security, bug, code-quality, testing, documentation, dependency), and
   dispatches the appropriate sub-agent to resolve each one. Works in any
   repository — discovers project context from repo metadata and conventions files

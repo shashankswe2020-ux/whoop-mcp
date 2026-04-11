@@ -1,7 +1,7 @@
 ---
-name: "🚀 ship"
+name: "ship"
 description: >
-  Run the pre-launch checklist and prepare for npm publish + Claude Desktop
+  🚀 Run the pre-launch checklist and prepare for npm publish + Claude Desktop
   integration. Covers code quality, security, packaging, integration testing,
   and documentation.
 user-invocable: true

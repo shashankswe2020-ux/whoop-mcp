@@ -1,7 +1,7 @@
 ---
-name: "🔨 build"
+name: "build"
 description: >
-  Implement the next task incrementally — TDD cycle with build, test, verify,
+  🔨 Implement the next task incrementally — TDD cycle with build, test, verify,
   commit. Picks the next pending task, writes failing tests, implements code,
   and verifies everything passes before committing.
 user-invocable: true
