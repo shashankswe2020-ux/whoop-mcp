@@ -56,6 +56,14 @@ Then ask Claude something like:
 >
 > *"What workouts did I do this month?"*
 
+**whoop-mcp connected in Claude Desktop:**
+
+![whoop-mcp connected in Claude Desktop](images/whoop-mcp-connected.png)
+
+**Chatting with WHOOP data through Claude:**
+
+![Claude chat with whoop-mcp integrated](images/Claude-chat-with-whoop-mcp-integrated.png)
+
 ## Installation
 
 ### Via npx (recommended)
