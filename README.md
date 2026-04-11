@@ -234,13 +234,13 @@ npx @modelcontextprotocol/inspector node dist/index.js
 
 Then open `http://localhost:6274` in your browser. The Inspector connects to the server, lists all available tools, and lets you invoke them with custom parameters.
 
-**Tools listed in MCP Inspector:**
+**OAuth grant access screen (first-run authorization):**
 
-![MCP Inspector — tools list](images/Screenshot%202026-04-12%20at%202.40.55%E2%80%AFAM.png)
+![WHOOP OAuth grant access](images/Screenshot%202026-04-12%20at%202.40.55%E2%80%AFAM.png)
 
-**Live tool invocation result:**
+**Testing `get_profile` tool in MCP Inspector:**
 
-![MCP Inspector — tool invocation](images/Screenshot%202026-04-12%20at%202.43.02%E2%80%AFAM.png)
+![MCP Inspector — get_profile tool result](images/Screenshot%202026-04-12%20at%202.43.02%E2%80%AFAM.png)
 
 
 ## Development
