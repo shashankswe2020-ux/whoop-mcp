@@ -33,6 +33,7 @@ Located in `.github/agents/`, these are specialized personas that Copilot can ad
 | **Ship** | `@ship` | Pre-launch checklist for npm publish + Claude Desktop integration |
 | **Spec** | `@spec` | Write or update specifications before writing code |
 | **Test** | `@test` | TDD workflow — failing tests first, Prove-It pattern for bugs |
+| **Issue Orchestrator** | `@issue-orchestrator` | Triage open GitHub issues, categorize by type, and dispatch sub-agents to resolve them |
 | **Code Reviewer** | `@code-reviewer` | Five-axis code review covering correctness, readability, architecture, security, and performance |
 | **Security Auditor** | `@security-auditor` | Vulnerability detection, threat modeling, OWASP Top 10 compliance checks |
 | **Test Engineer** | `@test-engineer` | Test strategy design, coverage analysis, and the Prove-It pattern for bugs |
@@ -87,6 +88,8 @@ In GitHub Copilot Chat (VS Code, GitHub.com, or CLI), use the `@` symbol followe
 @ship Run the full pre-launch checklist
 @spec Write a spec for adding a new workout endpoint
 @test Write tests for the token refresh flow
+@issue-orchestrator triage
+@issue-orchestrator #14
 @code-reviewer Review this PR for security issues
 @security-auditor Audit this authentication flow
 @test-engineer Analyze test coverage for the user module
@@ -152,6 +155,15 @@ Practices strict test-driven development:
 3. Dispatches sub-agents for review and coverage analysis
 
 Skills used: `test-driven-development`, `debugging-and-error-recovery`
+
+#### @issue-orchestrator
+Triages and resolves open GitHub issues by dispatching sub-agents:
+1. Scans open issues (or accepts a specific issue number like `#14`)
+2. Classifies each issue (security, bug, code-quality, testing, dependency)
+3. Prioritizes by severity and dispatches the appropriate sub-agent
+4. Reviews sub-agent output before marking the issue as resolved
+
+Sub-agents dispatched: `code-reviewer`, `security-auditor`, `test-engineer`
 
 #### @code-reviewer
 Evaluates code across five dimensions:
