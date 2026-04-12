@@ -22,6 +22,15 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
    - Set the redirect URI to `http://localhost:3000/callback`
 3. [Node.js](https://nodejs.org/) >= 18
 
+## Get a WHOOP
+
+Don't have a WHOOP yet? Here's how to get started:
+
+- 🛒 **Buy a WHOOP on Amazon** — [WHOOP 4.0 on Amazon](https://www.amazon.com/s?k=whoop+4.0&tag=YOUR_AFFILIATE_TAG)
+- 🔗 **Join WHOOP directly** — [whoop.com/membership](https://join.whoop.com/YOUR_REFERRAL_CODE)
+
+<!-- Replace YOUR_AFFILIATE_TAG with your Amazon Associates tag and YOUR_REFERRAL_CODE with your WHOOP referral code -->
+
 ## Quickstart (Claude Desktop)
 
 Add this to your Claude Desktop configuration file:
