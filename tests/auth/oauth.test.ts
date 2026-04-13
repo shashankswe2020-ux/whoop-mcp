@@ -99,8 +99,10 @@ const MOCK_TOKEN_RESPONSE: TokenResponse = {
   scope: WHOOP_REQUIRED_SCOPES,
 };
 
-// Expected Basic auth header for TEST_CONFIG
-const EXPECTED_BASIC_AUTH = `Basic ${Buffer.from("test-client-id:test-client-secret").toString("base64")}`;
+// Expected Basic auth header for TEST_CONFIG (URL-encoded per RFC 6749 §2.3.1)
+const EXPECTED_BASIC_AUTH = `Basic ${Buffer.from(
+  `${encodeURIComponent("test-client-id")}:${encodeURIComponent("test-client-secret")}`,
+).toString("base64")}`;
 
 describe("exchangeCodeForTokens", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
@@ -144,6 +146,26 @@ describe("exchangeCodeForTokens", () => {
     const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
     const headers = options.headers as Record<string, string>;
     expect(headers.Authorization).toBe(EXPECTED_BASIC_AUTH);
+  });
+
+  it("URL-encodes credentials in Basic auth header per RFC 6749 §2.3.1", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    const specialConfig: OAuthConfig = {
+      clientId: "id:with:colons",
+      clientSecret: "secret/with+special chars",
+    };
+    await exchangeCodeForTokens("code", specialConfig);
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const headers = options.headers as Record<string, string>;
+    const expectedAuth = `Basic ${Buffer.from(
+      `${encodeURIComponent("id:with:colons")}:${encodeURIComponent("secret/with+special chars")}`,
+    ).toString("base64")}`;
+    expect(headers.Authorization).toBe(expectedAuth);
   });
 
   it("includes grant_type, code, and redirect_uri in the body", async () => {

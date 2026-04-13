@@ -83,7 +83,9 @@ export function buildAuthorizationUrl(
  * joined with ':', and Base64-encoded.
  */
 function basicAuthHeader(clientId: string, clientSecret: string): string {
-  const encoded = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const encoded = Buffer.from(
+    `${encodeURIComponent(clientId)}:${encodeURIComponent(clientSecret)}`,
+  ).toString("base64");
   return `Basic ${encoded}`;
 }
 
