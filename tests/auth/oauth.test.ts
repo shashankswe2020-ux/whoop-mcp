@@ -399,6 +399,44 @@ describe("toOAuthTokens", () => {
 
     vi.restoreAllMocks();
   });
+
+  it("falls back to existingRefreshToken when response has no refresh_token", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+
+    const responseWithoutRefresh = {
+      ...MOCK_TOKEN_RESPONSE,
+      refresh_token: "",
+    };
+    const result = toOAuthTokens(responseWithoutRefresh, "existing-refresh");
+
+    expect(result.refresh_token).toBe("existing-refresh");
+
+    vi.restoreAllMocks();
+  });
+
+  it("prefers response refresh_token over existingRefreshToken when both present", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+
+    const result = toOAuthTokens(MOCK_TOKEN_RESPONSE, "old-refresh");
+
+    expect(result.refresh_token).toBe("refresh-token-456");
+
+    vi.restoreAllMocks();
+  });
+
+  it("uses empty string when neither response nor existing has a refresh_token", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+
+    const responseWithoutRefresh = {
+      ...MOCK_TOKEN_RESPONSE,
+      refresh_token: "",
+    };
+    const result = toOAuthTokens(responseWithoutRefresh);
+
+    expect(result.refresh_token).toBe("");
+
+    vi.restoreAllMocks();
+  });
 });
 
 // ---------------------------------------------------------------------------

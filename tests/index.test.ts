@@ -256,7 +256,7 @@ describe("main() entry point", () => {
           clientSecret: "test-client-secret",
         }),
       );
-      expect(mockToOAuthTokens).toHaveBeenCalledWith(refreshResponse);
+      expect(mockToOAuthTokens).toHaveBeenCalledWith(refreshResponse, "stored-refresh-token");
       expect(mockSaveTokens).toHaveBeenCalledWith(newTokens);
       expect(newAccessToken).toBe("new-access-token");
     });

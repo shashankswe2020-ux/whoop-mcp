@@ -37,6 +37,19 @@ const TOKEN_FILENAME = "tokens.json";
 const EXPIRY_BUFFER_MS = 60_000;
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Replace the home directory prefix with ~ for safe logging (avoids disclosing usernames). */
+function redactHomePath(filePath: string): string {
+  const home = homedir();
+  if (filePath.startsWith(home)) {
+    return "~" + filePath.slice(home.length);
+  }
+  return filePath;
+}
+
+// ---------------------------------------------------------------------------
 // Pure functions
 // ---------------------------------------------------------------------------
 
@@ -81,15 +94,15 @@ export async function saveTokens(
  * Prevents confusing runtime errors from corrupted/tampered tokens.json.
  */
 function isValidTokenShape(data: unknown): data is OAuthTokens {
+  if (typeof data !== "object" || data === null) return false;
+
+  const record = data as Record<string, unknown>;
   return (
-    typeof data === "object" &&
-    data !== null &&
-    "access_token" in data &&
-    typeof (data as Record<string, unknown>).access_token === "string" &&
-    "refresh_token" in data &&
-    typeof (data as Record<string, unknown>).refresh_token === "string" &&
-    "expires_at" in data &&
-    typeof (data as Record<string, unknown>).expires_at === "number"
+    typeof record.access_token === "string" &&
+    record.access_token.length > 0 &&
+    typeof record.refresh_token === "string" &&
+    record.refresh_token.length > 0 &&
+    typeof record.expires_at === "number"
   );
 }
 
@@ -98,19 +111,36 @@ function isValidTokenShape(data: unknown): data is OAuthTokens {
  *
  * Returns the parsed `OAuthTokens` if the file exists and contains valid JSON
  * with the correct shape. Returns `null` if the file is missing, contains
- * malformed JSON, or has an invalid shape.
+ * malformed JSON, or has an invalid shape. Logs the reason to stderr for
+ * diagnostics.
  */
 export async function loadTokens(
   tokenDir?: string,
 ): Promise<OAuthTokens | null> {
+  const filePath = tokenFilePath(tokenDir);
+  const safePath = redactHomePath(filePath);
   try {
-    const raw = await readFile(tokenFilePath(tokenDir), { encoding: "utf-8" });
+    const raw = await readFile(filePath, { encoding: "utf-8" });
     const parsed: unknown = JSON.parse(raw);
     if (!isValidTokenShape(parsed)) {
+      console.error(
+        `Token file ${safePath} exists but has invalid shape — ignoring.`,
+      );
       return null;
     }
     return parsed;
-  } catch {
+  } catch (error: unknown) {
+    // Differentiate "file not found" (expected on first run) from real errors
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      console.error(`No token file found at ${safePath}.`);
+    } else {
+      const message = error instanceof Error ? error.message : "unknown error";
+      console.error(`Failed to read token file at ${safePath}: ${message}`);
+    }
     return null;
   }
 }

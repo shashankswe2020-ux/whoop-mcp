@@ -277,6 +277,24 @@ describe("loadTokens", () => {
     const loaded = await loadTokens(tempDir);
     expect(loaded).toBeNull();
   });
+
+  it("returns null when access_token is an empty string", async () => {
+    const { writeFile } = await import("node:fs/promises");
+    const invalid = { access_token: "", refresh_token: "r", expires_at: 123, token_type: "Bearer" };
+    await writeFile(join(tempDir, "tokens.json"), JSON.stringify(invalid), "utf-8");
+
+    const loaded = await loadTokens(tempDir);
+    expect(loaded).toBeNull();
+  });
+
+  it("returns null when refresh_token is an empty string", async () => {
+    const { writeFile } = await import("node:fs/promises");
+    const invalid = { access_token: "a", refresh_token: "", expires_at: 123, token_type: "Bearer" };
+    await writeFile(join(tempDir, "tokens.json"), JSON.stringify(invalid), "utf-8");
+
+    const loaded = await loadTokens(tempDir);
+    expect(loaded).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
