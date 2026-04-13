@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { Buffer } from "node:buffer";
 import {
   buildAuthorizationUrl,
   exchangeCodeForTokens,
@@ -98,6 +99,9 @@ const MOCK_TOKEN_RESPONSE: TokenResponse = {
   scope: WHOOP_REQUIRED_SCOPES,
 };
 
+// Expected Basic auth header for TEST_CONFIG
+const EXPECTED_BASIC_AUTH = `Basic ${Buffer.from("test-client-id:test-client-secret").toString("base64")}`;
+
 describe("exchangeCodeForTokens", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
@@ -129,7 +133,20 @@ describe("exchangeCodeForTokens", () => {
     );
   });
 
-  it("includes grant_type, code, client_id, client_secret, and redirect_uri in the body", async () => {
+  it("sends client credentials via HTTP Basic auth header (client_secret_basic)", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    await exchangeCodeForTokens("auth-code-xyz", TEST_CONFIG);
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const headers = options.headers as Record<string, string>;
+    expect(headers.Authorization).toBe(EXPECTED_BASIC_AUTH);
+  });
+
+  it("includes grant_type, code, and redirect_uri in the body", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
@@ -141,9 +158,10 @@ describe("exchangeCodeForTokens", () => {
     const body = new URLSearchParams(options.body as string);
     expect(body.get("grant_type")).toBe("authorization_code");
     expect(body.get("code")).toBe("auth-code-xyz");
-    expect(body.get("client_id")).toBe("test-client-id");
-    expect(body.get("client_secret")).toBe("test-client-secret");
     expect(body.get("redirect_uri")).toBe(WHOOP_REDIRECT_URI);
+    // client credentials should NOT be in the body for client_secret_basic
+    expect(body.has("client_id")).toBe(false);
+    expect(body.has("client_secret")).toBe(false);
   });
 
   it("uses custom redirect_uri from config", async () => {
@@ -171,6 +189,43 @@ describe("exchangeCodeForTokens", () => {
 
     const result = await exchangeCodeForTokens("code", TEST_CONFIG);
     expect(result).toEqual(MOCK_TOKEN_RESPONSE);
+  });
+
+  it("falls back to client_secret_post when Basic auth gets invalid_client", async () => {
+    // First call (Basic auth) — invalid_client
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          error: "invalid_client",
+          error_description: "wrong auth method",
+        }),
+    });
+    // Second call (body params) — success
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    const result = await exchangeCodeForTokens("code", TEST_CONFIG);
+
+    expect(result).toEqual(MOCK_TOKEN_RESPONSE);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // First call uses Basic auth header, no client creds in body
+    const [, firstOptions] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const firstHeaders = firstOptions.headers as Record<string, string>;
+    expect(firstHeaders.Authorization).toBe(EXPECTED_BASIC_AUTH);
+
+    // Second call has client creds in body, no Basic auth header
+    const [, secondOptions] = mockFetch.mock.calls[1] as [string, RequestInit];
+    const secondHeaders = secondOptions.headers as Record<string, string>;
+    expect(secondHeaders.Authorization).toBeUndefined();
+    const secondBody = new URLSearchParams(secondOptions.body as string);
+    expect(secondBody.get("client_id")).toBe("test-client-id");
+    expect(secondBody.get("client_secret")).toBe("test-client-secret");
+    expect(secondBody.get("grant_type")).toBe("authorization_code");
   });
 
   it("throws a descriptive error on non-2xx response", async () => {
@@ -205,6 +260,23 @@ describe("exchangeCodeForTokens", () => {
     ).rejects.toThrow(/Code has been used already/);
   });
 
+  it("includes error_hint in the thrown error when available", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: () =>
+        Promise.resolve({
+          error: "invalid_grant",
+          error_description: "Auth code expired",
+          error_hint: "The authorization code has already been used.",
+        }),
+    });
+
+    await expect(
+      exchangeCodeForTokens("used-code", TEST_CONFIG),
+    ).rejects.toThrow(/Hint: The authorization code has already been used/);
+  });
+
   it("falls back to 'unknown error' when error_description is not a string", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
@@ -232,6 +304,33 @@ describe("exchangeCodeForTokens", () => {
       exchangeCodeForTokens("server-error-code", TEST_CONFIG),
     ).rejects.toThrow(/unknown error/);
   });
+
+  it("throws fallback error when both auth methods fail", async () => {
+    // First call (Basic auth) — invalid_client
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          error: "invalid_client",
+          error_description: "wrong auth method",
+        }),
+    });
+    // Second call (body params) — also fails
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          error: "invalid_client",
+          error_description: "Client credentials are invalid",
+        }),
+    });
+
+    await expect(
+      exchangeCodeForTokens("code", TEST_CONFIG),
+    ).rejects.toThrow(/Client credentials are invalid/);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -250,7 +349,7 @@ describe("refreshAccessToken", () => {
     vi.restoreAllMocks();
   });
 
-  it("POSTs to WHOOP_TOKEN_URL with grant_type=refresh_token", async () => {
+  it("POSTs to WHOOP_TOKEN_URL with grant_type=refresh_token and Basic auth", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
@@ -263,11 +362,15 @@ describe("refreshAccessToken", () => {
     expect(url).toBe(WHOOP_TOKEN_URL);
     expect(options.method).toBe("POST");
 
+    const headers = options.headers as Record<string, string>;
+    expect(headers.Authorization).toBe(EXPECTED_BASIC_AUTH);
+
     const body = new URLSearchParams(options.body as string);
     expect(body.get("grant_type")).toBe("refresh_token");
     expect(body.get("refresh_token")).toBe("refresh-token-abc");
-    expect(body.get("client_id")).toBe("test-client-id");
-    expect(body.get("client_secret")).toBe("test-client-secret");
+    // client credentials should NOT be in the body for client_secret_basic
+    expect(body.has("client_id")).toBe(false);
+    expect(body.has("client_secret")).toBe(false);
   });
 
   it("uses application/x-www-form-urlencoded content type", async () => {
@@ -294,6 +397,37 @@ describe("refreshAccessToken", () => {
 
     const result = await refreshAccessToken("refresh-token", TEST_CONFIG);
     expect(result).toEqual(MOCK_TOKEN_RESPONSE);
+  });
+
+  it("falls back to client_secret_post when Basic auth gets invalid_client", async () => {
+    // First call (Basic auth) — invalid_client
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          error: "invalid_client",
+          error_description: "wrong auth method",
+        }),
+    });
+    // Second call (body params) — success
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    const result = await refreshAccessToken("refresh-token-abc", TEST_CONFIG);
+
+    expect(result).toEqual(MOCK_TOKEN_RESPONSE);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // Second call has client creds in body
+    const [, secondOptions] = mockFetch.mock.calls[1] as [string, RequestInit];
+    const secondBody = new URLSearchParams(secondOptions.body as string);
+    expect(secondBody.get("client_id")).toBe("test-client-id");
+    expect(secondBody.get("client_secret")).toBe("test-client-secret");
+    expect(secondBody.get("grant_type")).toBe("refresh_token");
+    expect(secondBody.get("refresh_token")).toBe("refresh-token-abc");
   });
 
   it("throws a descriptive error on non-2xx response", async () => {
