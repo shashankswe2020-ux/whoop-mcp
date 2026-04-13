@@ -98,19 +98,34 @@ function isValidTokenShape(data: unknown): data is OAuthTokens {
  *
  * Returns the parsed `OAuthTokens` if the file exists and contains valid JSON
  * with the correct shape. Returns `null` if the file is missing, contains
- * malformed JSON, or has an invalid shape.
+ * malformed JSON, or has an invalid shape. Logs the reason to stderr for
+ * diagnostics.
  */
 export async function loadTokens(
   tokenDir?: string,
 ): Promise<OAuthTokens | null> {
+  const filePath = tokenFilePath(tokenDir);
   try {
-    const raw = await readFile(tokenFilePath(tokenDir), { encoding: "utf-8" });
+    const raw = await readFile(filePath, { encoding: "utf-8" });
     const parsed: unknown = JSON.parse(raw);
     if (!isValidTokenShape(parsed)) {
+      console.error(
+        `Token file ${filePath} exists but has invalid shape — ignoring.`,
+      );
       return null;
     }
     return parsed;
-  } catch {
+  } catch (error: unknown) {
+    // Differentiate "file not found" (expected on first run) from real errors
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      console.error(`No token file found at ${filePath}.`);
+    } else {
+      console.error(`Failed to read token file at ${filePath}:`, error);
+    }
     return null;
   }
 }

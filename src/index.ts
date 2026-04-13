@@ -68,7 +68,7 @@ export async function main(): Promise<void> {
     }
 
     const refreshed = await refreshAccessToken(tokens.refresh_token, oauthConfig);
-    const newTokens = toOAuthTokens(refreshed);
+    const newTokens = toOAuthTokens(refreshed, tokens.refresh_token);
     await saveTokens(newTokens);
 
     return newTokens.access_token;

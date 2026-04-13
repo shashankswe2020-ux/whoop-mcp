@@ -167,11 +167,19 @@ export async function refreshAccessToken(
  * Convert the raw TokenResponse into our OAuthTokens shape for storage.
  *
  * Computes `expires_at` (absolute epoch ms) from `expires_in` (relative seconds).
+ *
+ * Per RFC 6749 §6, the authorization server MAY issue a new refresh token on
+ * refresh — but is not required to. If the response omits `refresh_token`,
+ * pass `existingRefreshToken` to preserve the current one so the token file
+ * stays valid on the next load.
  */
-export function toOAuthTokens(response: TokenResponse): OAuthTokens {
+export function toOAuthTokens(
+  response: TokenResponse,
+  existingRefreshToken?: string,
+): OAuthTokens {
   return {
     access_token: response.access_token,
-    refresh_token: response.refresh_token,
+    refresh_token: response.refresh_token || existingRefreshToken || "",
     expires_at: Date.now() + response.expires_in * 1000,
     token_type: response.token_type,
   };
@@ -236,22 +244,27 @@ export async function authenticate(config: OAuthConfig): Promise<string> {
   if (existing) {
     // 2a. If valid, return immediately
     if (!isTokenExpired(existing)) {
+      console.error("Using cached WHOOP tokens (not expired).");
       return existing.access_token;
     }
 
     // 2b. If expired, try to refresh
+    console.error("Cached tokens expired, attempting refresh...");
     try {
       const refreshed = await refreshAccessToken(
         existing.refresh_token,
         config,
       );
-      const tokens = toOAuthTokens(refreshed);
+      const tokens = toOAuthTokens(refreshed, existing.refresh_token);
       await saveTokens(tokens, config.tokenDir);
+      console.error("Token refresh successful.");
       return tokens.access_token;
     } catch (error: unknown) {
       // Log the refresh failure so it's diagnosable, then fall through to full OAuth flow
       console.error("Token refresh failed, starting full OAuth flow:", error);
     }
+  } else {
+    console.error("No cached tokens found, starting OAuth flow...");
   }
 
   // 3. Full OAuth flow
