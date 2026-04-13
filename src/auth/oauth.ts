@@ -261,7 +261,8 @@ export async function authenticate(config: OAuthConfig): Promise<string> {
       return tokens.access_token;
     } catch (error: unknown) {
       // Log the refresh failure so it's diagnosable, then fall through to full OAuth flow
-      console.error("Token refresh failed, starting full OAuth flow:", error);
+      const message = error instanceof Error ? error.message : "unknown error";
+      console.error(`Token refresh failed, starting full OAuth flow: ${message}`);
     }
   } else {
     console.error("No cached tokens found, starting OAuth flow...");
