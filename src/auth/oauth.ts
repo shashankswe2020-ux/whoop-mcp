@@ -20,6 +20,7 @@ import {
 } from "../api/endpoints.js";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -72,6 +73,110 @@ export function buildAuthorizationUrl(
 }
 
 // ---------------------------------------------------------------------------
+// Client authentication helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Build an HTTP Basic Authorization header from client credentials.
+ *
+ * Per RFC 6749 §2.3.1, the client_id and client_secret are URL-encoded,
+ * joined with ':', and Base64-encoded.
+ */
+function basicAuthHeader(clientId: string, clientSecret: string): string {
+  const encoded = Buffer.from(
+    `${encodeURIComponent(clientId)}:${encodeURIComponent(clientSecret)}`,
+  ).toString("base64");
+  return `Basic ${encoded}`;
+}
+
+/**
+ * Format a token endpoint error into a human-readable message.
+ *
+ * Includes `error_description` and `error_hint` when available from the
+ * WHOOP/Hydra error response for easier troubleshooting.
+ */
+function formatTokenError(
+  context: string,
+  status: number,
+  errorBody: Record<string, unknown>,
+): string {
+  const description =
+    typeof errorBody.error_description === "string"
+      ? errorBody.error_description
+      : "unknown error";
+  const hint =
+    typeof errorBody.error_hint === "string"
+      ? ` Hint: ${errorBody.error_hint}`
+      : "";
+  return `${context} failed (${status}): ${description}${hint}`;
+}
+
+/**
+ * Send a token request to the WHOOP token endpoint with automatic
+ * client authentication method fallback.
+ *
+ * WHOOP's OAuth server (ORY Hydra) is strict about how client credentials
+ * are sent. The `token_endpoint_auth_method` configured on the WHOOP
+ * developer app determines the expected method:
+ *
+ * 1. **client_secret_basic** (default) — credentials in Authorization header
+ * 2. **client_secret_post** — credentials in the POST body
+ *
+ * This function tries `client_secret_basic` first (the OAuth2 spec default
+ * per RFC 6749 §2.3.1 and Hydra's default), then falls back to
+ * `client_secret_post` if the server responds with `invalid_client`.
+ */
+async function tokenRequest(
+  params: URLSearchParams,
+  config: OAuthConfig,
+  context: string,
+): Promise<TokenResponse> {
+  // 1. Try client_secret_basic (RFC 6749 recommended, Hydra default)
+  const basicResponse = await fetch(WHOOP_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: basicAuthHeader(config.clientId, config.clientSecret),
+    },
+    body: params.toString(),
+  });
+
+  if (basicResponse.ok) {
+    return (await basicResponse.json()) as TokenResponse;
+  }
+
+  const basicError = (await basicResponse.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+
+  // 2. If invalid_client, the app may require client_secret_post instead
+  if (basicError.error === "invalid_client") {
+    const postParams = new URLSearchParams(params);
+    postParams.set("client_id", config.clientId);
+    postParams.set("client_secret", config.clientSecret);
+
+    const postResponse = await fetch(WHOOP_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: postParams.toString(),
+    });
+
+    if (postResponse.ok) {
+      return (await postResponse.json()) as TokenResponse;
+    }
+
+    const postError = (await postResponse.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    throw new Error(formatTokenError(context, postResponse.status, postError));
+  }
+
+  throw new Error(formatTokenError(context, basicResponse.status, basicError));
+}
+
+// ---------------------------------------------------------------------------
 // exchangeCodeForTokens
 // ---------------------------------------------------------------------------
 
@@ -79,7 +184,8 @@ export function buildAuthorizationUrl(
  * Exchange an authorization code for tokens.
  *
  * POSTs to the WHOOP token endpoint with `application/x-www-form-urlencoded`
- * body per OAuth2 spec.
+ * body per OAuth2 spec. Automatically handles both `client_secret_basic` and
+ * `client_secret_post` authentication methods.
  */
 export async function exchangeCodeForTokens(
   code: string,
@@ -88,32 +194,10 @@ export async function exchangeCodeForTokens(
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
     redirect_uri: config.redirectUri ?? WHOOP_REDIRECT_URI,
   });
 
-  const response = await fetch(WHOOP_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
-
-  if (!response.ok) {
-    const errorBody = (await response.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const description =
-      typeof errorBody.error_description === "string"
-        ? errorBody.error_description
-        : "unknown error";
-    throw new Error(
-      `Token exchange failed (${response.status}): ${description}`,
-    );
-  }
-
-  return (await response.json()) as TokenResponse;
+  return tokenRequest(body, config, "Token exchange");
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +208,8 @@ export async function exchangeCodeForTokens(
  * Use the refresh token to obtain a new access token.
  *
  * POSTs to the WHOOP token endpoint with `grant_type=refresh_token`.
+ * Automatically handles both `client_secret_basic` and `client_secret_post`
+ * authentication methods.
  */
 export async function refreshAccessToken(
   refreshToken: string,
@@ -132,31 +218,9 @@ export async function refreshAccessToken(
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: refreshToken,
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
   });
 
-  const response = await fetch(WHOOP_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
-
-  if (!response.ok) {
-    const errorBody = (await response.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    const description =
-      typeof errorBody.error_description === "string"
-        ? errorBody.error_description
-        : "unknown error";
-    throw new Error(
-      `Token refresh failed (${response.status}): ${description}`,
-    );
-  }
-
-  return (await response.json()) as TokenResponse;
+  return tokenRequest(body, config, "Token refresh");
 }
 
 // ---------------------------------------------------------------------------

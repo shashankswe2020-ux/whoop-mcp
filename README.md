@@ -216,6 +216,18 @@ Token files are stored with `0600` permissions (user-only read/write).
 
 Your WHOOP credentials aren't set. Add them to your Claude Desktop config or set them as environment variables. See [Configuration](#configuration).
 
+### OAuth fails with "invalid_client"
+
+This error occurs when the WHOOP token endpoint rejects the client authentication. The server automatically tries both standard OAuth2 authentication methods (`client_secret_basic` via Authorization header and `client_secret_post` via body parameters), so this typically means your credentials are incorrect:
+
+1. **Double-check your Client ID and Client Secret** — copy them fresh from [developer.whoop.com](https://developer.whoop.com). Watch for extra spaces or missing characters.
+2. **Verify the redirect URI** — your WHOOP Developer App must have `http://localhost:3000/callback` as an authorized redirect URI.
+3. **Delete stale tokens** — if you previously authenticated with different credentials, remove the cached tokens:
+   ```bash
+   rm ~/.whoop-mcp/tokens.json
+   ```
+4. **Regenerate credentials** — if all else fails, create a new application in the WHOOP Developer Portal and use the new credentials.
+
 ### "Network error: Unable to reach the WHOOP API"
 
 Check your internet connection. The WHOOP API must be reachable at `https://api.prod.whoop.com`.
