@@ -138,7 +138,8 @@ export async function loadTokens(
     ) {
       console.error(`No token file found at ${safePath}.`);
     } else {
-      console.error(`Failed to read token file at ${safePath}:`, error);
+      const message = error instanceof Error ? error.message : "unknown error";
+      console.error(`Failed to read token file at ${safePath}: ${message}`);
     }
     return null;
   }
