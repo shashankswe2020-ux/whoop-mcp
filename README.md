@@ -17,6 +17,14 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 - ⚡ **Zero config** — just add your WHOOP app credentials and go
 - 📦 **Lightweight** — only two runtime dependencies (`@modelcontextprotocol/sdk` + `zod`)
 
+## 🎥 Video Walkthrough
+
+Watch a detailed walkthrough of setting up and using whoop-ai-mcp with Claude Desktop:
+
+[![Watch the video](https://img.youtube.com/vi/2vwxEjctcWs/maxresdefault.jpg)](https://youtu.be/2vwxEjctcWs?si=ncIr0fmXT0MUarYL)
+
+> Covers: creating a WHOOP Developer App, configuring Claude Desktop, OAuth authentication, and querying your health data through natural conversation.
+
 ## Prerequisites
 
 1. A [WHOOP](https://www.whoop.com/) account with an active membership
