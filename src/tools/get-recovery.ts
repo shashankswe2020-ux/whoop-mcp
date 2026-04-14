@@ -20,7 +20,7 @@ import type { CollectionParams } from "./collection-utils.js";
  */
 export async function getRecoveryCollection(
   client: WhoopClient,
-  params: CollectionParams,
+  params: CollectionParams
 ): Promise<RecoveryCollection> {
   const query = buildCollectionQuery(params);
   return client.get<RecoveryCollection>(`${ENDPOINT_RECOVERY}${query}`);

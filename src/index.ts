@@ -35,7 +35,7 @@ function getRequiredEnv(name: string): string {
     throw new Error(
       `Missing required environment variable: ${name}.\n` +
         `Set it in your Claude Desktop config or shell environment.\n` +
-        `See: https://github.com/shashankswe2020-ux/whoop-mcp#configuration`,
+        `See: https://github.com/shashankswe2020-ux/whoop-mcp#configuration`
     );
   }
   return value;
@@ -63,7 +63,7 @@ export async function main(): Promise<void> {
     const tokens = await loadTokens();
     if (!tokens) {
       throw new Error(
-        "Token refresh failed: no stored tokens found. Re-authentication may be required.",
+        "Token refresh failed: no stored tokens found. Re-authentication may be required."
       );
     }
 

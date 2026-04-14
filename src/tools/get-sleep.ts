@@ -20,7 +20,7 @@ import type { CollectionParams } from "./collection-utils.js";
  */
 export async function getSleepCollection(
   client: WhoopClient,
-  params: CollectionParams,
+  params: CollectionParams
 ): Promise<SleepCollection> {
   const query = buildCollectionQuery(params);
   return client.get<SleepCollection>(`${ENDPOINT_SLEEP}${query}`);

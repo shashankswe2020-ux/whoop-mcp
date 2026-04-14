@@ -80,7 +80,7 @@ describe("createWhoopClient", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://test.whoop.api/v2/user/profile/basic",
-        expect.objectContaining({ method: "GET" }),
+        expect.objectContaining({ method: "GET" })
       );
     });
 
@@ -116,9 +116,7 @@ describe("createWhoopClient", () => {
       mockFetch.mockResolvedValue(mockJsonResponse(responseData));
       const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
 
-      const result = await client.get<{ user_id: number; email: string }>(
-        "/v2/user/profile/basic",
-      );
+      const result = await client.get<{ user_id: number; email: string }>("/v2/user/profile/basic");
 
       expect(result.user_id).toBe(10129);
       expect(result.email).toBe("test@whoop.com");
@@ -132,7 +130,7 @@ describe("createWhoopClient", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://api.prod.whoop.com/developer/v2/recovery",
-        expect.anything(),
+        expect.anything()
       );
     });
 
@@ -153,11 +151,7 @@ describe("createWhoopClient", () => {
 
   describe("get (error responses)", () => {
     /** Helper to create a mock error Response with JSON body */
-    function mockErrorResponse(
-      status: number,
-      statusText: string,
-      body: unknown,
-    ): Response {
+    function mockErrorResponse(status: number, statusText: string, body: unknown): Response {
       return {
         ok: false,
         status,
@@ -169,7 +163,7 @@ describe("createWhoopClient", () => {
 
     it("throws WhoopApiError on 401 Unauthorized", async () => {
       mockFetch.mockResolvedValue(
-        mockErrorResponse(401, "Unauthorized", { message: "Invalid token" }),
+        mockErrorResponse(401, "Unauthorized", { message: "Invalid token" })
       );
       const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
 
@@ -225,7 +219,7 @@ describe("createWhoopClient", () => {
 
     it("throws WhoopApiError on 500 Internal Server Error", async () => {
       mockFetch.mockResolvedValue(
-        mockErrorResponse(500, "Internal Server Error", { error: "unexpected" }),
+        mockErrorResponse(500, "Internal Server Error", { error: "unexpected" })
       );
       const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
 
@@ -241,14 +235,10 @@ describe("createWhoopClient", () => {
     });
 
     it("includes status code and text in error message", async () => {
-      mockFetch.mockResolvedValue(
-        mockErrorResponse(403, "Forbidden", null),
-      );
+      mockFetch.mockResolvedValue(mockErrorResponse(403, "Forbidden", null));
       const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
 
-      await expect(client.get("/v2/recovery")).rejects.toThrow(
-        "WHOOP API error: 403 Forbidden",
-      );
+      await expect(client.get("/v2/recovery")).rejects.toThrow("WHOOP API error: 403 Forbidden");
     });
 
     it("falls back to text body when error response is not valid JSON", async () => {
@@ -468,7 +458,7 @@ describe("createWhoopClient", () => {
       const client = createWhoopClient({ accessToken: TEST_TOKEN, baseUrl: TEST_BASE_URL });
 
       await expect(client.get("/v2/recovery")).rejects.toThrow(
-        "Network error: Unable to reach the WHOOP API. Check your internet connection.",
+        "Network error: Unable to reach the WHOOP API. Check your internet connection."
       );
     });
 
@@ -553,14 +543,12 @@ describe("createWhoopClient", () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
       const retryCall = mockFetch.mock.calls[1] as [string, RequestInit];
       expect(retryCall[1].headers).toEqual(
-        expect.objectContaining({ Authorization: `Bearer ${NEW_TOKEN}` }),
+        expect.objectContaining({ Authorization: `Bearer ${NEW_TOKEN}` })
       );
     });
 
     it("throws WhoopApiError if retry after refresh also returns 401", async () => {
-      mockFetch
-        .mockResolvedValueOnce(mock401Response())
-        .mockResolvedValueOnce(mock401Response());
+      mockFetch.mockResolvedValueOnce(mock401Response()).mockResolvedValueOnce(mock401Response());
       const onTokenRefresh = vi.fn().mockResolvedValue("new_token");
       const client = createWhoopClient({
         accessToken: TEST_TOKEN,

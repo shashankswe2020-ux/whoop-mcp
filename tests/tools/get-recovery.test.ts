@@ -51,7 +51,7 @@ describe("getRecoveryCollection", () => {
     });
 
     expect(client.get).toHaveBeenCalledWith(
-      `${ENDPOINT_RECOVERY}?start=2026-04-01T00%3A00%3A00.000Z`,
+      `${ENDPOINT_RECOVERY}?start=2026-04-01T00%3A00%3A00.000Z`
     );
   });
 
@@ -63,7 +63,7 @@ describe("getRecoveryCollection", () => {
     });
 
     expect(client.get).toHaveBeenCalledWith(
-      `${ENDPOINT_RECOVERY}?end=2026-04-10T00%3A00%3A00.000Z`,
+      `${ENDPOINT_RECOVERY}?end=2026-04-10T00%3A00%3A00.000Z`
     );
   });
 
@@ -72,9 +72,7 @@ describe("getRecoveryCollection", () => {
 
     await getRecoveryCollection(client, { limit: 5 });
 
-    expect(client.get).toHaveBeenCalledWith(
-      `${ENDPOINT_RECOVERY}?limit=5`,
-    );
+    expect(client.get).toHaveBeenCalledWith(`${ENDPOINT_RECOVERY}?limit=5`);
   });
 
   it("includes nextToken param in query string", async () => {
@@ -82,9 +80,7 @@ describe("getRecoveryCollection", () => {
 
     await getRecoveryCollection(client, { nextToken: "token123" });
 
-    expect(client.get).toHaveBeenCalledWith(
-      `${ENDPOINT_RECOVERY}?nextToken=token123`,
-    );
+    expect(client.get).toHaveBeenCalledWith(`${ENDPOINT_RECOVERY}?nextToken=token123`);
   });
 
   it("includes all params in query string when all provided", async () => {
@@ -97,8 +93,7 @@ describe("getRecoveryCollection", () => {
       nextToken: "page2",
     });
 
-    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as string;
+    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     const url = new URL(calledPath, "https://placeholder.test");
 
     expect(url.pathname).toBe(ENDPOINT_RECOVERY);
@@ -116,8 +111,7 @@ describe("getRecoveryCollection", () => {
       limit: undefined,
     });
 
-    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as string;
+    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
 
     expect(calledPath).not.toContain("limit");
     expect(calledPath).not.toContain("end");
@@ -143,11 +137,11 @@ describe("getRecoveryCollection", () => {
   it("propagates API errors", async () => {
     const client = createMockClient(undefined);
     (client.get as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("WHOOP API error: 429 Too Many Requests"),
+      new Error("WHOOP API error: 429 Too Many Requests")
     );
 
     await expect(getRecoveryCollection(client, {})).rejects.toThrow(
-      "WHOOP API error: 429 Too Many Requests",
+      "WHOOP API error: 429 Too Many Requests"
     );
   });
 });

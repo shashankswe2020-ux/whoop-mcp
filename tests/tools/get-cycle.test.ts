@@ -53,8 +53,7 @@ describe("getCycleCollection", () => {
       nextToken: "next-page",
     });
 
-    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as string;
+    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     const url = new URL(calledPath, "https://placeholder.test");
 
     expect(url.pathname).toBe(ENDPOINT_CYCLE);
@@ -69,8 +68,7 @@ describe("getCycleCollection", () => {
 
     await getCycleCollection(client, { end: "2026-04-10T00:00:00.000Z" });
 
-    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as string;
+    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
 
     expect(calledPath).not.toContain("start");
     expect(calledPath).not.toContain("limit");
@@ -88,11 +86,9 @@ describe("getCycleCollection", () => {
   it("propagates API errors", async () => {
     const client = createMockClient(undefined);
     (client.get as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("WHOOP API error: 404 Not Found"),
+      new Error("WHOOP API error: 404 Not Found")
     );
 
-    await expect(getCycleCollection(client, {})).rejects.toThrow(
-      "WHOOP API error: 404 Not Found",
-    );
+    await expect(getCycleCollection(client, {})).rejects.toThrow("WHOOP API error: 404 Not Found");
   });
 });

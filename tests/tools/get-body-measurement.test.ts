@@ -46,11 +46,11 @@ describe("getBodyMeasurement", () => {
   it("propagates API errors", async () => {
     const client = createMockClient(undefined);
     (client.get as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("WHOOP API error: 500 Internal Server Error"),
+      new Error("WHOOP API error: 500 Internal Server Error")
     );
 
     await expect(getBodyMeasurement(client)).rejects.toThrow(
-      "WHOOP API error: 500 Internal Server Error",
+      "WHOOP API error: 500 Internal Server Error"
     );
   });
 });

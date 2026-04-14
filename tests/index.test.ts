@@ -17,9 +17,9 @@ const mockRefreshAccessToken = vi.fn();
 const mockToOAuthTokens = vi.fn();
 
 vi.mock("../src/auth/oauth.js", () => ({
-  authenticate: (...args: unknown[]) => mockAuthenticate(...(args as Parameters<typeof mockAuthenticate>)),
-  refreshAccessToken: (...args: unknown[]) =>
-    mockRefreshAccessToken(...args),
+  authenticate: (...args: unknown[]) =>
+    mockAuthenticate(...(args as Parameters<typeof mockAuthenticate>)),
+  refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
   toOAuthTokens: (...args: unknown[]) => mockToOAuthTokens(...args),
 }));
 
@@ -34,16 +34,14 @@ vi.mock("../src/auth/token-store.js", () => ({
 const mockCreateWhoopClient = vi.fn();
 
 vi.mock("../src/api/client.js", () => ({
-  createWhoopClient: (...args: unknown[]) =>
-    mockCreateWhoopClient(...args),
+  createWhoopClient: (...args: unknown[]) => mockCreateWhoopClient(...args),
 }));
 
 const mockConnect = vi.fn<() => Promise<void>>();
 const mockCreateWhoopServer = vi.fn();
 
 vi.mock("../src/server.js", () => ({
-  createWhoopServer: (...args: unknown[]) =>
-    mockCreateWhoopServer(...args),
+  createWhoopServer: (...args: unknown[]) => mockCreateWhoopServer(...args),
 }));
 
 const mockStdioTransportInstance = { _mock: true };
@@ -157,15 +155,13 @@ describe("main() entry point", () => {
         expect.objectContaining({
           clientId: "test-client-id",
           clientSecret: "test-client-secret",
-        }),
+        })
       );
     });
 
     it("propagates authentication errors", async () => {
       setupHappyPath();
-      mockAuthenticate.mockRejectedValue(
-        new Error("OAuth flow failed"),
-      );
+      mockAuthenticate.mockRejectedValue(new Error("OAuth flow failed"));
 
       const { main } = await importMain();
       await expect(main()).rejects.toThrow("OAuth flow failed");
@@ -188,7 +184,7 @@ describe("main() entry point", () => {
       expect(mockCreateWhoopClient).toHaveBeenCalledWith(
         expect.objectContaining({
           accessToken: "my-access-token-123",
-        }),
+        })
       );
     });
 
@@ -254,7 +250,7 @@ describe("main() entry point", () => {
         expect.objectContaining({
           clientId: "test-client-id",
           clientSecret: "test-client-secret",
-        }),
+        })
       );
       expect(mockToOAuthTokens).toHaveBeenCalledWith(refreshResponse, "stored-refresh-token");
       expect(mockSaveTokens).toHaveBeenCalledWith(newTokens);
@@ -271,9 +267,7 @@ describe("main() entry point", () => {
       const clientOptions = mockCreateWhoopClient.mock.calls[0][0] as {
         onTokenRefresh: () => Promise<string>;
       };
-      await expect(clientOptions.onTokenRefresh()).rejects.toThrow(
-        /no stored tokens/i,
-      );
+      await expect(clientOptions.onTokenRefresh()).rejects.toThrow(/no stored tokens/i);
     });
   });
 
@@ -326,9 +320,7 @@ describe("main() entry point", () => {
       await main();
 
       // At least one call to console.error with startup info
-      const allMessages = consoleErrorSpy.mock.calls
-        .map((c) => String(c[0]))
-        .join(" ");
+      const allMessages = consoleErrorSpy.mock.calls.map((c) => String(c[0])).join(" ");
       expect(allMessages).toMatch(/whoop.*mcp.*start/i);
     });
   });

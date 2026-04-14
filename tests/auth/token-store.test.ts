@@ -4,7 +4,12 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { OAuthTokens } from "../../src/auth/token-store.js";
-import { isTokenExpired, saveTokens, loadTokens, deleteTokens } from "../../src/auth/token-store.js";
+import {
+  isTokenExpired,
+  saveTokens,
+  loadTokens,
+  deleteTokens,
+} from "../../src/auth/token-store.js";
 
 // ---------------------------------------------------------------------------
 // Task 3a: Token types + expiry check

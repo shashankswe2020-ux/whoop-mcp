@@ -20,7 +20,7 @@ describe("buildCollectionQuery", () => {
         end: undefined,
         limit: undefined,
         nextToken: undefined,
-      }),
+      })
     ).toBe("");
   });
 

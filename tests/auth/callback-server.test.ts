@@ -52,16 +52,12 @@ describe("startCallbackServer", () => {
       const port = handle.port;
 
       // Hit the callback
-      await fetch(
-        `http://127.0.0.1:${port}/callback?code=code-abc&state=${expectedState}`,
-      );
+      await fetch(`http://127.0.0.1:${port}/callback?code=code-abc&state=${expectedState}`);
 
       await handle.result;
 
       // Server should be closed — a second request should fail
-      await expect(
-        fetch(`http://127.0.0.1:${port}/callback?code=x&state=y`),
-      ).rejects.toThrow();
+      await expect(fetch(`http://127.0.0.1:${port}/callback?code=x&state=y`)).rejects.toThrow();
     });
 
     it("responds with HTML success page containing success message", async () => {
@@ -78,7 +74,7 @@ describe("startCallbackServer", () => {
       const port = handle.port;
 
       const response = await fetch(
-        `http://127.0.0.1:${port}/callback?code=code-html&state=${expectedState}`,
+        `http://127.0.0.1:${port}/callback?code=code-html&state=${expectedState}`
       );
 
       expect(response.headers.get("content-type")).toContain("text/html");
@@ -103,7 +99,7 @@ describe("startCallbackServer", () => {
 
       const port = handle.port;
       const response = await fetch(
-        `http://127.0.0.1:${port}/callback?code=some-code&state=wrong-state`,
+        `http://127.0.0.1:${port}/callback?code=some-code&state=wrong-state`
       );
 
       expect(response.status).toBe(400);
@@ -124,9 +120,7 @@ describe("startCallbackServer", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const port = handle.port;
-      const response = await fetch(
-        `http://127.0.0.1:${port}/callback?state=some-state`,
-      );
+      const response = await fetch(`http://127.0.0.1:${port}/callback?state=some-state`);
 
       expect(response.status).toBe(400);
       const html = await response.text();
@@ -147,7 +141,7 @@ describe("startCallbackServer", () => {
 
       const port = handle.port;
       const response = await fetch(
-        `http://127.0.0.1:${port}/callback?error=access_denied&error_description=User+denied+access`,
+        `http://127.0.0.1:${port}/callback?error=access_denied&error_description=User+denied+access`
       );
 
       expect(response.status).toBe(400);
@@ -168,7 +162,7 @@ describe("startCallbackServer", () => {
       const port = handle.port;
       const xssPayload = "<script>alert('XSS')</script>";
       const response = await fetch(
-        `http://127.0.0.1:${port}/callback?error=access_denied&error_description=${encodeURIComponent(xssPayload)}`,
+        `http://127.0.0.1:${port}/callback?error=access_denied&error_description=${encodeURIComponent(xssPayload)}`
       );
 
       const html = await response.text();
@@ -200,16 +194,12 @@ describe("startCallbackServer", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const port = handle.port;
-      await fetch(
-        `http://127.0.0.1:${port}/callback?code=x&state=wrong-state`,
-      );
+      await fetch(`http://127.0.0.1:${port}/callback?code=x&state=wrong-state`);
 
       await expect(handle.result).rejects.toThrow();
 
       // Server should be closed — another request should fail
-      await expect(
-        fetch(`http://127.0.0.1:${port}/callback?code=x&state=y`),
-      ).rejects.toThrow();
+      await expect(fetch(`http://127.0.0.1:${port}/callback?code=x&state=y`)).rejects.toThrow();
     });
 
     it("returns 404 for non-callback paths", async () => {
@@ -228,9 +218,7 @@ describe("startCallbackServer", () => {
       expect(response.status).toBe(404);
 
       // Server should still be listening — clean up by sending a valid callback
-      await fetch(
-        `http://127.0.0.1:${port}/callback?code=cleanup-code&state=${expectedState}`,
-      );
+      await fetch(`http://127.0.0.1:${port}/callback?code=cleanup-code&state=${expectedState}`);
 
       await handle.result;
     });
@@ -259,9 +247,7 @@ describe("startCallbackServer", () => {
       await expect(secondHandle.result).rejects.toThrow(/already in use/i);
 
       // Clean up the first server
-      await fetch(
-        `http://127.0.0.1:${occupiedPort}/callback?code=cleanup&state=${expectedState}`,
-      );
+      await fetch(`http://127.0.0.1:${occupiedPort}/callback?code=cleanup&state=${expectedState}`);
       await firstHandle.result;
     });
   });

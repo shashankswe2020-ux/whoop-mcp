@@ -85,9 +85,7 @@ function errorHtml(message: string): string {
  * Pass `port: 0` (recommended) to let the OS pick a free port and avoid
  * port-collision errors in environments with parallel processes.
  */
-export function startCallbackServer(
-  options: CallbackServerOptions,
-): CallbackServerHandle {
+export function startCallbackServer(options: CallbackServerOptions): CallbackServerHandle {
   const requestedPort = options.port ?? 3000;
   const timeoutMs = options.timeoutMs ?? 120_000;
 
@@ -110,8 +108,7 @@ export function startCallbackServer(
       // Check for OAuth error response from provider
       const oauthError = url.searchParams.get("error");
       if (oauthError) {
-        const description =
-          url.searchParams.get("error_description") ?? oauthError;
+        const description = url.searchParams.get("error_description") ?? oauthError;
         res.writeHead(400, { "Content-Type": "text/html" });
         res.end(errorHtml(description));
         cleanup();
@@ -144,11 +141,7 @@ export function startCallbackServer(
         cleanup();
         if (!settled) {
           settled = true;
-          reject(
-            new Error(
-              `State mismatch: expected "${options.expectedState}", got "${state}"`,
-            ),
-          );
+          reject(new Error(`State mismatch: expected "${options.expectedState}", got "${state}"`));
         }
         return;
       }
@@ -176,11 +169,7 @@ export function startCallbackServer(
       cleanup();
       if (!settled) {
         settled = true;
-        reject(
-          new Error(
-            `OAuth callback timed out after ${timeoutMs}ms. No redirect received.`,
-          ),
-        );
+        reject(new Error(`OAuth callback timed out after ${timeoutMs}ms. No redirect received.`));
       }
     }, timeoutMs);
 

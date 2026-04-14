@@ -38,7 +38,7 @@ export class WhoopApiError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly statusText: string,
-    public readonly body: unknown,
+    public readonly body: unknown
   ) {
     super(`WHOOP API error: ${statusCode} ${statusText}`);
   }
@@ -49,10 +49,9 @@ export class WhoopNetworkError extends Error {
   public override readonly name = "WhoopNetworkError";
 
   constructor(cause: unknown) {
-    super(
-      "Network error: Unable to reach the WHOOP API. Check your internet connection.",
-      { cause },
-    );
+    super("Network error: Unable to reach the WHOOP API. Check your internet connection.", {
+      cause,
+    });
   }
 }
 
@@ -61,10 +60,9 @@ export class WhoopAuthError extends Error {
   public override readonly name = "WhoopAuthError";
 
   constructor(cause: unknown) {
-    super(
-      "Authentication error: Failed to refresh token. Re-authentication may be required.",
-      { cause },
-    );
+    super("Authentication error: Failed to refresh token. Re-authentication may be required.", {
+      cause,
+    });
   }
 }
 
@@ -163,8 +161,7 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
         // Wait before retry (not before the first attempt)
         if (attempt > 0 && lastResponse) {
           const retryDelay =
-            parseRetryAfter(lastResponse) ??
-            BASE_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+            parseRetryAfter(lastResponse) ?? BASE_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
           await delay(retryDelay);
         }
 
@@ -175,11 +172,7 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
         }
 
         const body = await parseErrorBody(response);
-        const apiError = new WhoopApiError(
-          response.status,
-          response.statusText,
-          body,
-        );
+        const apiError = new WhoopApiError(response.status, response.statusText, body);
 
         // Only retry on 429 rate limit
         if (response.status === 429) {
@@ -205,11 +198,7 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
 
           // Retry also failed — throw the original error
           const retryBody = await parseErrorBody(retryResponse);
-          throw new WhoopApiError(
-            retryResponse.status,
-            retryResponse.statusText,
-            retryBody,
-          );
+          throw new WhoopApiError(retryResponse.status, retryResponse.statusText, retryBody);
         }
 
         // All other errors: throw immediately

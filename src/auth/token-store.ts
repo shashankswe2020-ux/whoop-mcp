@@ -77,10 +77,7 @@ function tokenFilePath(tokenDir?: string): string {
  * Creates the token directory (0700) if it doesn't exist, then writes
  * the token file with 0600 (user-only read/write) permissions.
  */
-export async function saveTokens(
-  tokens: OAuthTokens,
-  tokenDir?: string,
-): Promise<void> {
+export async function saveTokens(tokens: OAuthTokens, tokenDir?: string): Promise<void> {
   const dir = tokenDir ?? DEFAULT_TOKEN_DIR;
   await mkdir(dir, { recursive: true, mode: 0o700 });
   await writeFile(tokenFilePath(tokenDir), JSON.stringify(tokens, null, 2), {
@@ -114,18 +111,14 @@ function isValidTokenShape(data: unknown): data is OAuthTokens {
  * malformed JSON, or has an invalid shape. Logs the reason to stderr for
  * diagnostics.
  */
-export async function loadTokens(
-  tokenDir?: string,
-): Promise<OAuthTokens | null> {
+export async function loadTokens(tokenDir?: string): Promise<OAuthTokens | null> {
   const filePath = tokenFilePath(tokenDir);
   const safePath = redactHomePath(filePath);
   try {
     const raw = await readFile(filePath, { encoding: "utf-8" });
     const parsed: unknown = JSON.parse(raw);
     if (!isValidTokenShape(parsed)) {
-      console.error(
-        `Token file ${safePath} exists but has invalid shape — ignoring.`,
-      );
+      console.error(`Token file ${safePath} exists but has invalid shape — ignoring.`);
       return null;
     }
     return parsed;

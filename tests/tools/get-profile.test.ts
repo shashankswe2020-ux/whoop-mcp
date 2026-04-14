@@ -47,11 +47,9 @@ describe("getProfile", () => {
   it("propagates API errors", async () => {
     const client = createMockClient(undefined);
     (client.get as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("WHOOP API error: 401 Unauthorized"),
+      new Error("WHOOP API error: 401 Unauthorized")
     );
 
-    await expect(getProfile(client)).rejects.toThrow(
-      "WHOOP API error: 401 Unauthorized",
-    );
+    await expect(getProfile(client)).rejects.toThrow("WHOOP API error: 401 Unauthorized");
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "whoop-ai-mcp",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "MCP server wrapping the WHOOP REST API for AI assistant access to health and fitness data",
   "type": "module",
   "main": "dist/index.js",

@@ -67,8 +67,7 @@ describe("getWorkoutCollection", () => {
       nextToken: "page3",
     });
 
-    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as string;
+    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     const url = new URL(calledPath, "https://placeholder.test");
 
     expect(url.pathname).toBe(ENDPOINT_WORKOUT);
@@ -83,8 +82,7 @@ describe("getWorkoutCollection", () => {
 
     await getWorkoutCollection(client, { limit: 5 });
 
-    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as string;
+    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
 
     expect(calledPath).not.toContain("start");
     expect(calledPath).not.toContain("end");
@@ -102,11 +100,11 @@ describe("getWorkoutCollection", () => {
   it("propagates API errors", async () => {
     const client = createMockClient(undefined);
     (client.get as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("WHOOP API error: 503 Service Unavailable"),
+      new Error("WHOOP API error: 503 Service Unavailable")
     );
 
     await expect(getWorkoutCollection(client, {})).rejects.toThrow(
-      "WHOOP API error: 503 Service Unavailable",
+      "WHOOP API error: 503 Service Unavailable"
     );
   });
 });

@@ -63,9 +63,7 @@ describe("buildAuthorizationUrl", () => {
       redirectUri: "http://localhost:9999/custom-callback",
     };
     const url = new URL(buildAuthorizationUrl(config, "state-1"));
-    expect(url.searchParams.get("redirect_uri")).toBe(
-      "http://localhost:9999/custom-callback",
-    );
+    expect(url.searchParams.get("redirect_uri")).toBe("http://localhost:9999/custom-callback");
   });
 
   it("includes all required scopes", () => {
@@ -125,7 +123,7 @@ describe("exchangeCodeForTokens", () => {
     expect(options.headers).toEqual(
       expect.objectContaining({
         "Content-Type": "application/x-www-form-urlencoded",
-      }),
+      })
     );
   });
 
@@ -184,9 +182,9 @@ describe("exchangeCodeForTokens", () => {
         }),
     });
 
-    await expect(
-      exchangeCodeForTokens("expired-code", TEST_CONFIG),
-    ).rejects.toThrow(/token exchange failed.*400/i);
+    await expect(exchangeCodeForTokens("expired-code", TEST_CONFIG)).rejects.toThrow(
+      /token exchange failed.*400/i
+    );
   });
 
   it("includes error_description in the thrown error when available", async () => {
@@ -200,9 +198,9 @@ describe("exchangeCodeForTokens", () => {
         }),
     });
 
-    await expect(
-      exchangeCodeForTokens("used-code", TEST_CONFIG),
-    ).rejects.toThrow(/Code has been used already/);
+    await expect(exchangeCodeForTokens("used-code", TEST_CONFIG)).rejects.toThrow(
+      /Code has been used already/
+    );
   });
 
   it("falls back to 'unknown error' when error_description is not a string", async () => {
@@ -216,9 +214,7 @@ describe("exchangeCodeForTokens", () => {
         }),
     });
 
-    await expect(
-      exchangeCodeForTokens("bad-code", TEST_CONFIG),
-    ).rejects.toThrow(/unknown error/);
+    await expect(exchangeCodeForTokens("bad-code", TEST_CONFIG)).rejects.toThrow(/unknown error/);
   });
 
   it("falls back to 'unknown error' when error body JSON parse fails", async () => {
@@ -228,9 +224,9 @@ describe("exchangeCodeForTokens", () => {
       json: () => Promise.reject(new Error("not JSON")),
     });
 
-    await expect(
-      exchangeCodeForTokens("server-error-code", TEST_CONFIG),
-    ).rejects.toThrow(/unknown error/);
+    await expect(exchangeCodeForTokens("server-error-code", TEST_CONFIG)).rejects.toThrow(
+      /unknown error/
+    );
   });
 });
 
@@ -282,7 +278,7 @@ describe("refreshAccessToken", () => {
     expect(options.headers).toEqual(
       expect.objectContaining({
         "Content-Type": "application/x-www-form-urlencoded",
-      }),
+      })
     );
   });
 
@@ -307,9 +303,9 @@ describe("refreshAccessToken", () => {
         }),
     });
 
-    await expect(
-      refreshAccessToken("expired-refresh", TEST_CONFIG),
-    ).rejects.toThrow(/token refresh failed.*401/i);
+    await expect(refreshAccessToken("expired-refresh", TEST_CONFIG)).rejects.toThrow(
+      /token refresh failed.*401/i
+    );
   });
 
   it("includes error_description in the thrown error", async () => {
@@ -323,9 +319,9 @@ describe("refreshAccessToken", () => {
         }),
     });
 
-    await expect(
-      refreshAccessToken("revoked-token", TEST_CONFIG),
-    ).rejects.toThrow(/Refresh token revoked/);
+    await expect(refreshAccessToken("revoked-token", TEST_CONFIG)).rejects.toThrow(
+      /Refresh token revoked/
+    );
   });
 
   it("falls back to 'unknown error' when error_description is not a string", async () => {
@@ -339,9 +335,7 @@ describe("refreshAccessToken", () => {
         }),
     });
 
-    await expect(
-      refreshAccessToken("bad-refresh", TEST_CONFIG),
-    ).rejects.toThrow(/unknown error/);
+    await expect(refreshAccessToken("bad-refresh", TEST_CONFIG)).rejects.toThrow(/unknown error/);
   });
 
   it("falls back to 'unknown error' when error body JSON parse fails", async () => {
@@ -351,9 +345,7 @@ describe("refreshAccessToken", () => {
       json: () => Promise.reject(new Error("not JSON")),
     });
 
-    await expect(
-      refreshAccessToken("error-refresh", TEST_CONFIG),
-    ).rejects.toThrow(/unknown error/);
+    await expect(refreshAccessToken("error-refresh", TEST_CONFIG)).rejects.toThrow(/unknown error/);
   });
 });
 
@@ -473,7 +465,7 @@ describe("openBrowser", () => {
     expect(mockSpawn).toHaveBeenCalledWith(
       "open",
       ["https://example.com/auth"],
-      expect.objectContaining({ detached: true, stdio: "ignore" }),
+      expect.objectContaining({ detached: true, stdio: "ignore" })
     );
 
     Object.defineProperty(process, "platform", { value: originalPlatform });
@@ -489,7 +481,7 @@ describe("openBrowser", () => {
     expect(mockSpawn).toHaveBeenCalledWith(
       "xdg-open",
       ["https://example.com/auth"],
-      expect.objectContaining({ detached: true, stdio: "ignore" }),
+      expect.objectContaining({ detached: true, stdio: "ignore" })
     );
 
     Object.defineProperty(process, "platform", { value: originalPlatform });
@@ -505,7 +497,7 @@ describe("openBrowser", () => {
     expect(mockSpawn).toHaveBeenCalledWith(
       "cmd",
       ["/c", "start", "https://example.com/auth"],
-      expect.objectContaining({ detached: true, stdio: "ignore" }),
+      expect.objectContaining({ detached: true, stdio: "ignore" })
     );
 
     Object.defineProperty(process, "platform", { value: originalPlatform });
@@ -545,20 +537,14 @@ vi.mock("../../src/auth/callback-server.js", () => ({
   startCallbackServer: vi.fn(),
 }));
 
-import {
-  loadTokens,
-  saveTokens,
-  isTokenExpired,
-} from "../../src/auth/token-store.js";
+import { loadTokens, saveTokens, isTokenExpired } from "../../src/auth/token-store.js";
 import { startCallbackServer } from "../../src/auth/callback-server.js";
 import type { OAuthTokens } from "../../src/auth/token-store.js";
 
 const mockLoadTokens = loadTokens as ReturnType<typeof vi.fn>;
 const mockSaveTokens = saveTokens as ReturnType<typeof vi.fn>;
 const mockIsTokenExpired = isTokenExpired as ReturnType<typeof vi.fn>;
-const mockStartCallbackServer = startCallbackServer as ReturnType<
-  typeof vi.fn
->;
+const mockStartCallbackServer = startCallbackServer as ReturnType<typeof vi.fn>;
 
 const VALID_TOKENS: OAuthTokens = {
   access_token: "existing-access-token",
@@ -688,15 +674,11 @@ describe("authenticate", () => {
 
   it("throws a clear error if clientId is missing", async () => {
     const badConfig = { ...TEST_CONFIG, clientId: "" };
-    await expect(authenticate(badConfig)).rejects.toThrow(
-      /WHOOP_CLIENT_ID|client.*id/i,
-    );
+    await expect(authenticate(badConfig)).rejects.toThrow(/WHOOP_CLIENT_ID|client.*id/i);
   });
 
   it("throws a clear error if clientSecret is missing", async () => {
     const badConfig = { ...TEST_CONFIG, clientSecret: "" };
-    await expect(authenticate(badConfig)).rejects.toThrow(
-      /WHOOP_CLIENT_SECRET|client.*secret/i,
-    );
+    await expect(authenticate(badConfig)).rejects.toThrow(/WHOOP_CLIENT_SECRET|client.*secret/i);
   });
 });

@@ -6,11 +6,7 @@
  */
 
 import type { OAuthTokens } from "./token-store.js";
-import {
-  loadTokens,
-  saveTokens,
-  isTokenExpired,
-} from "./token-store.js";
+import { loadTokens, saveTokens, isTokenExpired } from "./token-store.js";
 import { startCallbackServer } from "./callback-server.js";
 import {
   WHOOP_AUTH_URL,
@@ -56,10 +52,7 @@ export interface TokenResponse {
  * Constructs a properly-encoded URL that the user will be redirected to
  * in order to authorize the application.
  */
-export function buildAuthorizationUrl(
-  config: OAuthConfig,
-  state: string,
-): string {
+export function buildAuthorizationUrl(config: OAuthConfig, state: string): string {
   const url = new URL(WHOOP_AUTH_URL);
 
   url.searchParams.set("response_type", "code");
@@ -83,7 +76,7 @@ export function buildAuthorizationUrl(
  */
 export async function exchangeCodeForTokens(
   code: string,
-  config: OAuthConfig,
+  config: OAuthConfig
 ): Promise<TokenResponse> {
   const body = new URLSearchParams({
     grant_type: "authorization_code",
@@ -100,17 +93,12 @@ export async function exchangeCodeForTokens(
   });
 
   if (!response.ok) {
-    const errorBody = (await response.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
+    const errorBody = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     const description =
       typeof errorBody.error_description === "string"
         ? errorBody.error_description
         : "unknown error";
-    throw new Error(
-      `Token exchange failed (${response.status}): ${description}`,
-    );
+    throw new Error(`Token exchange failed (${response.status}): ${description}`);
   }
 
   return (await response.json()) as TokenResponse;
@@ -127,7 +115,7 @@ export async function exchangeCodeForTokens(
  */
 export async function refreshAccessToken(
   refreshToken: string,
-  config: OAuthConfig,
+  config: OAuthConfig
 ): Promise<TokenResponse> {
   const body = new URLSearchParams({
     grant_type: "refresh_token",
@@ -143,17 +131,12 @@ export async function refreshAccessToken(
   });
 
   if (!response.ok) {
-    const errorBody = (await response.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
+    const errorBody = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     const description =
       typeof errorBody.error_description === "string"
         ? errorBody.error_description
         : "unknown error";
-    throw new Error(
-      `Token refresh failed (${response.status}): ${description}`,
-    );
+    throw new Error(`Token refresh failed (${response.status}): ${description}`);
   }
 
   return (await response.json()) as TokenResponse;
@@ -173,10 +156,7 @@ export async function refreshAccessToken(
  * pass `existingRefreshToken` to preserve the current one so the token file
  * stays valid on the next load.
  */
-export function toOAuthTokens(
-  response: TokenResponse,
-  existingRefreshToken?: string,
-): OAuthTokens {
+export function toOAuthTokens(response: TokenResponse, existingRefreshToken?: string): OAuthTokens {
   return {
     access_token: response.access_token,
     refresh_token: response.refresh_token || existingRefreshToken || "",
@@ -209,7 +189,7 @@ export function openBrowser(url: string): void {
   } catch {
     // Best-effort — log the URL for manual copy/paste
     console.error(
-      `\nCould not open browser automatically. Please open this URL manually:\n${url}\n`,
+      `\nCould not open browser automatically. Please open this URL manually:\n${url}\n`
     );
   }
 }
@@ -228,14 +208,10 @@ export function openBrowser(url: string): void {
 export async function authenticate(config: OAuthConfig): Promise<string> {
   // Validate required credentials
   if (!config.clientId) {
-    throw new Error(
-      "Missing WHOOP_CLIENT_ID. Set it in your environment variables.",
-    );
+    throw new Error("Missing WHOOP_CLIENT_ID. Set it in your environment variables.");
   }
   if (!config.clientSecret) {
-    throw new Error(
-      "Missing WHOOP_CLIENT_SECRET. Set it in your environment variables.",
-    );
+    throw new Error("Missing WHOOP_CLIENT_SECRET. Set it in your environment variables.");
   }
 
   // 1. Check for existing tokens
@@ -251,10 +227,7 @@ export async function authenticate(config: OAuthConfig): Promise<string> {
     // 2b. If expired, try to refresh
     console.error("Cached tokens expired, attempting refresh...");
     try {
-      const refreshed = await refreshAccessToken(
-        existing.refresh_token,
-        config,
-      );
+      const refreshed = await refreshAccessToken(existing.refresh_token, config);
       const tokens = toOAuthTokens(refreshed, existing.refresh_token);
       await saveTokens(tokens, config.tokenDir);
       console.error("Token refresh successful.");
@@ -291,7 +264,7 @@ async function performOAuthFlow(config: OAuthConfig): Promise<string> {
   openBrowser(authUrl);
 
   console.error(
-    `\nWaiting for WHOOP authorization...\nIf the browser didn't open, visit:\n${authUrl}\n`,
+    `\nWaiting for WHOOP authorization...\nIf the browser didn't open, visit:\n${authUrl}\n`
   );
 
   // Wait for the callback

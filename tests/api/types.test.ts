@@ -386,18 +386,12 @@ describe("workout types", () => {
 
 describe("endpoint constants", () => {
   it("defines the correct WHOOP API base URL", () => {
-    expect(WHOOP_API_BASE_URL).toBe(
-      "https://api.prod.whoop.com/developer",
-    );
+    expect(WHOOP_API_BASE_URL).toBe("https://api.prod.whoop.com/developer");
   });
 
   it("defines the correct OAuth URLs", () => {
-    expect(WHOOP_AUTH_URL).toBe(
-      "https://api.prod.whoop.com/oauth/oauth2/auth",
-    );
-    expect(WHOOP_TOKEN_URL).toBe(
-      "https://api.prod.whoop.com/oauth/oauth2/token",
-    );
+    expect(WHOOP_AUTH_URL).toBe("https://api.prod.whoop.com/oauth/oauth2/auth");
+    expect(WHOOP_TOKEN_URL).toBe("https://api.prod.whoop.com/oauth/oauth2/token");
   });
 
   it("defines all required OAuth scopes", () => {

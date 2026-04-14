@@ -3,11 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createWhoopServer } from "../src/server.js";
 import type { WhoopClient } from "../src/api/client.js";
-import {
-  WhoopApiError,
-  WhoopNetworkError,
-  WhoopAuthError,
-} from "../src/api/client.js";
+import { WhoopApiError, WhoopNetworkError, WhoopAuthError } from "../src/api/client.js";
 import type {
   UserProfile,
   BodyMeasurement,
@@ -190,15 +186,11 @@ describe("createWhoopServer", () => {
     const mockWhoopClient = createMockClient();
     const server = createWhoopServer(mockWhoopClient);
 
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
     client = new Client({ name: "test-client", version: "1.0.0" });
 
-    await Promise.all([
-      client.connect(clientTransport),
-      server.connect(serverTransport),
-    ]);
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
     cleanup = async () => {
       await client.close();
@@ -297,10 +289,7 @@ describe("createWhoopServer", () => {
         expect(tool).toBeDefined();
         expect(tool!.inputSchema.type).toBe("object");
 
-        const props = tool!.inputSchema.properties as Record<
-          string,
-          unknown
-        >;
+        const props = tool!.inputSchema.properties as Record<string, unknown>;
         expect(props).toHaveProperty("start");
         expect(props).toHaveProperty("end");
         expect(props).toHaveProperty("limit");
@@ -410,7 +399,7 @@ describe("createWhoopServer (error handling)", () => {
    * Returns a connected MCP Client and a cleanup function.
    */
   async function createErrorServer(
-    error: Error,
+    error: Error
   ): Promise<{ client: Client; cleanup: () => Promise<void> }> {
     const errorClient: WhoopClient = {
       get: async <T>(): Promise<T> => {
@@ -418,13 +407,9 @@ describe("createWhoopServer (error handling)", () => {
       },
     };
     const server = createWhoopServer(errorClient);
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const mcpClient = new Client({ name: "error-test-client", version: "1.0.0" });
-    await Promise.all([
-      mcpClient.connect(clientTransport),
-      server.connect(serverTransport),
-    ]);
+    await Promise.all([mcpClient.connect(clientTransport), server.connect(serverTransport)]);
     return {
       client: mcpClient,
       cleanup: async () => {
@@ -540,13 +525,9 @@ describe("createWhoopServer (error handling)", () => {
       },
     };
     const server = createWhoopServer(nonErrorClient);
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const mcpClient = new Client({ name: "non-error-test", version: "1.0.0" });
-    await Promise.all([
-      mcpClient.connect(clientTransport),
-      server.connect(serverTransport),
-    ]);
+    await Promise.all([mcpClient.connect(clientTransport), server.connect(serverTransport)]);
 
     try {
       const result = await mcpClient.callTool({ name: "get_profile", arguments: {} });

@@ -20,7 +20,7 @@ import type { CollectionParams } from "./collection-utils.js";
  */
 export async function getWorkoutCollection(
   client: WhoopClient,
-  params: CollectionParams,
+  params: CollectionParams
 ): Promise<WorkoutCollection> {
   const query = buildCollectionQuery(params);
   return client.get<WorkoutCollection>(`${ENDPOINT_WORKOUT}${query}`);

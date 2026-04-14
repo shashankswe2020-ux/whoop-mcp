@@ -71,8 +71,7 @@ describe("getSleepCollection", () => {
       nextToken: "page2",
     });
 
-    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as string;
+    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     const url = new URL(calledPath, "https://placeholder.test");
 
     expect(url.pathname).toBe(ENDPOINT_SLEEP);
@@ -87,8 +86,7 @@ describe("getSleepCollection", () => {
 
     await getSleepCollection(client, { start: "2026-04-01T00:00:00.000Z" });
 
-    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as string;
+    const calledPath = (client.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
 
     expect(calledPath).not.toContain("limit");
     expect(calledPath).not.toContain("end");
@@ -106,11 +104,9 @@ describe("getSleepCollection", () => {
   it("propagates API errors", async () => {
     const client = createMockClient(undefined);
     (client.get as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("WHOOP API error: 403 Forbidden"),
+      new Error("WHOOP API error: 403 Forbidden")
     );
 
-    await expect(getSleepCollection(client, {})).rejects.toThrow(
-      "WHOOP API error: 403 Forbidden",
-    );
+    await expect(getSleepCollection(client, {})).rejects.toThrow("WHOOP API error: 403 Forbidden");
   });
 });

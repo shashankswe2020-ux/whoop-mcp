@@ -9,12 +9,10 @@
 export const WHOOP_API_BASE_URL = "https://api.prod.whoop.com/developer";
 
 /** OAuth authorization endpoint — browser redirect target */
-export const WHOOP_AUTH_URL =
-  "https://api.prod.whoop.com/oauth/oauth2/auth";
+export const WHOOP_AUTH_URL = "https://api.prod.whoop.com/oauth/oauth2/auth";
 
 /** OAuth token exchange endpoint */
-export const WHOOP_TOKEN_URL =
-  "https://api.prod.whoop.com/oauth/oauth2/token";
+export const WHOOP_TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token";
 
 /** All OAuth scopes required by the 6 MCP tools */
 export const WHOOP_REQUIRED_SCOPES =

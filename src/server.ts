@@ -8,11 +8,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { WhoopClient } from "./api/client.js";
-import {
-  WhoopApiError,
-  WhoopNetworkError,
-  WhoopAuthError,
-} from "./api/client.js";
+import { WhoopApiError, WhoopNetworkError, WhoopAuthError } from "./api/client.js";
 import { getProfile } from "./tools/get-profile.js";
 import { getBodyMeasurement } from "./tools/get-body-measurement.js";
 import { getRecoveryCollection } from "./tools/get-recovery.js";
@@ -28,9 +24,9 @@ import { readFileSync } from "node:fs";
 /** Read the version from package.json at startup */
 function getPackageVersion(): string {
   try {
-    const pkg = JSON.parse(
-      readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
-    ) as { version: string };
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf-8")) as {
+      version: string;
+    };
     return pkg.version;
   } catch {
     return "0.0.0";
@@ -47,14 +43,12 @@ const collectionInputSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Return records after this time (inclusive). ISO 8601 format, e.g. 2026-04-01T00:00:00.000Z",
+      "Return records after this time (inclusive). ISO 8601 format, e.g. 2026-04-01T00:00:00.000Z"
     ),
   end: z
     .string()
     .optional()
-    .describe(
-      "Return records before this time (exclusive). ISO 8601 format. Defaults to now.",
-    ),
+    .describe("Return records before this time (exclusive). ISO 8601 format. Defaults to now."),
   limit: z
     .number()
     .int()
@@ -62,10 +56,7 @@ const collectionInputSchema = z.object({
     .max(25)
     .optional()
     .describe("Max records to return (1-25). Defaults to 10."),
-  nextToken: z
-    .string()
-    .optional()
-    .describe("Pagination token from a previous response."),
+  nextToken: z.string().optional().describe("Pagination token from a previous response."),
 });
 
 // ---------------------------------------------------------------------------
@@ -92,10 +83,7 @@ function errorResponse(error: unknown): {
   let message: string;
 
   if (error instanceof WhoopApiError) {
-    const bodyStr =
-      typeof error.body === "string"
-        ? error.body
-        : JSON.stringify(error.body);
+    const bodyStr = typeof error.body === "string" ? error.body : JSON.stringify(error.body);
     message = `WHOOP API returned ${error.statusCode} ${error.statusText}: ${bodyStr}`;
   } else if (error instanceof WhoopAuthError) {
     message = error.message;
@@ -115,7 +103,7 @@ function errorResponse(error: unknown): {
 
 /** Wrap a tool handler with error-to-MCP-error conversion */
 async function safeTool<T>(
-  fn: () => Promise<T>,
+  fn: () => Promise<T>
 ): Promise<
   | { content: Array<{ type: "text"; text: string }> }
   | { isError: true; content: Array<{ type: "text"; text: string }> }
@@ -152,11 +140,10 @@ export function createWhoopServer(client: WhoopClient): McpServer {
   server.registerTool(
     "get_profile",
     {
-      description:
-        "Get the authenticated user's basic profile — name and email.",
+      description: "Get the authenticated user's basic profile — name and email.",
       annotations: { readOnlyHint: true },
     },
-    async () => safeTool(() => getProfile(client)),
+    async () => safeTool(() => getProfile(client))
   );
 
   // -------------------------------------------------------------------------
@@ -165,11 +152,10 @@ export function createWhoopServer(client: WhoopClient): McpServer {
   server.registerTool(
     "get_body_measurement",
     {
-      description:
-        "Get the user's body measurements — height, weight, and max heart rate.",
+      description: "Get the user's body measurements — height, weight, and max heart rate.",
       annotations: { readOnlyHint: true },
     },
-    async () => safeTool(() => getBodyMeasurement(client)),
+    async () => safeTool(() => getBodyMeasurement(client))
   );
 
   // -------------------------------------------------------------------------
@@ -184,7 +170,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (args: z.infer<typeof collectionInputSchema>) =>
-      safeTool(() => getRecoveryCollection(client, args)),
+      safeTool(() => getRecoveryCollection(client, args))
   );
 
   // -------------------------------------------------------------------------
@@ -199,7 +185,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (args: z.infer<typeof collectionInputSchema>) =>
-      safeTool(() => getSleepCollection(client, args)),
+      safeTool(() => getSleepCollection(client, args))
   );
 
   // -------------------------------------------------------------------------
@@ -214,7 +200,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (args: z.infer<typeof collectionInputSchema>) =>
-      safeTool(() => getWorkoutCollection(client, args)),
+      safeTool(() => getWorkoutCollection(client, args))
   );
 
   // -------------------------------------------------------------------------
@@ -229,7 +215,7 @@ export function createWhoopServer(client: WhoopClient): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (args: z.infer<typeof collectionInputSchema>) =>
-      safeTool(() => getCycleCollection(client, args)),
+      safeTool(() => getCycleCollection(client, args))
   );
 
   return server;

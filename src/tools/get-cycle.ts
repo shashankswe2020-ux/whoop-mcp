@@ -20,7 +20,7 @@ import type { CollectionParams } from "./collection-utils.js";
  */
 export async function getCycleCollection(
   client: WhoopClient,
-  params: CollectionParams,
+  params: CollectionParams
 ): Promise<CycleCollection> {
   const query = buildCollectionQuery(params);
   return client.get<CycleCollection>(`${ENDPOINT_CYCLE}${query}`);
