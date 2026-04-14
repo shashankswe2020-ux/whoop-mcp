@@ -2,7 +2,9 @@
 
 [![npm version](https://img.shields.io/npm/v/whoop-ai-mcp.svg)](https://www.npmjs.com/package/whoop-ai-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js >= 18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org)
+[![Node.js >= 20](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![MCP](https://img.shields.io/badge/MCP-compatible-purple.svg)](https://modelcontextprotocol.io/)
 
 An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that connects AI assistants like Claude to your [WHOOP](https://www.whoop.com/) health and fitness data. Ask questions about your recovery, sleep, workouts, and more — all through natural conversation.
 
@@ -20,7 +22,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 1. A [WHOOP](https://www.whoop.com/) account with an active membership
 2. A WHOOP Developer App — create one at [developer.whoop.com](https://developer.whoop.com)
    - Set the redirect URI to `http://localhost:3000/callback`
-3. [Node.js](https://nodejs.org/) >= 18
+3. [Node.js](https://nodejs.org/) >= 20
 
 ## Get a WHOOP
 
