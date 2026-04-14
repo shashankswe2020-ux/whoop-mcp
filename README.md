@@ -26,7 +26,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 
 Don't have a WHOOP yet? Here's how to get started:
 
-- 🛒 **Buy a WHOOP on Amazon** — [WHOOP 4.0 on Amazon](https://www.amazon.com/s?k=whoop+4.0&tag=shashankdukan-21)
+- 🛒 **Buy a WHOOP on Amazon** — [WHOOP peak on Amazon](https://amzn.to/4st9B2r)
 - 🔗 **Join WHOOP directly** — [whoop.com/membership](https://join.whoop.com/63E6C805)
 
 ## Quickstart (Claude Desktop)
