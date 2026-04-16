@@ -6,7 +6,11 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-compatible-purple.svg)](https://modelcontextprotocol.io/)
 
+[![MCP Registry](https://img.shields.io/badge/MCP_Registry-published-green.svg)](https://registry.modelcontextprotocol.io/)
+
 An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that connects AI assistants like Claude to your [WHOOP](https://www.whoop.com/) health and fitness data. Ask questions about your recovery, sleep, workouts, and more — all through natural conversation.
+
+> 📦 **Published on the [MCP Registry](https://registry.modelcontextprotocol.io/)** as `io.github.shashankswe2020-ux/whoop` — discoverable by any MCP-compatible client.
 
 ## Features
 
@@ -38,6 +42,20 @@ Don't have a WHOOP yet? Here's how to get started:
 
 - 🛒 **Buy a WHOOP on Amazon** — [WHOOP peak on Amazon](https://amzn.to/4st9B2r)
 - 🔗 **Join WHOOP directly** — [whoop.com/membership](https://join.whoop.com/63E6C805)
+
+## Quickstart (MCP Registry)
+
+This server is published on the official [MCP Registry](https://registry.modelcontextprotocol.io/). MCP clients that support the registry can discover and install it automatically:
+
+```
+Server name: io.github.shashankswe2020-ux/whoop
+```
+
+You can also browse it via the registry API:
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.shashankswe2020-ux/whoop"
+```
 
 ## Quickstart (Claude Desktop)
 
