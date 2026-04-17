@@ -229,7 +229,7 @@ Get physiological cycles for a date range. Returns strain, calories, and heart r
 
 ## Authentication
 
-`whoop-ai-mcp` uses OAuth2 Authorization Code flow:
+`whoop-ai-mcp` uses OAuth2 Authorization Code flow with PKCE:
 
 1. **First run:** A browser window opens for you to authorize with WHOOP
 2. **Token caching:** Access and refresh tokens are saved to `~/.whoop-mcp/tokens.json`

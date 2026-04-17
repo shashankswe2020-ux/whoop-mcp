@@ -15,7 +15,7 @@ import {
   WHOOP_REQUIRED_SCOPES,
 } from "../api/endpoints.js";
 import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,6 +42,11 @@ export interface TokenResponse {
   scope: string;
 }
 
+interface PkcePair {
+  codeVerifier: string;
+  codeChallenge: string;
+}
+
 // ---------------------------------------------------------------------------
 // buildAuthorizationUrl
 // ---------------------------------------------------------------------------
@@ -52,7 +57,11 @@ export interface TokenResponse {
  * Constructs a properly-encoded URL that the user will be redirected to
  * in order to authorize the application.
  */
-export function buildAuthorizationUrl(config: OAuthConfig, state: string): string {
+export function buildAuthorizationUrl(
+  config: OAuthConfig,
+  state: string,
+  codeChallenge?: string
+): string {
   const url = new URL(WHOOP_AUTH_URL);
 
   url.searchParams.set("response_type", "code");
@@ -60,6 +69,10 @@ export function buildAuthorizationUrl(config: OAuthConfig, state: string): strin
   url.searchParams.set("redirect_uri", config.redirectUri ?? WHOOP_REDIRECT_URI);
   url.searchParams.set("scope", WHOOP_REQUIRED_SCOPES);
   url.searchParams.set("state", state);
+  if (codeChallenge) {
+    url.searchParams.set("code_challenge", codeChallenge);
+    url.searchParams.set("code_challenge_method", "S256");
+  }
 
   return url.toString();
 }
@@ -76,7 +89,8 @@ export function buildAuthorizationUrl(config: OAuthConfig, state: string): strin
  */
 export async function exchangeCodeForTokens(
   code: string,
-  config: OAuthConfig
+  config: OAuthConfig,
+  codeVerifier?: string
 ): Promise<TokenResponse> {
   const body = new URLSearchParams({
     grant_type: "authorization_code",
@@ -85,6 +99,9 @@ export async function exchangeCodeForTokens(
     client_secret: config.clientSecret,
     redirect_uri: config.redirectUri ?? WHOOP_REDIRECT_URI,
   });
+  if (codeVerifier) {
+    body.set("code_verifier", codeVerifier);
+  }
 
   const response = await fetch(WHOOP_TOKEN_URL, {
     method: "POST",
@@ -251,6 +268,7 @@ export async function authenticate(config: OAuthConfig): Promise<string> {
  */
 async function performOAuthFlow(config: OAuthConfig): Promise<string> {
   const state = randomBytes(16).toString("hex");
+  const pkce = generatePkcePair();
   const port = config.port ?? 3000;
 
   // Start the callback server before opening the browser
@@ -260,7 +278,7 @@ async function performOAuthFlow(config: OAuthConfig): Promise<string> {
   });
 
   // Build the authorization URL and open the browser
-  const authUrl = buildAuthorizationUrl(config, state);
+  const authUrl = buildAuthorizationUrl(config, state, pkce.codeChallenge);
   openBrowser(authUrl);
 
   console.error(
@@ -271,9 +289,15 @@ async function performOAuthFlow(config: OAuthConfig): Promise<string> {
   const { code } = await callbackHandle.result;
 
   // Exchange the code for tokens
-  const tokenResponse = await exchangeCodeForTokens(code, config);
+  const tokenResponse = await exchangeCodeForTokens(code, config, pkce.codeVerifier);
   const tokens = toOAuthTokens(tokenResponse);
   await saveTokens(tokens, config.tokenDir);
 
   return tokens.access_token;
+}
+
+function generatePkcePair(): PkcePair {
+  const codeVerifier = randomBytes(32).toString("base64url");
+  const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
+  return { codeVerifier, codeChallenge };
 }

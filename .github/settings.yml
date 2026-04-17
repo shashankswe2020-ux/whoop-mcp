@@ -1,0 +1,14 @@
+branches:
+  - name: main
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: false
+      required_status_checks:
+        strict: true
+        checks:
+          - context: "Test, Lint & Build (20.x)"
+          - context: "Test, Lint & Build (22.x)"
+      enforce_admins: true
+      restrictions: null
