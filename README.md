@@ -21,6 +21,38 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 - ⚡ **Zero config** — just add your WHOOP app credentials and go
 - 📦 **Lightweight** — only two runtime dependencies (`@modelcontextprotocol/sdk` + `zod`)
 
+## Quick Comparison (WHOOP MCP packages on npm)
+
+_Based on npm search results for `whoop mcp` on 2026-04-17._
+
+| Package | Latest version | Last publish (UTC) | MCP Registry metadata (`mcpName`) | Runtime deps | npm |
+|------|-----------------|--------------------|------------------------------------|--------------|-----|
+| **whoop-ai-mcp (this repo)** | **0.2.1** | **2026-04-16** | **✅ `io.github.shashankswe2020-ux/whoop`** | **2** | https://www.npmjs.com/package/whoop-ai-mcp |
+| whoop-mcp-server | 0.0.5 | 2026-03-13 | — | 2 | https://www.npmjs.com/package/whoop-mcp-server |
+| whoop-mcp | 0.1.2 | 2026-03-11 | — | 2 | https://www.npmjs.com/package/whoop-mcp |
+| @alacore/whoop-mcp-server | 1.0.1 | 2025-10-09 | — | 2 | https://www.npmjs.com/package/@alacore/whoop-mcp-server |
+| @iflow-mcp/nissand-whoop-mcp-server | 1.0.3 | 2026-03-24 | — | 3 | https://www.npmjs.com/package/@iflow-mcp/nissand-whoop-mcp-server |
+| @roebot0/whoop-mcp | 1.0.0 | 2026-04-06 | — | 3 | https://www.npmjs.com/package/@roebot0/whoop-mcp |
+
+**Why this package stands out**
+
+- Published to npm **and** the official MCP Registry (via `mcpName` metadata)
+- Most recently published among listed WHOOP MCP packages (as of 2026-04-17)
+- Minimal runtime footprint (2 dependencies)
+
+### Security, feature-update, and gap comparison
+
+_Evidence basis: npm package metadata + npm-hosted README text as of 2026-04-17._
+
+| Package | Security posture (README/metadata) | Feature-update signal | Gap vs `whoop-ai-mcp` |
+|------|--------------------------------------|------------------------|------------------------|
+| **whoop-ai-mcp (this repo)** | **OAuth2 documented + explicit `0600` token file permissions + retry/backoff + token refresh** | **Most recent publish date in this set (2026-04-16), includes changelog/release workflow docs** | **Baseline** |
+| whoop-mcp-server | OAuth/token refresh documented; no explicit `0600` mention in npm README | Last publish 2026-03-13 | No MCP Registry `mcpName` metadata; no MCP Inspector section in npm README |
+| whoop-mcp | No explicit OAuth/retry/refresh/`0600` documentation in npm README | Last publish 2026-03-11 | No MCP Registry `mcpName` metadata; security/reliability behavior not explicitly documented in npm README |
+| @alacore/whoop-mcp-server | OAuth/token refresh documented; no explicit `0600` mention in npm README | Last publish 2025-10-09 | No MCP Registry `mcpName` metadata; retry/backoff behavior not explicitly documented in npm README |
+| @iflow-mcp/nissand-whoop-mcp-server | OAuth documented; no explicit `0600` or token-refresh mention in npm README | Last publish 2026-03-24 | No MCP Registry `mcpName` metadata; no explicit token-refresh/Inspector documentation in npm README |
+| @roebot0/whoop-mcp | OAuth/token refresh documented; no explicit `0600` mention in npm README | Last publish 2026-04-06 | No MCP Registry `mcpName` metadata; retry/backoff and Inspector coverage not explicitly documented in npm README |
+
 ## 🎥 Video Walkthrough
 
 Watch a detailed walkthrough of setting up and using whoop-ai-mcp with Claude Desktop:
