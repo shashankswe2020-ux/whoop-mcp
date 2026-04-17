@@ -40,6 +40,19 @@ _Based on npm search results for `whoop mcp` on 2026-04-17._
 - Most recently published among listed WHOOP MCP packages (as of 2026-04-17)
 - Minimal runtime footprint (2 dependencies)
 
+### Security, feature-update, and gap comparison
+
+_Evidence basis: npm package metadata + npm-hosted README text as of 2026-04-17._
+
+| Package | Security posture (README/metadata) | Feature-update signal | Gap vs `whoop-ai-mcp` |
+|------|--------------------------------------|------------------------|------------------------|
+| **whoop-ai-mcp (this repo)** | **OAuth2 documented + explicit `0600` token file permissions + retry/backoff + token refresh** | **Most recent publish date in this set (2026-04-16), includes changelog/release workflow docs** | **Baseline** |
+| whoop-mcp-server | OAuth/token refresh documented; no explicit `0600` mention in npm README | Last publish 2026-03-13 | No MCP Registry `mcpName` metadata; no MCP Inspector section in npm README |
+| whoop-mcp | No explicit OAuth/retry/refresh/`0600` documentation in npm README | Last publish 2026-03-11 | No MCP Registry `mcpName` metadata; security/reliability behavior not explicitly documented in npm README |
+| @alacore/whoop-mcp-server | OAuth/token refresh documented; no explicit `0600` mention in npm README | Last publish 2025-10-09 | No MCP Registry `mcpName` metadata; retry/backoff behavior not explicitly documented in npm README |
+| @iflow-mcp/nissand-whoop-mcp-server | OAuth documented; no explicit `0600` or token-refresh mention in npm README | Last publish 2026-03-24 | No MCP Registry `mcpName` metadata; no explicit token-refresh/Inspector documentation in npm README |
+| @roebot0/whoop-mcp | OAuth/token refresh documented; no explicit `0600` mention in npm README | Last publish 2026-04-06 | No MCP Registry `mcpName` metadata; retry/backoff and Inspector coverage not explicitly documented in npm README |
+
 ## 🎥 Video Walkthrough
 
 Watch a detailed walkthrough of setting up and using whoop-ai-mcp with Claude Desktop:
