@@ -21,6 +21,16 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 - ⚡ **Zero config** — just add your WHOOP app credentials and go
 - 📦 **Lightweight** — only two runtime dependencies (`@modelcontextprotocol/sdk` + `zod`)
 
+## Quick Comparison
+
+| Area | whoop-ai-mcp (this repo) | Typical WHOOP MCP offerings on GitHub |
+|------|----------------------------|----------------------------------------|
+| Setup | Published on npm + MCP Registry, easy `npx` usage | Often source-only setup required |
+| Reliability | Built-in retry/backoff + token refresh handling | Retry/refresh behavior may be limited or absent |
+| Security | OAuth2 + local token storage with `0600` permissions | Security/token handling details may vary |
+| Testing | Large automated test suite with CI workflows | Test coverage is often smaller or undocumented |
+| Ecosystem fit | Works with Claude Desktop and MCP Inspector | Client compatibility can vary by project |
+
 ## 🎥 Video Walkthrough
 
 Watch a detailed walkthrough of setting up and using whoop-ai-mcp with Claude Desktop:
