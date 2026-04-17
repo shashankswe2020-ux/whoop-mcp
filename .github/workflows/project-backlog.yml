@@ -1,0 +1,22 @@
+name: Add items to backlog project
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  add-to-project:
+    name: Add issue or PR to backlog project
+    runs-on: ubuntu-latest
+    if: ${{ vars.BACKLOG_PROJECT_URL != '' }}
+    steps:
+      - name: Add to GitHub Project
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: ${{ vars.BACKLOG_PROJECT_URL }}
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}

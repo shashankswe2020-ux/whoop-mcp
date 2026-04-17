@@ -1,0 +1,65 @@
+name: Bug report
+description: Report a reproducible bug to help us improve whoop-ai-mcp.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this issue. Please include enough detail for us to reproduce it quickly.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+      placeholder: A clear and concise description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Tell us how to reproduce the issue.
+      placeholder: |
+        1. Configure whoop-ai-mcp with ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: What actually happened? Include error output if available.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: whoop-ai-mcp version
+      placeholder: "e.g. 0.2.1"
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: "e.g. 22.15.0"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment details
+      description: OS, MCP client (Claude Desktop/Inspector), and any relevant setup notes.
+      placeholder: "macOS 15, Claude Desktop x.y.z, WHOOP redirect URI ..."
+    validations:
+      required: true

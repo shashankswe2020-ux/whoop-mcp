@@ -76,6 +76,12 @@ describe("buildAuthorizationUrl", () => {
     expect(url.searchParams.get("state")).toBe("my-csrf-state");
   });
 
+  it("includes PKCE parameters when code challenge is provided", () => {
+    const url = new URL(buildAuthorizationUrl(TEST_CONFIG, "state-1", "pkce-challenge"));
+    expect(url.searchParams.get("code_challenge")).toBe("pkce-challenge");
+    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+  });
+
   it("produces a properly encoded URL", () => {
     const urlString = buildAuthorizationUrl(TEST_CONFIG, "state with spaces");
     // Should not throw when parsed
@@ -142,6 +148,20 @@ describe("exchangeCodeForTokens", () => {
     expect(body.get("client_id")).toBe("test-client-id");
     expect(body.get("client_secret")).toBe("test-client-secret");
     expect(body.get("redirect_uri")).toBe(WHOOP_REDIRECT_URI);
+    expect(body.get("code_verifier")).toBeNull();
+  });
+
+  it("includes code_verifier in the body when provided", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    await exchangeCodeForTokens("auth-code-xyz", TEST_CONFIG, "pkce-verifier");
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = new URLSearchParams(options.body as string);
+    expect(body.get("code_verifier")).toBe("pkce-verifier");
   });
 
   it("uses custom redirect_uri from config", async () => {
@@ -555,10 +575,15 @@ const VALID_TOKENS: OAuthTokens = {
 
 describe("authenticate", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
+  let mockSpawn: ReturnType<typeof vi.fn>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
+    const cp = await import("node:child_process");
+    mockSpawn = cp.spawn as unknown as ReturnType<typeof vi.fn>;
+    mockSpawn.mockReset();
+    mockSpawn.mockReturnValue({ unref: vi.fn() });
     mockLoadTokens.mockReset();
     mockSaveTokens.mockReset();
     mockIsTokenExpired.mockReset();
@@ -627,6 +652,18 @@ describe("authenticate", () => {
     expect(token).toBe("access-token-123");
     expect(mockStartCallbackServer).toHaveBeenCalledOnce();
     expect(mockSaveTokens).toHaveBeenCalledOnce();
+    expect(mockSpawn).toHaveBeenCalledOnce();
+
+    const [, spawnArgs] = mockSpawn.mock.calls[0] as [string, string[]];
+    const authUrlArg = spawnArgs.find((arg) => arg.startsWith("http"));
+    expect(authUrlArg).toBeTruthy();
+    const authUrl = new URL(authUrlArg as string);
+    expect(authUrl.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(authUrl.searchParams.get("code_challenge")).toBeTruthy();
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = new URLSearchParams(options.body as string);
+    expect(body.get("code_verifier")).toBeTruthy();
   });
 
   it("falls back to full OAuth flow when refresh fails", async () => {

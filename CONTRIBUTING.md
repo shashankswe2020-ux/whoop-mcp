@@ -98,6 +98,7 @@ npm run lint      # No lint warnings
 |----------|---------|
 | `docs/specs/whoop-mcp-server.md` | Full specification |
 | `docs/specs/implementation-plan.md` | Task breakdown and dependency graph |
+| `docs/github-governance.md` | Branch protection, dependency automation, and project backlog setup |
 | `docs/plans/` | Detailed plans for each task |
 | `docs/reviews/` | Code review checkpoints |
 | `.github/copilot-instructions.md` | Project coding standards |

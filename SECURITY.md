@@ -34,6 +34,7 @@ You should receive an acknowledgment within **48 hours** and a resolution timeli
 ### OAuth Flow
 
 - Uses Authorization Code flow with a `state` parameter for CSRF protection.
+- Uses PKCE (`S256`) with per-login `code_verifier` / `code_challenge` values.
 - The callback server binds to `127.0.0.1` only — never `0.0.0.0`.
 - The callback server shuts down immediately after receiving the code (or on timeout/error).
 - All HTML responses in the callback server escape user-controlled parameters to prevent reflected XSS.
@@ -60,5 +61,4 @@ You should receive an acknowledgment within **48 hours** and a resolution timeli
 
 ## Known Limitations
 
-- **PKCE not implemented** — The OAuth flow does not use PKCE (Proof Key for Code Exchange). PKCE is an OWASP best practice for public/native OAuth clients. Adding it depends on WHOOP API support. Tracked as a future enhancement.
 - **Single-user design** — Token storage is per-user on the local filesystem. This server is not designed for multi-user or server-side deployments.
