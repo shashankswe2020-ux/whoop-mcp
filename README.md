@@ -40,18 +40,27 @@ _Based on npm search results for `whoop mcp` on 2026-04-17._
 - Most recently published among listed WHOOP MCP packages (as of 2026-04-17)
 - Minimal runtime footprint (2 dependencies)
 
-### Security, feature-update, and gap comparison
+### Deep comparison ratings (WHOOP MCP packages on npm)
 
-_Evidence basis: npm package metadata + npm-hosted README text as of 2026-04-17._
+_Evidence basis: npm registry metadata + npm-hosted README signals + package manifest fields (`dependencies`, `repository`, `mcpName`) collected on 2026-04-17._
 
-| Package | Security posture (README/metadata) | Feature-update signal | Gap vs `whoop-ai-mcp` |
-|------|--------------------------------------|------------------------|------------------------|
-| **whoop-ai-mcp (this repo)** | **OAuth2 documented + explicit `0600` token file permissions + retry/backoff + token refresh** | **Most recent publish date in this set (2026-04-16), includes changelog/release workflow docs** | **Baseline** |
-| whoop-mcp-server | OAuth/token refresh documented; no explicit `0600` mention in npm README | Last publish 2026-03-13 | No MCP Registry `mcpName` metadata; no MCP Inspector section in npm README |
-| whoop-mcp | No explicit OAuth/retry/refresh/`0600` documentation in npm README | Last publish 2026-03-11 | No MCP Registry `mcpName` metadata; security/reliability behavior not explicitly documented in npm README |
-| @alacore/whoop-mcp-server | OAuth/token refresh documented; no explicit `0600` mention in npm README | Last publish 2025-10-09 | No MCP Registry `mcpName` metadata; retry/backoff behavior not explicitly documented in npm README |
-| @iflow-mcp/nissand-whoop-mcp-server | OAuth documented; no explicit `0600` or token-refresh mention in npm README | Last publish 2026-03-24 | No MCP Registry `mcpName` metadata; no explicit token-refresh/Inspector documentation in npm README |
-| @roebot0/whoop-mcp | OAuth/token refresh documented; no explicit `0600` mention in npm README | Last publish 2026-04-06 | No MCP Registry `mcpName` metadata; retry/backoff and Inspector coverage not explicitly documented in npm README |
+**Scoring dimensions (0–5):**
+
+- **Security & resilience (35%)**: documented OAuth, token refresh, retry/backoff, and explicit secure token file permissions (`0600`)
+- **Freshness (25%)**: recency of latest npm publish
+- **Docs & verification signals (25%)**: README coverage for OAuth, testing, changelog/release notes, and MCP Inspector usage
+- **Discoverability & portability (15%)**: MCP Registry metadata (`mcpName`), repository metadata present, and lean runtime dependency count (<=2)
+
+> Ratings are documentation/metadata-driven and are **not** a source-code security audit.
+
+| Package | Security & resilience | Freshness | Docs & verification | Discoverability | **Overall rating** | Key observed gap vs `whoop-ai-mcp` |
+|------|------------------------|-----------|---------------------|-----------------|--------------------|-------------------------------------|
+| **whoop-ai-mcp (this repo)** | **5.0/5** | **5.0/5** | **5.0/5** | **5.0/5** | **5.0/5** | Baseline |
+| whoop-mcp-server | 3.8/5 | 4.0/5 | 2.5/5 | 3.3/5 | **3.4/5** | No explicit `0600` token permission docs; no `mcpName`; no Inspector/changelog signal in npm README |
+| @roebot0/whoop-mcp | 2.5/5 | 5.0/5 | 1.3/5 | 1.7/5 | **2.7/5** | No `0600` docs; no `mcpName`; no explicit Inspector/changelog/testing signal in npm README |
+| @alacore/whoop-mcp-server | 2.5/5 | 2.0/5 | 2.5/5 | 3.3/5 | **2.5/5** | Older publish cadence; no explicit `0600` docs; no `mcpName`; retry/backoff not explicitly documented |
+| @iflow-mcp/nissand-whoop-mcp-server | 2.5/5 | 4.0/5 | 1.3/5 | 1.7/5 | **2.4/5** | No explicit token-refresh/`0600` docs; no repository metadata in npm manifest; no `mcpName` |
+| whoop-mcp | 0.0/5 | 4.0/5 | 0.0/5 | 3.3/5 | **1.5/5** | OAuth/refresh/retry/`0600` behavior not explicitly documented in npm README; no `mcpName` |
 
 ## 🎥 Video Walkthrough
 
