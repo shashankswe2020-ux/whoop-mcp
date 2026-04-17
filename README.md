@@ -21,15 +21,24 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 - ⚡ **Zero config** — just add your WHOOP app credentials and go
 - 📦 **Lightweight** — only two runtime dependencies (`@modelcontextprotocol/sdk` + `zod`)
 
-## Quick Comparison
+## Quick Comparison (WHOOP MCP packages on npm)
 
-| Area | whoop-ai-mcp (this repo) | Typical WHOOP MCP offerings on GitHub |
-|------|----------------------------|----------------------------------------|
-| Setup | Published on npm + MCP Registry, easy `npx` usage | Often source-only setup required |
-| Reliability | Built-in retry/backoff + token refresh handling | Retry/refresh behavior may be limited or absent |
-| Security | OAuth2 + local token storage with `0600` permissions | Security/token handling details may vary |
-| Testing | Large automated test suite with CI workflows | Test coverage is often smaller or undocumented |
-| Ecosystem fit | Works with Claude Desktop and MCP Inspector | Client compatibility can vary by project |
+_Based on npm search results for `whoop mcp` on 2026-04-17._
+
+| Package | Latest version | Last publish (UTC) | MCP Registry metadata (`mcpName`) | Runtime deps | npm |
+|------|-----------------|--------------------|------------------------------------|--------------|-----|
+| **whoop-ai-mcp (this repo)** | **0.2.1** | **2026-04-16** | **✅ `io.github.shashankswe2020-ux/whoop`** | **2** | https://www.npmjs.com/package/whoop-ai-mcp |
+| whoop-mcp-server | 0.0.5 | 2026-03-13 | — | 2 | https://www.npmjs.com/package/whoop-mcp-server |
+| whoop-mcp | 0.1.2 | 2026-03-11 | — | 2 | https://www.npmjs.com/package/whoop-mcp |
+| @alacore/whoop-mcp-server | 1.0.1 | 2025-10-09 | — | 2 | https://www.npmjs.com/package/@alacore/whoop-mcp-server |
+| @iflow-mcp/nissand-whoop-mcp-server | 1.0.3 | 2026-03-24 | — | 3 | https://www.npmjs.com/package/@iflow-mcp/nissand-whoop-mcp-server |
+| @roebot0/whoop-mcp | 1.0.0 | 2026-04-06 | — | 3 | https://www.npmjs.com/package/@roebot0/whoop-mcp |
+
+**Why this package stands out**
+
+- Published to npm **and** the official MCP Registry (via `mcpName` metadata)
+- Most recently published among listed WHOOP MCP packages (as of 2026-04-17)
+- Minimal runtime footprint (2 dependencies)
 
 ## 🎥 Video Walkthrough
 
