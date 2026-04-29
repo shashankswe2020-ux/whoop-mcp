@@ -60,7 +60,7 @@
     "eslint": "^10.2.1",
     "prettier": "^3.5.3",
     "tsx": "^4.19.4",
-    "typescript": "~5.8.3",
+    "typescript": "~6.0.3",
     "vitest": "^3.1.3"
   }
 }
