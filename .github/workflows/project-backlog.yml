@@ -16,7 +16,7 @@ jobs:
     if: ${{ vars.BACKLOG_PROJECT_URL != '' }}
     steps:
       - name: Add to GitHub Project
-        uses: actions/add-to-project@v1.0.2
+        uses: actions/add-to-project@v2.0.0
         with:
           project-url: ${{ vars.BACKLOG_PROJECT_URL }}
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
