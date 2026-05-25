@@ -188,7 +188,9 @@ describe("createWhoopClient", () => {
         statusText: "Too Many Requests",
         headers: { get: () => null },
         json: () => Promise.resolve({ retry_after: 30 }),
-        text: () => Promise.resolve("rate limited"),
+        // text() and json() must reflect the same bytes — a real Response body
+        // is a single stream, and parseErrorBody now reads it once via text().
+        text: () => Promise.resolve(JSON.stringify({ retry_after: 30 })),
       } as unknown as Response;
       mockFetch
         .mockResolvedValueOnce(response429)
@@ -547,6 +549,58 @@ describe("createWhoopClient", () => {
       );
     });
 
+    // Regression: WHOOP returns 401 with the plain-text body "Authorization was
+    // not valid" under a Content-Type: application/json header. A real Response
+    // body can only be consumed once, so reading json() (which throws on the
+    // non-JSON text) and then text() throws "Body is unusable: Body has already
+    // been read". That TypeError escaped parseErrorBody and short-circuited this
+    // refresh path, leaving the client permanently broken once the access token
+    // expired. The mock below faithfully models single-read body semantics —
+    // unlike the independent json()/text() resolvers used elsewhere in this file
+    // — so it fails against the old double-read implementation.
+    it("refreshes token on 401 when the error body is non-JSON (regression: 'Body is unusable')", async () => {
+      const NEW_TOKEN = "refreshed_token_xyz";
+      function mock401NonJsonResponse(): Response {
+        let bodyUsed = false;
+        const consume = (): void => {
+          if (bodyUsed) {
+            throw new TypeError("Body is unusable: Body has already been read");
+          }
+          bodyUsed = true;
+        };
+        return {
+          ok: false,
+          status: 401,
+          statusText: "Unauthorized",
+          headers: { get: () => "application/json" },
+          json: () => {
+            consume();
+            return Promise.reject(new SyntaxError("Unexpected token 'A', \"Authorizat\"... is not valid JSON"));
+          },
+          text: () => {
+            consume();
+            return Promise.resolve("Authorization was not valid");
+          },
+        } as unknown as Response;
+      }
+
+      mockFetch
+        .mockResolvedValueOnce(mock401NonJsonResponse())
+        .mockResolvedValueOnce(mockJsonResponse({ user_id: 42 }));
+      const onTokenRefresh = vi.fn().mockResolvedValue(NEW_TOKEN);
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      const result = await client.get<{ user_id: number }>("/v2/user/profile/basic");
+
+      expect(result.user_id).toBe(42);
+      expect(onTokenRefresh).toHaveBeenCalledOnce();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
     it("throws WhoopApiError if retry after refresh also returns 401", async () => {
       mockFetch.mockResolvedValueOnce(mock401Response()).mockResolvedValueOnce(mock401Response());
       const onTokenRefresh = vi.fn().mockResolvedValue("new_token");
@@ -678,6 +732,7 @@ describe("createWhoopClient", () => {
           statusText: "Too Many Requests",
           headers: headers429,
           json: () => Promise.resolve({ message: "rate limited" }),
+          text: () => Promise.resolve(JSON.stringify({ message: "rate limited" })),
         } as unknown as Response)
         .mockResolvedValueOnce({
           ok: true,
@@ -706,6 +761,7 @@ describe("createWhoopClient", () => {
           statusText: "Too Many Requests",
           headers: headers429,
           json: () => Promise.resolve({ message: "rate limited" }),
+          text: () => Promise.resolve(JSON.stringify({ message: "rate limited" })),
         } as unknown as Response)
         .mockResolvedValueOnce({
           ok: true,
