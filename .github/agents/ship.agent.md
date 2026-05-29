@@ -8,7 +8,7 @@ user-invocable: true
 argument-hint: >
   Say "checklist" to run the full pre-launch checklist, or specify a section
   (e.g., "security", "packaging", "integration").
-tools: ["*"]
+tools: [vscode, execute, read, agent, edit, search, web, browser, todo]
 agents:
   - code-reviewer
   - security-auditor

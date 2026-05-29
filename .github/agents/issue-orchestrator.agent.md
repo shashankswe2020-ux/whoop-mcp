@@ -10,7 +10,7 @@ user-invocable: true
 argument-hint: >
   Say "triage" to scan all open issues, or pass a specific issue number like "#14"
   to resolve a single issue.
-tools: ["*"]
+tools: [vscode, execute, read, agent, edit, search, web, browser, todo]
 agents:
   - code-reviewer
   - security-auditor

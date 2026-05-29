@@ -8,7 +8,7 @@ user-invocable: true
 argument-hint: >
   Describe what you want to build or change, or say "update" to revise the
   existing spec based on new requirements.
-tools: ["read", "search", "edit", "agent"]
+tools: [read, agent, edit, search, browser]
 agents:
   - code-reviewer
   - security-auditor

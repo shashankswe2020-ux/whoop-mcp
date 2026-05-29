@@ -8,7 +8,7 @@ user-invocable: true
 argument-hint: >
   Say "next" to pick the next pending task from the implementation plan, or
   describe a specific task to implement.
-tools: ["*"]
+tools: [vscode, execute, read, agent, edit, search, web, browser, vscode.mermaid-chat-features/renderMermaidDiagram, ms-azuretools.vscode-containers/containerToolsConfig, todo]
 agents:
   - code-reviewer
   - security-auditor

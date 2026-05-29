@@ -7,7 +7,7 @@ user-invocable: true
 argument-hint: >
   Describe what needs to be planned, or say "next phase" to plan the next
   phase of the implementation plan.
-tools: ["read", "search", "create_file", "edit_file","agent"]
+tools: [vscode, execute, read, agent, edit, search, web, browser, todo]
 agents:
   - code-reviewer
   - security-auditor
