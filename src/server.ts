@@ -22,6 +22,7 @@ import { getWeeklySummary } from "./tools/get-weekly-summary.js";
 import { comparePeriods } from "./tools/compare-periods.js";
 import { getTrend } from "./tools/get-trend.js";
 import { registerResources, type ResourceCache } from "./resources/index.js";
+import { registerPrompts } from "./prompts/index.js";
 import { readFileSync } from "node:fs";
 
 // ---------------------------------------------------------------------------
@@ -379,6 +380,11 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   if (!options?.disableResources) {
     resourceCache = registerResources(server, client);
   }
+
+  // -------------------------------------------------------------------------
+  // MCP Prompts
+  // -------------------------------------------------------------------------
+  registerPrompts(server);
 
   return { server, resourceCache };
 }
