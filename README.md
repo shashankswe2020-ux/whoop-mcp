@@ -16,20 +16,24 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 
 ## Features
 
-- 🏋️ **6 health data tools** — recovery, sleep, workouts, cycles, body measurements, and profile
+- 🏋️ **12 health data tools** — recovery, sleep, workouts, cycles, body measurements, profile, weekly summaries, trend analysis, period comparisons, and individual record lookups
+- 📊 **4 MCP Resources** — ambient health context (latest recovery, sleep, cycle, profile) available without explicit tool calls
+- 💬 **5 MCP Prompts** — guided conversation starters for common health queries
+- 📅 **Natural date expressions** — use "last 7 days", "this week", "yesterday" instead of ISO 8601
+- 📈 **Built-in analytics** — weekly summaries, trend detection (linear regression), and period comparisons computed server-side
 - 🔐 **Secure OAuth2** — browser-based authentication with automatic token refresh
-- 🔄 **Resilient** — automatic retry on rate limits, token refresh on expiry, clear error messages
+- 🔄 **Resilient** — automatic retry on rate limits, token refresh on expiry, auto-pagination, clear error messages
 - 💾 **Secure token storage** — tokens stored at `~/.whoop-mcp/tokens.json` with `0600` permissions
 - ⚡ **Zero config** — just add your WHOOP app credentials and go
 - 📦 **Lightweight** — only two runtime dependencies (`@modelcontextprotocol/sdk` + `zod`)
 
 ## Quick Comparison (WHOOP MCP packages on npm)
 
-_Based on npm search results for `whoop mcp` on 2026-04-17._
+_Based on npm search results for `whoop mcp` on 2026-05-29._
 
 | Package | Latest version | Last publish (UTC) | MCP Registry metadata (`mcpName`) | Runtime deps | npm |
 |------|-----------------|--------------------|------------------------------------|--------------|-----|
-| **whoop-ai-mcp (this repo)** | **0.2.1** | **2026-04-16** | **✅ `io.github.shashankswe2020-ux/whoop`** | **2** | https://www.npmjs.com/package/whoop-ai-mcp |
+| **whoop-ai-mcp (this repo)** | **0.3.0** | **2026-05-29** | **✅ `io.github.shashankswe2020-ux/whoop`** | **2** | https://www.npmjs.com/package/whoop-ai-mcp |
 | whoop-mcp-server | 0.0.5 | 2026-03-13 | — | 2 | https://www.npmjs.com/package/whoop-mcp-server |
 | whoop-mcp | 0.1.2 | 2026-03-11 | — | 2 | https://www.npmjs.com/package/whoop-mcp |
 | @alacore/whoop-mcp-server | 1.0.1 | 2025-10-09 | — | 2 | https://www.npmjs.com/package/@alacore/whoop-mcp-server |
@@ -39,12 +43,13 @@ _Based on npm search results for `whoop mcp` on 2026-04-17._
 **Why this package stands out**
 
 - Published to npm **and** the official MCP Registry (via `mcpName` metadata)
-- Most recently published among listed WHOOP MCP packages (as of 2026-04-17)
+- Most feature-rich: 12 tools + 4 resources + 5 prompts + analytics + auto-pagination
+- Most recently published among listed WHOOP MCP packages (as of 2026-05-29)
 - Minimal runtime footprint (2 dependencies)
 
 ### Deep comparison ratings (WHOOP MCP packages on npm)
 
-_Evidence basis: npm registry metadata + npm-hosted README signals + package manifest fields (`dependencies`, `repository`, `mcpName`) collected on 2026-04-17._
+_Evidence basis: npm registry metadata + npm-hosted README signals + package manifest fields (`dependencies`, `repository`, `mcpName`) collected on 2026-05-29._
 
 **Scoring dimensions (0–5):**
 
@@ -133,6 +138,10 @@ Then ask Claude something like:
 > *"Show me my sleep data from the last 3 days"*
 >
 > *"What workouts did I do this month?"*
+>
+> *"Is my HRV trending up or down?"*
+>
+> *"Give me a weekly health summary"*
 
 **whoop-mcp connected in Claude Desktop:**
 
@@ -463,23 +472,35 @@ npm install
 ```
 src/
 ├── index.ts              # Entry point — auth, client, server, stdio
-├── server.ts             # MCP server + tool registration
+├── server.ts             # MCP server + tool/resource/prompt registration
 ├── auth/
 │   ├── oauth.ts          # OAuth2 Authorization Code flow
 │   ├── token-store.ts    # Secure token persistence
 │   └── callback-server.ts # Local OAuth callback server
 ├── api/
 │   ├── client.ts         # HTTP client with retry + refresh
+│   ├── pagination.ts     # Auto-pagination utility (fetchAllPages)
 │   ├── types.ts          # WHOOP API response types
 │   └── endpoints.ts      # API URL constants
-└── tools/
-    ├── get-profile.ts
-    ├── get-recovery.ts
-    ├── get-sleep.ts
-    ├── get-workout.ts
-    ├── get-cycle.ts
-    ├── get-body-measurement.ts
-    └── collection-utils.ts
+├── resources/
+│   └── index.ts          # MCP Resource handlers (4 resources)
+├── tools/
+│   ├── get-profile.ts
+│   ├── get-recovery.ts
+│   ├── get-sleep.ts
+│   ├── get-workout.ts
+│   ├── get-cycle.ts
+│   ├── get-body-measurement.ts
+│   ├── get-sleep-by-id.ts
+│   ├── get-workout-by-id.ts
+│   ├── get-cycle-by-id.ts
+│   ├── get-weekly-summary.ts   # Analytical: weekly health report
+│   ├── compare-periods.ts      # Analytical: period comparison
+│   ├── get-trend.ts            # Analytical: trend detection
+│   ├── date-utils.ts           # Relative date expression parser
+│   ├── stats-utils.ts          # Statistics (mean, median, regression)
+│   └── collection-utils.ts
+└── (prompts registered in server.ts)
 ```
 
 ## Releases & npm Package
