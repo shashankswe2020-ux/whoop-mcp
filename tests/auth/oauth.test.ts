@@ -516,7 +516,7 @@ describe("openBrowser", () => {
     expect(mockSpawn).toHaveBeenCalledOnce();
     expect(mockSpawn).toHaveBeenCalledWith(
       "cmd",
-      ["/c", "start", "https://example.com/auth"],
+      ["/c", "start", '""', "https://example.com/auth"],
       expect.objectContaining({ detached: true, stdio: "ignore" })
     );
 
