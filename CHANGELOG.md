@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Hardened OAuth callback responses with security headers (`Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`).
+- Hardened Windows browser launch by adding the `start "" <url>` title guard in `openBrowser()`.
+
 ## [0.3.0] - 2026-05-29
 
 ### Added

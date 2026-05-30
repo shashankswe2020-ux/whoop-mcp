@@ -28,6 +28,9 @@ describe("startCallbackServer", () => {
       const response = await fetch(callbackUrl);
 
       expect(response.ok).toBe(true);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(response.headers.get("x-frame-options")).toBe("DENY");
       const html = await response.text();
       expect(html.toLowerCase()).toContain("success");
 
@@ -103,6 +106,9 @@ describe("startCallbackServer", () => {
       );
 
       expect(response.status).toBe(400);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(response.headers.get("x-frame-options")).toBe("DENY");
       const html = await response.text();
       expect(html.toLowerCase()).toContain("error");
 

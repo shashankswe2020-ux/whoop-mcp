@@ -197,7 +197,8 @@ export function openBrowser(url: string): void {
   try {
     const commands: Record<string, [string, string[]]> = {
       darwin: ["open", [url]],
-      win32: ["cmd", ["/c", "start", url]],
+      // Pass empty title argument ("") to avoid Windows `start` parsing pitfalls.
+      win32: ["cmd", ["/c", "start", '""', url]],
       linux: ["xdg-open", [url]],
     };
 
