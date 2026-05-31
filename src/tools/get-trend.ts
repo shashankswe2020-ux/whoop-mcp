@@ -10,11 +10,7 @@
 
 import type { WhoopClient } from "../api/client.js";
 import { fetchAllPages } from "../api/pagination.js";
-import {
-  ENDPOINT_RECOVERY,
-  ENDPOINT_SLEEP,
-  ENDPOINT_CYCLE,
-} from "../api/endpoints.js";
+import { ENDPOINT_RECOVERY, ENDPOINT_SLEEP, ENDPOINT_CYCLE } from "../api/endpoints.js";
 import type { Recovery, Sleep, Cycle } from "../api/types.js";
 import {
   mean,
@@ -124,7 +120,9 @@ interface MetricConfig {
   extract: (records: unknown[]) => { values: number[]; dates: string[] };
 }
 
-function recoveryMetricConfig(field: "recovery_score" | "hrv_rmssd_milli" | "resting_heart_rate"): MetricConfig {
+function recoveryMetricConfig(
+  field: "recovery_score" | "hrv_rmssd_milli" | "resting_heart_rate"
+): MetricConfig {
   return {
     endpoint: ENDPOINT_RECOVERY,
     extract: (records: unknown[]) => {
@@ -158,7 +156,10 @@ const METRIC_CONFIGS: Record<TrendMetric, MetricConfig> = {
     extract: (records: unknown[]) => {
       const typed = records as Sleep[];
       const scored = typed.filter(
-        (s) => s.score_state === "SCORED" && s.score?.sleep_performance_percentage !== undefined && !s.nap
+        (s) =>
+          s.score_state === "SCORED" &&
+          s.score?.sleep_performance_percentage !== undefined &&
+          !s.nap
       );
       return {
         values: scored.map((s) => s.score!.sleep_performance_percentage!),

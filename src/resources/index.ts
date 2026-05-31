@@ -70,16 +70,18 @@ export class ResourceCache {
     const gen = this.generation;
 
     // Fetch and cache
-    const promise = fetcher().then((data) => {
-      if (this.generation === gen) {
-        this.cache.set(key, { data, expiry: Date.now() + ttlMs });
-      }
-      this.inflight.delete(key);
-      return data;
-    }).catch((error: unknown) => {
-      this.inflight.delete(key);
-      throw error;
-    });
+    const promise = fetcher()
+      .then((data) => {
+        if (this.generation === gen) {
+          this.cache.set(key, { data, expiry: Date.now() + ttlMs });
+        }
+        this.inflight.delete(key);
+        return data;
+      })
+      .catch((error: unknown) => {
+        this.inflight.delete(key);
+        throw error;
+      });
 
     this.inflight.set(key, promise);
     return promise;
@@ -168,10 +170,7 @@ export const RESOURCE_DEFINITIONS: ResourceDefinition[] = [
  * Register all WHOOP resources on the given MCP server.
  * Returns the ResourceCache instance for cache invalidation on token refresh.
  */
-export function registerResources(
-  server: McpServer,
-  client: WhoopClient
-): ResourceCache {
+export function registerResources(server: McpServer, client: WhoopClient): ResourceCache {
   const cache = new ResourceCache();
 
   for (const def of RESOURCE_DEFINITIONS) {

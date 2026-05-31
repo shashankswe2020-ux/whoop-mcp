@@ -61,7 +61,10 @@ describe("ResourceCache", () => {
     const cache = new ResourceCache();
     let resolvePromise: (val: unknown) => void;
     const fetcher = vi.fn().mockImplementation(
-      () => new Promise((resolve) => { resolvePromise = resolve; })
+      () =>
+        new Promise((resolve) => {
+          resolvePromise = resolve;
+        })
     );
 
     const p1 = cache.getOrFetch("key1", 5000, fetcher);
@@ -98,7 +101,10 @@ describe("ResourceCache", () => {
     const fetcher = vi
       .fn()
       .mockImplementationOnce(
-        () => new Promise((resolve) => { resolveFirst = resolve; })
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
       )
       .mockResolvedValueOnce({ score: 99 });
 
@@ -175,17 +181,13 @@ describe("RESOURCE_DEFINITIONS", () => {
   });
 
   it("profile resource uses 1-hour TTL", () => {
-    const profileDef = RESOURCE_DEFINITIONS.find(
-      (d) => d.uri === "whoop://v2/user/profile"
-    );
+    const profileDef = RESOURCE_DEFINITIONS.find((d) => d.uri === "whoop://v2/user/profile");
     expect(profileDef).toBeDefined();
     expect(profileDef!.ttlMs).toBe(PROFILE_TTL_MS);
   });
 
   describe("recovery latest fetcher", () => {
-    const def = RESOURCE_DEFINITIONS.find(
-      (d) => d.uri === "whoop://v2/user/recovery/latest"
-    )!;
+    const def = RESOURCE_DEFINITIONS.find((d) => d.uri === "whoop://v2/user/recovery/latest")!;
 
     it("returns first record from recovery endpoint", async () => {
       const mockClient: WhoopClient = {
@@ -208,9 +210,7 @@ describe("RESOURCE_DEFINITIONS", () => {
   });
 
   describe("sleep latest fetcher", () => {
-    const def = RESOURCE_DEFINITIONS.find(
-      (d) => d.uri === "whoop://v2/user/sleep/latest"
-    )!;
+    const def = RESOURCE_DEFINITIONS.find((d) => d.uri === "whoop://v2/user/sleep/latest")!;
 
     it("returns first record from sleep endpoint", async () => {
       const mockClient: WhoopClient = {
@@ -233,9 +233,7 @@ describe("RESOURCE_DEFINITIONS", () => {
   });
 
   describe("cycle latest fetcher", () => {
-    const def = RESOURCE_DEFINITIONS.find(
-      (d) => d.uri === "whoop://v2/user/cycle/latest"
-    )!;
+    const def = RESOURCE_DEFINITIONS.find((d) => d.uri === "whoop://v2/user/cycle/latest")!;
 
     it("returns first record from cycle endpoint", async () => {
       const mockClient: WhoopClient = {
@@ -258,9 +256,7 @@ describe("RESOURCE_DEFINITIONS", () => {
   });
 
   describe("profile fetcher", () => {
-    const def = RESOURCE_DEFINITIONS.find(
-      (d) => d.uri === "whoop://v2/user/profile"
-    )!;
+    const def = RESOURCE_DEFINITIONS.find((d) => d.uri === "whoop://v2/user/profile")!;
 
     it("returns profile from profile endpoint", async () => {
       const mockClient: WhoopClient = {
@@ -398,9 +394,7 @@ describe("registerResources", () => {
     const callback = recoveryCall![3] as (uri: URL) => Promise<unknown>;
     await callback(new URL("whoop://v2/user/recovery/latest"));
 
-    expect(stderrSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Resource read failed")
-    );
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("Resource read failed"));
 
     stderrSpy.mockRestore();
   });

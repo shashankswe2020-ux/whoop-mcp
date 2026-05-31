@@ -235,10 +235,10 @@ describe("createWhoopServer", () => {
   // -------------------------------------------------------------------------
 
   describe("tools/list", () => {
-    it("returns exactly 9 tools", async () => {
+    it("returns all registered tools", async () => {
       const result = await client.listTools();
 
-      expect(result.tools).toHaveLength(12);
+      expect(result.tools).toHaveLength(14);
     });
 
     it("returns tools with the correct names", async () => {
@@ -248,12 +248,14 @@ describe("createWhoopServer", () => {
       expect(names).toEqual([
         "compare_periods",
         "get_body_measurement",
+        "get_calendar",
         "get_cycle_by_id",
         "get_cycle_collection",
         "get_profile",
         "get_recovery_collection",
         "get_sleep_by_id",
         "get_sleep_collection",
+        "get_today",
         "get_trend",
         "get_weekly_summary",
         "get_workout_by_id",
@@ -455,6 +457,40 @@ describe("createWhoopServer", () => {
       const content = result.content as Array<{ type: string; text: string }>;
       const parsed = JSON.parse(content[0].text) as unknown;
       expect(parsed).toEqual(CYCLE_BY_ID_FIXTURE);
+    });
+
+    it("get_today returns a snapshot with recovery, sleep, and strain", async () => {
+      const result = await client.callTool({
+        name: "get_today",
+        arguments: {},
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content).toHaveLength(1);
+
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0].text) as Record<string, unknown>;
+      expect(parsed).toHaveProperty("timestamp");
+      expect(parsed).toHaveProperty("recovery");
+      expect(parsed).toHaveProperty("sleep");
+      expect(parsed).toHaveProperty("strain");
+      expect(parsed).toHaveProperty("summary");
+    });
+
+    it("get_calendar returns a grid with period, days, and averages", async () => {
+      const result = await client.callTool({
+        name: "get_calendar",
+        arguments: { days: 7 },
+      });
+
+      expect(result.isError).toBeFalsy();
+      expect(result.content).toHaveLength(1);
+
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0].text) as Record<string, unknown>;
+      expect(parsed).toHaveProperty("period");
+      expect(parsed).toHaveProperty("days");
+      expect(parsed).toHaveProperty("averages");
     });
   });
 
@@ -751,7 +787,9 @@ describe("createWhoopServer (resources)", () => {
 describe("createWhoopServer (resources disabled)", () => {
   it("does not register resources when disableResources is true", async () => {
     const mockWhoopClient = createMockClient();
-    const { server, resourceCache } = createWhoopServer(mockWhoopClient, { disableResources: true });
+    const { server, resourceCache } = createWhoopServer(mockWhoopClient, {
+      disableResources: true,
+    });
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const mcpClient = new Client({ name: "no-resources-test", version: "1.0.0" });

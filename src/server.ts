@@ -21,6 +21,8 @@ import { getCycleById } from "./tools/get-cycle-by-id.js";
 import { getWeeklySummary } from "./tools/get-weekly-summary.js";
 import { comparePeriods } from "./tools/compare-periods.js";
 import { getTrend } from "./tools/get-trend.js";
+import { getToday } from "./tools/get-today.js";
+import { getCalendar } from "./tools/get-calendar.js";
 import { registerResources, type ResourceCache } from "./resources/index.js";
 import { registerPrompts } from "./prompts/index.js";
 import { readFileSync } from "node:fs";
@@ -49,17 +51,16 @@ function getPackageVersion(): string {
 const stringIdSchema = z.object({
   id: z
     .string()
-    .regex(/^[a-zA-Z0-9_-]+$/, "ID must contain only alphanumeric characters, hyphens, and underscores")
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      "ID must contain only alphanumeric characters, hyphens, and underscores"
+    )
     .describe("The record ID to look up."),
 });
 
 /** Input schema for numeric ID lookup (cycle) */
 const numericIdSchema = z.object({
-  id: z
-    .number()
-    .int()
-    .positive()
-    .describe("The record ID to look up."),
+  id: z.number().int().positive().describe("The record ID to look up."),
 });
 
 /** Input schema shared by all collection endpoints (recovery, sleep, workout, cycle) */
@@ -74,7 +75,7 @@ const collectionInputSchema = z.object({
     .string()
     .optional()
     .describe(
-      'Return records before this time (exclusive). ISO 8601 format or relative expression. Defaults to now.'
+      "Return records before this time (exclusive). ISO 8601 format or relative expression. Defaults to now."
     ),
   limit: z
     .number()
@@ -269,8 +270,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
       inputSchema: stringIdSchema,
       annotations: { readOnlyHint: true },
     },
-    async (args: z.infer<typeof stringIdSchema>) =>
-      safeTool(() => getSleepById(client, args.id))
+    async (args: z.infer<typeof stringIdSchema>) => safeTool(() => getSleepById(client, args.id))
   );
 
   // -------------------------------------------------------------------------
@@ -284,8 +284,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
       inputSchema: stringIdSchema,
       annotations: { readOnlyHint: true },
     },
-    async (args: z.infer<typeof stringIdSchema>) =>
-      safeTool(() => getWorkoutById(client, args.id))
+    async (args: z.infer<typeof stringIdSchema>) => safeTool(() => getWorkoutById(client, args.id))
   );
 
   // -------------------------------------------------------------------------
@@ -299,8 +298,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
       inputSchema: numericIdSchema,
       annotations: { readOnlyHint: true },
     },
-    async (args: z.infer<typeof numericIdSchema>) =>
-      safeTool(() => getCycleById(client, args.id))
+    async (args: z.infer<typeof numericIdSchema>) => safeTool(() => getCycleById(client, args.id))
   );
 
   // -------------------------------------------------------------------------
@@ -321,8 +319,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
       }),
       annotations: { readOnlyHint: true },
     },
-    async (args: { week_start?: string }) =>
-      safeTool(() => getWeeklySummary(client, args))
+    async (args: { week_start?: string }) => safeTool(() => getWeeklySummary(client, args))
   );
 
   // -------------------------------------------------------------------------
@@ -371,8 +368,51 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
       }),
       annotations: { readOnlyHint: true },
     },
-    async (args: { metric: "recovery" | "hrv" | "rhr" | "sleep_duration" | "sleep_performance" | "strain"; days?: number }) =>
-      safeTool(() => getTrend(client, args))
+    async (args: {
+      metric: "recovery" | "hrv" | "rhr" | "sleep_duration" | "sleep_performance" | "strain";
+      days?: number;
+    }) => safeTool(() => getTrend(client, args))
+  );
+
+  // -------------------------------------------------------------------------
+  // Tool 13: get_today
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "get_today",
+    {
+      description:
+        "Get today's complete health snapshot — recovery score, last night's sleep, current strain, and last workout in one call.",
+      annotations: { readOnlyHint: true },
+    },
+    async () => safeTool(() => getToday(client))
+  );
+
+  // -------------------------------------------------------------------------
+  // Tool 14: get_calendar
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "get_calendar",
+    {
+      description:
+        "Get a day-by-day grid of recovery, sleep, and strain for a date range. Perfect for weekly/monthly overviews.",
+      inputSchema: z.object({
+        days: z
+          .number()
+          .int()
+          .min(1)
+          .max(90)
+          .optional()
+          .describe("Number of days to show. Default: 7. Max: 90."),
+        start: z
+          .string()
+          .optional()
+          .describe(
+            "Start date — ISO 8601 or relative ('last 14 days', 'this month'). Defaults to N days ago."
+          ),
+      }),
+      annotations: { readOnlyHint: true },
+    },
+    async (args: { days?: number; start?: string }) => safeTool(() => getCalendar(client, args))
   );
 
   // -------------------------------------------------------------------------

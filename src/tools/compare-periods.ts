@@ -11,11 +11,7 @@
 
 import type { WhoopClient } from "../api/client.js";
 import { fetchAllPages } from "../api/pagination.js";
-import {
-  ENDPOINT_RECOVERY,
-  ENDPOINT_SLEEP,
-  ENDPOINT_CYCLE,
-} from "../api/endpoints.js";
+import { ENDPOINT_RECOVERY, ENDPOINT_SLEEP, ENDPOINT_CYCLE } from "../api/endpoints.js";
 import type { Recovery, Sleep, Cycle } from "../api/types.js";
 import { validateDateRange, InvalidDateExpression } from "./date-utils.js";
 import { mean } from "./stats-utils.js";
@@ -102,11 +98,7 @@ function buildQuery(start: string, end: string): string {
 }
 
 /** Safely fetch all pages from an endpoint */
-async function fetchRecords<T>(
-  client: WhoopClient,
-  endpoint: string,
-  query: string
-): Promise<T[]> {
+async function fetchRecords<T>(client: WhoopClient, endpoint: string, query: string): Promise<T[]> {
   const result = await fetchAllPages<T>(client, `${endpoint}${query}`, {
     maxRecords: 100,
     maxPages: 10,
@@ -188,12 +180,10 @@ export async function comparePeriods(
   const scoredRecoveryA = recoveryA.filter((r) => r.score_state === "SCORED" && r.score);
   const scoredRecoveryB = recoveryB.filter((r) => r.score_state === "SCORED" && r.score);
 
-  const recoveryAvgA = scoredRecoveryA.length > 0
-    ? mean(scoredRecoveryA.map((r) => r.score!.recovery_score))
-    : 0;
-  const recoveryAvgB = scoredRecoveryB.length > 0
-    ? mean(scoredRecoveryB.map((r) => r.score!.recovery_score))
-    : 0;
+  const recoveryAvgA =
+    scoredRecoveryA.length > 0 ? mean(scoredRecoveryA.map((r) => r.score!.recovery_score)) : 0;
+  const recoveryAvgB =
+    scoredRecoveryB.length > 0 ? mean(scoredRecoveryB.map((r) => r.score!.recovery_score)) : 0;
 
   const recoveryChange = percentChange(recoveryAvgA, recoveryAvgB);
 
@@ -210,12 +200,8 @@ export async function comparePeriods(
   const scoredCycleA = cycleA.filter((c) => c.score_state === "SCORED" && c.score);
   const scoredCycleB = cycleB.filter((c) => c.score_state === "SCORED" && c.score);
 
-  const strainAvgA = scoredCycleA.length > 0
-    ? mean(scoredCycleA.map((c) => c.score!.strain))
-    : 0;
-  const strainAvgB = scoredCycleB.length > 0
-    ? mean(scoredCycleB.map((c) => c.score!.strain))
-    : 0;
+  const strainAvgA = scoredCycleA.length > 0 ? mean(scoredCycleA.map((c) => c.score!.strain)) : 0;
+  const strainAvgB = scoredCycleB.length > 0 ? mean(scoredCycleB.map((c) => c.score!.strain)) : 0;
 
   const strainChange = percentChange(strainAvgA, strainAvgB);
 

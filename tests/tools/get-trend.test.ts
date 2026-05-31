@@ -15,12 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { WhoopClient } from "../../src/api/client.js";
 import { getTrend } from "../../src/tools/get-trend.js";
-import type {
-  Recovery,
-  Sleep,
-  Cycle,
-  PaginatedResponse,
-} from "../../src/api/types.js";
+import type { Recovery, Sleep, Cycle, PaginatedResponse } from "../../src/api/types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,7 +27,12 @@ function createMockClient(): { client: WhoopClient; getMock: ReturnType<typeof v
   return { client, getMock };
 }
 
-function makeRecovery(opts: { recovery_score: number; hrv: number; rhr: number; date?: string }): Recovery {
+function makeRecovery(opts: {
+  recovery_score: number;
+  hrv: number;
+  rhr: number;
+  date?: string;
+}): Recovery {
   return {
     cycle_id: 1,
     sleep_id: "s1",
@@ -260,9 +260,7 @@ describe("getTrend", () => {
   it("detects anomalies (>2σ from mean)", async () => {
     // 10 values around 70, one outlier at 20
     const scores = [70, 72, 68, 71, 69, 73, 70, 71, 20, 70];
-    const recoveries = scores.map((s) =>
-      makeRecovery({ recovery_score: s, hrv: 55, rhr: 52 })
-    );
+    const recoveries = scores.map((s) => makeRecovery({ recovery_score: s, hrv: 55, rhr: 52 }));
     getMock.mockResolvedValueOnce(paginated(recoveries));
 
     const result = await getTrend(client, { metric: "recovery" });
@@ -273,25 +271,27 @@ describe("getTrend", () => {
   });
 
   it("throws error for < 2 data points", async () => {
-    getMock.mockResolvedValueOnce(paginated([makeRecovery({ recovery_score: 70, hrv: 55, rhr: 52 })]));
-
-    await expect(getTrend(client, { metric: "recovery" })).rejects.toThrow(
-      "at least 2"
+    getMock.mockResolvedValueOnce(
+      paginated([makeRecovery({ recovery_score: 70, hrv: 55, rhr: 52 })])
     );
+
+    await expect(getTrend(client, { metric: "recovery" })).rejects.toThrow("at least 2");
   });
 
   it("throws error for 0 data points", async () => {
     getMock.mockResolvedValueOnce(paginated([]));
 
-    await expect(getTrend(client, { metric: "recovery" })).rejects.toThrow(
-      "at least 2"
-    );
+    await expect(getTrend(client, { metric: "recovery" })).rejects.toThrow("at least 2");
   });
 
   it("filters unscored records", async () => {
     const recoveries: Recovery[] = [
       makeRecovery({ recovery_score: 70, hrv: 55, rhr: 52 }),
-      { ...makeRecovery({ recovery_score: 50, hrv: 40, rhr: 60 }), score_state: "PENDING_SCORE", score: undefined },
+      {
+        ...makeRecovery({ recovery_score: 50, hrv: 40, rhr: 60 }),
+        score_state: "PENDING_SCORE",
+        score: undefined,
+      },
       makeRecovery({ recovery_score: 80, hrv: 65, rhr: 54 }),
     ];
     getMock.mockResolvedValueOnce(paginated(recoveries));
@@ -302,10 +302,12 @@ describe("getTrend", () => {
   });
 
   it("defaults to 30 days when days not specified", async () => {
-    getMock.mockResolvedValueOnce(paginated([
-      makeRecovery({ recovery_score: 70, hrv: 55, rhr: 52 }),
-      makeRecovery({ recovery_score: 75, hrv: 60, rhr: 54 }),
-    ]));
+    getMock.mockResolvedValueOnce(
+      paginated([
+        makeRecovery({ recovery_score: 70, hrv: 55, rhr: 52 }),
+        makeRecovery({ recovery_score: 75, hrv: 60, rhr: 54 }),
+      ])
+    );
 
     const result = await getTrend(client, { metric: "recovery" });
 
@@ -316,10 +318,12 @@ describe("getTrend", () => {
   });
 
   it("includes period start, end, and days in output", async () => {
-    getMock.mockResolvedValueOnce(paginated([
-      makeRecovery({ recovery_score: 70, hrv: 55, rhr: 52 }),
-      makeRecovery({ recovery_score: 75, hrv: 60, rhr: 54 }),
-    ]));
+    getMock.mockResolvedValueOnce(
+      paginated([
+        makeRecovery({ recovery_score: 70, hrv: 55, rhr: 52 }),
+        makeRecovery({ recovery_score: 75, hrv: 60, rhr: 54 }),
+      ])
+    );
 
     const result = await getTrend(client, { metric: "recovery", days: 14 });
 

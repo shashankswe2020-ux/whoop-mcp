@@ -15,13 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { WhoopClient } from "../../src/api/client.js";
 import { getWeeklySummary } from "../../src/tools/get-weekly-summary.js";
-import type {
-  Recovery,
-  Sleep,
-  Workout,
-  Cycle,
-  PaginatedResponse,
-} from "../../src/api/types.js";
+import type { Recovery, Sleep, Workout, Cycle, PaginatedResponse } from "../../src/api/types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -33,7 +27,9 @@ function createMockClient(): { client: WhoopClient; getMock: ReturnType<typeof v
   return { client, getMock };
 }
 
-function makeRecovery(overrides: Partial<Recovery> & { score?: Partial<Recovery["score"]> } = {}): Recovery {
+function makeRecovery(
+  overrides: Partial<Recovery> & { score?: Partial<Recovery["score"]> } = {}
+): Recovery {
   return {
     cycle_id: 1,
     sleep_id: "s1",
@@ -177,9 +173,36 @@ describe("getWeeklySummary", () => {
 
   it("computes correct recovery averages from scored records", async () => {
     const recoveries = [
-      makeRecovery({ score: { user_calibrating: false, recovery_score: 70, resting_heart_rate: 52, hrv_rmssd_milli: 55, spo2_percentage: 98, skin_temp_celsius: 33 } }),
-      makeRecovery({ score: { user_calibrating: false, recovery_score: 80, resting_heart_rate: 58, hrv_rmssd_milli: 65, spo2_percentage: 97, skin_temp_celsius: 34 } }),
-      makeRecovery({ score: { user_calibrating: false, recovery_score: 60, resting_heart_rate: 54, hrv_rmssd_milli: 50, spo2_percentage: 99, skin_temp_celsius: 33.5 } }),
+      makeRecovery({
+        score: {
+          user_calibrating: false,
+          recovery_score: 70,
+          resting_heart_rate: 52,
+          hrv_rmssd_milli: 55,
+          spo2_percentage: 98,
+          skin_temp_celsius: 33,
+        },
+      }),
+      makeRecovery({
+        score: {
+          user_calibrating: false,
+          recovery_score: 80,
+          resting_heart_rate: 58,
+          hrv_rmssd_milli: 65,
+          spo2_percentage: 97,
+          skin_temp_celsius: 34,
+        },
+      }),
+      makeRecovery({
+        score: {
+          user_calibrating: false,
+          recovery_score: 60,
+          resting_heart_rate: 54,
+          hrv_rmssd_milli: 50,
+          spo2_percentage: 99,
+          skin_temp_celsius: 33.5,
+        },
+      }),
     ];
 
     getMock
@@ -245,9 +268,62 @@ describe("getWeeklySummary", () => {
 
   it("computes correct workout stats with sport breakdown", async () => {
     const workouts = [
-      makeWorkout({ sport_name: "Running", score: { strain: 12.5, average_heart_rate: 145, max_heart_rate: 175, kilojoule: 1200, percent_recorded: 100, zone_durations: { zone_zero_milli: 0, zone_one_milli: 0, zone_two_milli: 0, zone_three_milli: 0, zone_four_milli: 0, zone_five_milli: 0 } } }),
-      makeWorkout({ id: "workout-2", sport_name: "Running", score: { strain: 10.0, average_heart_rate: 140, max_heart_rate: 170, kilojoule: 1000, percent_recorded: 100, zone_durations: { zone_zero_milli: 0, zone_one_milli: 0, zone_two_milli: 0, zone_three_milli: 0, zone_four_milli: 0, zone_five_milli: 0 } } }),
-      makeWorkout({ id: "workout-3", sport_name: "Cycling", score: { strain: 8.0, average_heart_rate: 135, max_heart_rate: 160, kilojoule: 900, percent_recorded: 100, zone_durations: { zone_zero_milli: 0, zone_one_milli: 0, zone_two_milli: 0, zone_three_milli: 0, zone_four_milli: 0, zone_five_milli: 0 } } }),
+      makeWorkout({
+        sport_name: "Running",
+        score: {
+          strain: 12.5,
+          average_heart_rate: 145,
+          max_heart_rate: 175,
+          kilojoule: 1200,
+          percent_recorded: 100,
+          zone_durations: {
+            zone_zero_milli: 0,
+            zone_one_milli: 0,
+            zone_two_milli: 0,
+            zone_three_milli: 0,
+            zone_four_milli: 0,
+            zone_five_milli: 0,
+          },
+        },
+      }),
+      makeWorkout({
+        id: "workout-2",
+        sport_name: "Running",
+        score: {
+          strain: 10.0,
+          average_heart_rate: 140,
+          max_heart_rate: 170,
+          kilojoule: 1000,
+          percent_recorded: 100,
+          zone_durations: {
+            zone_zero_milli: 0,
+            zone_one_milli: 0,
+            zone_two_milli: 0,
+            zone_three_milli: 0,
+            zone_four_milli: 0,
+            zone_five_milli: 0,
+          },
+        },
+      }),
+      makeWorkout({
+        id: "workout-3",
+        sport_name: "Cycling",
+        score: {
+          strain: 8.0,
+          average_heart_rate: 135,
+          max_heart_rate: 160,
+          kilojoule: 900,
+          percent_recorded: 100,
+          zone_durations: {
+            zone_zero_milli: 0,
+            zone_one_milli: 0,
+            zone_two_milli: 0,
+            zone_three_milli: 0,
+            zone_four_milli: 0,
+            zone_five_milli: 0,
+          },
+        },
+      }),
     ];
 
     getMock
@@ -266,8 +342,13 @@ describe("getWeeklySummary", () => {
 
   it("computes correct strain averages from cycle data", async () => {
     const cycles = [
-      makeCycle({ score: { strain: 14.2, kilojoule: 8500, average_heart_rate: 72, max_heart_rate: 175 } }),
-      makeCycle({ id: 2, score: { strain: 10.0, kilojoule: 7000, average_heart_rate: 68, max_heart_rate: 165 } }),
+      makeCycle({
+        score: { strain: 14.2, kilojoule: 8500, average_heart_rate: 72, max_heart_rate: 175 },
+      }),
+      makeCycle({
+        id: 2,
+        score: { strain: 10.0, kilojoule: 7000, average_heart_rate: 68, max_heart_rate: 165 },
+      }),
     ];
 
     getMock
@@ -286,7 +367,14 @@ describe("getWeeklySummary", () => {
     // Improving: 50, 55, 60, 65, 70, 75, 80
     const recoveries = [50, 55, 60, 65, 70, 75, 80].map((score) =>
       makeRecovery({
-        score: { user_calibrating: false, recovery_score: score, resting_heart_rate: 55, hrv_rmssd_milli: 60, spo2_percentage: 98, skin_temp_celsius: 33 },
+        score: {
+          user_calibrating: false,
+          recovery_score: score,
+          resting_heart_rate: 55,
+          hrv_rmssd_milli: 60,
+          spo2_percentage: 98,
+          skin_temp_celsius: 33,
+        },
       })
     );
 
@@ -303,7 +391,16 @@ describe("getWeeklySummary", () => {
 
   it("filters out unscored records (PENDING_SCORE, UNSCORABLE)", async () => {
     const recoveries = [
-      makeRecovery({ score: { user_calibrating: false, recovery_score: 70, resting_heart_rate: 52, hrv_rmssd_milli: 55, spo2_percentage: 98, skin_temp_celsius: 33 } }),
+      makeRecovery({
+        score: {
+          user_calibrating: false,
+          recovery_score: 70,
+          resting_heart_rate: 52,
+          hrv_rmssd_milli: 55,
+          spo2_percentage: 98,
+          skin_temp_celsius: 33,
+        },
+      }),
       makeRecovery({ score_state: "PENDING_SCORE", score: undefined }),
       makeRecovery({ score_state: "UNSCORABLE", score: undefined }),
     ];
@@ -344,9 +441,7 @@ describe("getWeeklySummary", () => {
       .mockRejectedValueOnce(new Error("Workout down"))
       .mockRejectedValueOnce(new Error("Cycle down"));
 
-    await expect(getWeeklySummary(client, {})).rejects.toThrow(
-      "All endpoints failed"
-    );
+    await expect(getWeeklySummary(client, {})).rejects.toThrow("All endpoints failed");
   });
 
   it("accepts enhanced date expression for week_start", async () => {
@@ -404,7 +499,12 @@ describe("getWeeklySummary", () => {
   it("excludes naps from sleep duration calculation", async () => {
     const sleeps = [
       makeSleep({ nap: false, start: "2026-05-25T22:00:00.000Z", end: "2026-05-26T06:00:00.000Z" }),
-      makeSleep({ id: "nap-1", nap: true, start: "2026-05-26T14:00:00.000Z", end: "2026-05-26T14:30:00.000Z" }),
+      makeSleep({
+        id: "nap-1",
+        nap: true,
+        start: "2026-05-26T14:00:00.000Z",
+        end: "2026-05-26T14:30:00.000Z",
+      }),
     ];
 
     getMock

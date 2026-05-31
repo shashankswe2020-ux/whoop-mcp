@@ -16,10 +16,10 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 
 ## Features
 
-- 🏋️ **12 health data tools** — recovery, sleep, workouts, cycles, body measurements, profile, weekly summaries, trend analysis, period comparisons, and individual record lookups
+- 🏋️ **14 health data tools** — recovery, sleep, workouts, cycles, body measurements, profile, weekly summaries, trend analysis, period comparisons, individual record lookups, today's snapshot, and calendar grid
 - 📊 **4 MCP Resources** — ambient health context (latest recovery, sleep, cycle, profile) available without explicit tool calls
 - 💬 **5 MCP Prompts** — guided conversation starters for common health queries
-- 📅 **Natural date expressions** — use "last 7 days", "this week", "yesterday" instead of ISO 8601
+- 📅 **Rich natural date expressions** — use "last 7 days", "this week", "last 2 weeks", "last 3 months", "this quarter", "last year", "2026-05", and more
 - 📈 **Built-in analytics** — weekly summaries, trend detection (linear regression), and period comparisons computed server-side
 - 🔐 **Secure OAuth2** — browser-based authentication with automatic token refresh
 - 🔄 **Resilient** — automatic retry on rate limits, token refresh on expiry, auto-pagination, clear error messages
@@ -33,7 +33,7 @@ _Based on npm search results for `whoop mcp` on 2026-05-30._
 
 | Package | Latest version | Last publish (UTC) | MCP Registry | Runtime deps | npm |
 |------|-----------------|--------------------|----|--------------|-----|
-| **whoop-ai-mcp (this repo)** | **0.3.1** | **2026-05-30** | **✅ `io.github.shashankswe2020-ux/whoop`** | **2** | https://www.npmjs.com/package/whoop-ai-mcp |
+| **whoop-ai-mcp (this repo)** | **0.4.0** | **2026-05-31** | **✅ `io.github.shashankswe2020-ux/whoop`** | **2** | https://www.npmjs.com/package/whoop-ai-mcp |
 | whoop-mcp-unofficial | 0.4.5 | 2026-05-29 | — | 5 | https://www.npmjs.com/package/whoop-mcp-unofficial |
 | @nchemb/whoop-mcp | 0.2.0 | 2026-04-27 | — | 4 | https://www.npmjs.com/package/@nchemb/whoop-mcp |
 | @scom82/whoop-mcp | 0.1.0 | 2026-05-17 | — | 1 | https://www.npmjs.com/package/@scom82/whoop-mcp |
@@ -45,7 +45,7 @@ _Based on npm search results for `whoop mcp` on 2026-05-30._
 **Why this package stands out**
 
 - Published to npm **and** the official MCP Registry (via `mcpName` metadata)
-- Most feature-rich standalone server: 12 tools + 4 resources + 5 prompts + analytics + auto-pagination
+- Most feature-rich standalone server: 14 tools + 4 resources + 5 prompts + analytics + auto-pagination
 - Only 2 runtime dependencies (lightest footprint among full-featured options)
 - No external infrastructure required (no SQLite, no Express, no relay servers)
 
@@ -137,7 +137,7 @@ On first launch, a browser window will open for you to authorize access to your 
 
 Then ask Claude something like:
 
-> *"How was my recovery this week?"*
+> *"How am I doing today?"*
 >
 > *"Show me my sleep data from the last 3 days"*
 >
@@ -146,6 +146,8 @@ Then ask Claude something like:
 > *"Is my HRV trending up or down?"*
 >
 > *"Give me a weekly health summary"*
+>
+> *"Show me my recovery calendar for last 2 weeks"*
 
 **whoop-mcp connected in Claude Desktop:**
 
@@ -369,6 +371,54 @@ Analyze a health metric trend over time — detects direction (improving/declini
 
 ---
 
+### `get_today`
+
+Get today's complete health snapshot — recovery score, last night's sleep, current strain, and last workout in one call. Perfect for "how am I doing today?" questions.
+
+**Parameters:** None
+
+**Returns:** Recovery score with zone, sleep breakdown (hours, stages, performance), current strain, last workout (sport + strain), and a human-readable summary.
+
+---
+
+### `get_calendar`
+
+Get a day-by-day grid of recovery, sleep, and strain for a date range. Perfect for weekly/monthly overviews.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `days` | number | No | Number of days to show (1–90). Default: 7. |
+| `start` | string | No | Start date — ISO 8601 or relative expression ("last 14 days", "this month"). Defaults to N days ago. |
+
+**Returns:** Per-day grid with recovery score + zone (green/yellow/red), sleep hours, sleep performance, and strain. Includes period averages.
+
+---
+
+## Supported Date Expressions
+
+All collection tools and `get_calendar` accept natural language date expressions (case-insensitive):
+
+| Expression | Example Result |
+|------------|----------------|
+| `"today"` | Today's UTC day boundaries |
+| `"yesterday"` | Yesterday's UTC day boundaries |
+| `"last N days"` (1–365) | N days back from today |
+| `"last N weeks"` (1–52) | N×7 days back from today |
+| `"last N months"` (1–12) | N calendar months back |
+| `"this week"` | Monday to today |
+| `"last week"` | Previous Monday–Sunday |
+| `"this month"` | 1st of month to today |
+| `"last month"` | Full previous month |
+| `"this quarter"` | Quarter start (Jan/Apr/Jul/Oct) to today |
+| `"last quarter"` | Full previous quarter |
+| `"last year"` | Jan 1–Dec 31 of previous year |
+| `"YYYY-MM"` (e.g., `"2026-05"`) | Full calendar month |
+| ISO 8601 | Pass-through (e.g., `"2026-03-15T00:00:00Z"`) |
+
+---
+
 ## Resources
 
 MCP Resources provide ambient health context — AI assistants can read your current health state without explicit tool calls.
@@ -509,10 +559,15 @@ src/
 │   ├── get-weekly-summary.ts   # Analytical: weekly health report
 │   ├── compare-periods.ts      # Analytical: period comparison
 │   ├── get-trend.ts            # Analytical: trend detection
+│   ├── get-today.ts            # Composite: today's snapshot
+│   ├── get-calendar.ts         # Grid: multi-day calendar view
 │   ├── date-utils.ts           # Relative date expression parser
 │   ├── stats-utils.ts          # Statistics (mean, median, regression)
 │   └── collection-utils.ts
-└── (prompts registered in server.ts)
+├── prompts/
+│   └── index.ts                # MCP Prompt handlers (5 prompts)
+└── resources/
+    └── index.ts                # MCP Resource handlers (4 resources)
 ```
 
 ## Releases & npm Package

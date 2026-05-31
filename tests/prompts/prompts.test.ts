@@ -88,7 +88,10 @@ describe("MCP Prompts", () => {
   });
 
   it("prompts/get for weekly_health_review with days argument returns messages", async () => {
-    const result = await client.getPrompt({ name: "weekly_health_review", arguments: { days: "14" } });
+    const result = await client.getPrompt({
+      name: "weekly_health_review",
+      arguments: { days: "14" },
+    });
     expect(result.messages).toBeDefined();
     expect(result.messages.length).toBeGreaterThan(0);
     // Messages should reference the days value

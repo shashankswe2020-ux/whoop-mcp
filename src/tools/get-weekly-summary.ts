@@ -17,12 +17,7 @@ import {
   ENDPOINT_WORKOUT,
   ENDPOINT_CYCLE,
 } from "../api/endpoints.js";
-import type {
-  Recovery,
-  Sleep,
-  Workout,
-  Cycle,
-} from "../api/types.js";
+import type { Recovery, Sleep, Workout, Cycle } from "../api/types.js";
 import { resolveDateExpression } from "./date-utils.js";
 import { mean, linearRegression, trendDirection } from "./stats-utils.js";
 import type { TrendDirectionResult } from "./stats-utils.js";

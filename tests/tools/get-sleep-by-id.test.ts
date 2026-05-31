@@ -40,7 +40,9 @@ describe("getSleepById", () => {
 
     await getSleepById(client, "sleep-abc-123");
 
-    expect(getMock).toHaveBeenCalledWith(`${ENDPOINT_SLEEP}/${encodeURIComponent("sleep-abc-123")}`);
+    expect(getMock).toHaveBeenCalledWith(
+      `${ENDPOINT_SLEEP}/${encodeURIComponent("sleep-abc-123")}`
+    );
   });
 
   it("returns the sleep record", async () => {
@@ -58,7 +60,9 @@ describe("getSleepById", () => {
 
     await getSleepById(client, "id-with_underscore");
 
-    expect(getMock).toHaveBeenCalledWith(`${ENDPOINT_SLEEP}/${encodeURIComponent("id-with_underscore")}`);
+    expect(getMock).toHaveBeenCalledWith(
+      `${ENDPOINT_SLEEP}/${encodeURIComponent("id-with_underscore")}`
+    );
   });
 
   it("propagates errors from the client", async () => {

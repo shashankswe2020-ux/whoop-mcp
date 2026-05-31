@@ -12,9 +12,10 @@ interface MockRecord {
   value: string;
 }
 
-function createMockClient(
-  responses: Array<PaginatedResponse<MockRecord>>
-): { client: WhoopClient; getMock: ReturnType<typeof vi.fn> } {
+function createMockClient(responses: Array<PaginatedResponse<MockRecord>>): {
+  client: WhoopClient;
+  getMock: ReturnType<typeof vi.fn>;
+} {
   const getMock = vi.fn();
   responses.forEach((response) => {
     getMock.mockResolvedValueOnce(response);
@@ -293,7 +294,8 @@ describe("fetchAllPages", () => {
 
   it("stops mid-pagination when AbortSignal is aborted", async () => {
     const controller = new AbortController();
-    const getMock = vi.fn()
+    const getMock = vi
+      .fn()
       .mockImplementationOnce(async () => {
         // Abort after first page resolves
         controller.abort();

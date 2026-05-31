@@ -273,3 +273,66 @@
 | Claude Desktop — tool access | Tools available and callable from Claude chat | ✅ Pass |
 
 **Status: All integration tests passed. Ready for `npm publish`.**
+
+---
+
+## V3 Platform Enhancements (Tasks 12–15)
+
+> **Spec:** `docs/specs/v3-platform-enhancements.md`
+> **Baseline:** V2 shipped (v0.3.1, 433 tests, 98.55% coverage)
+
+### V3 Dependency Graph
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    v0.4.0 — Quick Wins                        │
+│                                                              │
+│  12a. Extended dates → 12b. get_today  (parallel)            │
+│                      → 12c. get_calendar                     │
+│                      → 12d. Server integration               │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────┐
+│                    v0.5.0 — Remote Hosting                    │
+│                                                              │
+│  13a. HTTP transport → 13b. Logging → 13c. OAuth connector   │
+│                      → 13d. Index refactor                   │
+│                      → 13e. Docker        (parallel)         │
+│                      → 13f. CLI setup                        │
+│                      → 13g. Verification                     │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────┐
+│                    v0.6.0 — Analytics Moat                    │
+│                                                              │
+│  14a. Stats functions → 14b. get_correlations  (parallel)    │
+│  14c. Webhook types   → 14d. manage_webhooks                 │
+│                       → 14e. Server integration              │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────┐
+│                    v0.7.0 — Performance                       │
+│                                                              │
+│  15a. MemoryCache → 15b. Replace ResourceCache  (parallel)   │
+│  15c. Write-safety pattern                                   │
+│                   → 15d. Verification                        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### V3 Task Plans
+
+| Task | Version | Plan Document | Status |
+|------|---------|---------------|--------|
+| 12 | v0.4.0 | [`task-12-v040-quick-wins.md`](../plans/task-12-v040-quick-wins.md) | Planned |
+| 13 | v0.5.0 | [`task-13-v050-remote-hosting.md`](../plans/task-13-v050-remote-hosting.md) | Planned |
+| 14 | v0.6.0 | [`task-14-v060-analytics-moat.md`](../plans/task-14-v060-analytics-moat.md) | Planned |
+| 15 | v0.7.0 | [`task-15-v070-performance-architecture.md`](../plans/task-15-v070-performance-architecture.md) | Planned |
+
+### V3 Summary
+
+| Version | Tools | Transport | Subtasks | Complexity |
+|---------|-------|-----------|----------|------------|
+| v0.4.0 | 12→14 | stdio | 4 (12a–12d) | Low–Medium |
+| v0.5.0 | 14 | stdio+HTTP | 7 (13a–13g) | High |
+| v0.6.0 | 14→16 | stdio+HTTP | 5 (14a–14e) | Medium–High |
+| v0.7.0 | 16 | stdio+HTTP | 4 (15a–15d) | Medium |

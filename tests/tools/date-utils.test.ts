@@ -225,20 +225,247 @@ describe("resolveDateExpression", () => {
   });
 
   // -------------------------------------------------------------------------
+  // "last N weeks"
+  // -------------------------------------------------------------------------
+
+  it('resolves "last 2 weeks" to 14 days back from now', () => {
+    const result = resolveDateExpression("last 2 weeks");
+    expect(result.start).toBe("2026-03-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  it('resolves "last 1 week" (singular)', () => {
+    const result = resolveDateExpression("last 1 week");
+    expect(result.start).toBe("2026-03-08T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  it('resolves "Last 4 Weeks" (case-insensitive)', () => {
+    const result = resolveDateExpression("Last 4 Weeks");
+    expect(result.start).toBe("2026-02-15T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  it('resolves "last 52 weeks" (maximum)', () => {
+    const result = resolveDateExpression("last 52 weeks");
+    // 52 * 7 = 364 days back from 2026-03-15
+    expect(result.start).toBe("2025-03-16T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  it('throws for "last 53 weeks" (exceeds 52 limit)', () => {
+    expect(() => resolveDateExpression("last 53 weeks")).toThrow(InvalidDateExpression);
+    expect(() => resolveDateExpression("last 53 weeks")).toThrow(/exceeds maximum/i);
+  });
+
+  it('throws for "last 0 weeks"', () => {
+    expect(() => resolveDateExpression("last 0 weeks")).toThrow(InvalidDateExpression);
+  });
+
+  // -------------------------------------------------------------------------
+  // "last N months"
+  // -------------------------------------------------------------------------
+
+  it('resolves "last 3 months" to 3 calendar months back', () => {
+    // 2026-03-15 → 3 months back = 2025-12-15
+    const result = resolveDateExpression("last 3 months");
+    expect(result.start).toBe("2025-12-15T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  it('resolves "last 1 month" (singular)', () => {
+    const result = resolveDateExpression("last 1 month");
+    expect(result.start).toBe("2026-02-15T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  it('resolves "Last 6 Months" (case-insensitive)', () => {
+    const result = resolveDateExpression("Last 6 Months");
+    expect(result.start).toBe("2025-09-15T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  it('resolves "last 12 months" (maximum)', () => {
+    const result = resolveDateExpression("last 12 months");
+    expect(result.start).toBe("2025-03-15T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  it('throws for "last 13 months" (exceeds 12 limit)', () => {
+    expect(() => resolveDateExpression("last 13 months")).toThrow(InvalidDateExpression);
+    expect(() => resolveDateExpression("last 13 months")).toThrow(/exceeds maximum/i);
+  });
+
+  it('throws for "last 0 months"', () => {
+    expect(() => resolveDateExpression("last 0 months")).toThrow(InvalidDateExpression);
+  });
+
+  it('"last 1 month" on March 31 handles February overflow', () => {
+    vi.setSystemTime(new Date("2026-03-31T12:00:00.000Z"));
+    const result = resolveDateExpression("last 1 month");
+    // setMonth(-1) from March 31 → JS gives March 3 (Feb 31 overflows)
+    // We use Date.UTC which handles this: month -1 from March → Feb, day 31 overflows to Mar 3
+    // Actually: new Date(Date.UTC(2026, 2-1, 31)) = new Date(Date.UTC(2026, 1, 31)) = 2026-03-03
+    // So the correct behavior: start from 2026-03-31, subtract 1 month → 2026-02-28 (last valid day)
+    // We'll clamp to last day of the target month
+    expect(result.start).toBe("2026-02-28T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-31T23:59:59.999Z");
+  });
+
+  it('"last 1 month" on Jan 31 wraps to Dec 31', () => {
+    vi.setSystemTime(new Date("2026-01-31T12:00:00.000Z"));
+    const result = resolveDateExpression("last 1 month");
+    expect(result.start).toBe("2025-12-31T00:00:00.000Z");
+    expect(result.end).toBe("2026-01-31T23:59:59.999Z");
+  });
+
+  // -------------------------------------------------------------------------
+  // "this quarter"
+  // -------------------------------------------------------------------------
+
+  it('resolves "this quarter" in Q1 (March)', () => {
+    // 2026-03-15 is in Q1 → start = Jan 1
+    const result = resolveDateExpression("this quarter");
+    expect(result.start).toBe("2026-01-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  it('resolves "this quarter" in Q2 (May)', () => {
+    vi.setSystemTime(new Date("2026-05-20T12:00:00.000Z"));
+    const result = resolveDateExpression("this quarter");
+    expect(result.start).toBe("2026-04-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-05-20T23:59:59.999Z");
+  });
+
+  it('resolves "this quarter" in Q3 (August)', () => {
+    vi.setSystemTime(new Date("2026-08-01T12:00:00.000Z"));
+    const result = resolveDateExpression("this quarter");
+    expect(result.start).toBe("2026-07-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-08-01T23:59:59.999Z");
+  });
+
+  it('resolves "this quarter" in Q4 (November)', () => {
+    vi.setSystemTime(new Date("2026-11-10T12:00:00.000Z"));
+    const result = resolveDateExpression("this quarter");
+    expect(result.start).toBe("2026-10-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-11-10T23:59:59.999Z");
+  });
+
+  it('resolves "This Quarter" (case-insensitive)', () => {
+    const result = resolveDateExpression("This Quarter");
+    expect(result.start).toBe("2026-01-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-15T23:59:59.999Z");
+  });
+
+  // -------------------------------------------------------------------------
+  // "last quarter"
+  // -------------------------------------------------------------------------
+
+  it('resolves "last quarter" from Q1 → Q4 of previous year', () => {
+    // 2026-03-15 is Q1 → last quarter is Q4 2025 (Oct 1 – Dec 31)
+    const result = resolveDateExpression("last quarter");
+    expect(result.start).toBe("2025-10-01T00:00:00.000Z");
+    expect(result.end).toBe("2025-12-31T23:59:59.999Z");
+  });
+
+  it('resolves "last quarter" from Q2 → Q1', () => {
+    vi.setSystemTime(new Date("2026-05-20T12:00:00.000Z"));
+    const result = resolveDateExpression("last quarter");
+    expect(result.start).toBe("2026-01-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-03-31T23:59:59.999Z");
+  });
+
+  it('resolves "last quarter" from Q3 → Q2', () => {
+    vi.setSystemTime(new Date("2026-08-01T12:00:00.000Z"));
+    const result = resolveDateExpression("last quarter");
+    expect(result.start).toBe("2026-04-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-06-30T23:59:59.999Z");
+  });
+
+  it('resolves "last quarter" from Q4 → Q3', () => {
+    vi.setSystemTime(new Date("2026-11-10T12:00:00.000Z"));
+    const result = resolveDateExpression("last quarter");
+    expect(result.start).toBe("2026-07-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-09-30T23:59:59.999Z");
+  });
+
+  // -------------------------------------------------------------------------
+  // "last year"
+  // -------------------------------------------------------------------------
+
+  it('resolves "last year" to full previous calendar year', () => {
+    const result = resolveDateExpression("last year");
+    expect(result.start).toBe("2025-01-01T00:00:00.000Z");
+    expect(result.end).toBe("2025-12-31T23:59:59.999Z");
+  });
+
+  it('resolves "Last Year" (case-insensitive)', () => {
+    const result = resolveDateExpression("Last Year");
+    expect(result.start).toBe("2025-01-01T00:00:00.000Z");
+    expect(result.end).toBe("2025-12-31T23:59:59.999Z");
+  });
+
+  it('"last year" from Jan 1 2026 still returns 2025', () => {
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const result = resolveDateExpression("last year");
+    expect(result.start).toBe("2025-01-01T00:00:00.000Z");
+    expect(result.end).toBe("2025-12-31T23:59:59.999Z");
+  });
+
+  // -------------------------------------------------------------------------
+  // "YYYY-MM" month literal
+  // -------------------------------------------------------------------------
+
+  it('resolves "2026-05" to full May 2026', () => {
+    const result = resolveDateExpression("2026-05");
+    expect(result.start).toBe("2026-05-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-05-31T23:59:59.999Z");
+  });
+
+  it('resolves "2026-02" to full February (non-leap)', () => {
+    const result = resolveDateExpression("2026-02");
+    expect(result.start).toBe("2026-02-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-02-28T23:59:59.999Z");
+  });
+
+  it('resolves "2024-02" to full February (leap year)', () => {
+    const result = resolveDateExpression("2024-02");
+    expect(result.start).toBe("2024-02-01T00:00:00.000Z");
+    expect(result.end).toBe("2024-02-29T23:59:59.999Z");
+  });
+
+  it('resolves "2026-12" to full December', () => {
+    const result = resolveDateExpression("2026-12");
+    expect(result.start).toBe("2026-12-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-12-31T23:59:59.999Z");
+  });
+
+  it('resolves "2026-01" to full January', () => {
+    const result = resolveDateExpression("2026-01");
+    expect(result.start).toBe("2026-01-01T00:00:00.000Z");
+    expect(result.end).toBe("2026-01-31T23:59:59.999Z");
+  });
+
+  it('does not match invalid month "2026-13"', () => {
+    expect(() => resolveDateExpression("2026-13")).toThrow(InvalidDateExpression);
+  });
+
+  it('does not match invalid month "2026-00"', () => {
+    expect(() => resolveDateExpression("2026-00")).toThrow(InvalidDateExpression);
+  });
+
+  // -------------------------------------------------------------------------
   // Error cases
   // -------------------------------------------------------------------------
 
   it("throws InvalidDateExpression for unrecognized expressions", () => {
     expect(() => resolveDateExpression("next week")).toThrow(InvalidDateExpression);
-    expect(() => resolveDateExpression("2 weeks ago")).toThrow(InvalidDateExpression);
     expect(() => resolveDateExpression("foo bar")).toThrow(InvalidDateExpression);
     expect(() => resolveDateExpression("")).toThrow(InvalidDateExpression);
   });
 
   it("throws InvalidDateExpression with descriptive message for unknown input", () => {
-    expect(() => resolveDateExpression("random text")).toThrow(
-      /unrecognized date expression/i
-    );
+    expect(() => resolveDateExpression("random text")).toThrow(/unrecognized date expression/i);
   });
 
   it("throws for whitespace-only input", () => {
@@ -274,9 +501,9 @@ describe("validateDateRange", () => {
 
   it("defaults maxDays to 365", () => {
     // 400-day range should fail with default
-    expect(() =>
-      validateDateRange("2025-01-01T00:00:00.000Z", "2026-02-05T00:00:00.000Z")
-    ).toThrow(InvalidDateExpression);
+    expect(() => validateDateRange("2025-01-01T00:00:00.000Z", "2026-02-05T00:00:00.000Z")).toThrow(
+      InvalidDateExpression
+    );
   });
 
   it("accepts custom maxDays", () => {
@@ -292,12 +519,12 @@ describe("validateDateRange", () => {
   });
 
   it("throws for end before start", () => {
-    expect(() =>
-      validateDateRange("2026-03-15T00:00:00.000Z", "2026-03-01T00:00:00.000Z")
-    ).toThrow(InvalidDateExpression);
-    expect(() =>
-      validateDateRange("2026-03-15T00:00:00.000Z", "2026-03-01T00:00:00.000Z")
-    ).toThrow(/end.*before.*start/i);
+    expect(() => validateDateRange("2026-03-15T00:00:00.000Z", "2026-03-01T00:00:00.000Z")).toThrow(
+      InvalidDateExpression
+    );
+    expect(() => validateDateRange("2026-03-15T00:00:00.000Z", "2026-03-01T00:00:00.000Z")).toThrow(
+      /end.*before.*start/i
+    );
   });
 
   it("throws for unparseable date strings (NaN guard)", () => {

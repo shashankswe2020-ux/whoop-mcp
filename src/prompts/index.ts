@@ -26,10 +26,7 @@ export function registerPrompts(server: McpServer): void {
       description:
         "Comprehensive review of recovery, sleep, and workouts from a specified number of days. Provides insights into overall health trends.",
       argsSchema: {
-        days: z
-          .string()
-          .optional()
-          .describe("Number of days to review (default: 7)"),
+        days: z.string().optional().describe("Number of days to review (default: 7)"),
       },
     },
     (args) => {

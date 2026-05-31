@@ -15,12 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { WhoopClient } from "../../src/api/client.js";
 import { comparePeriods } from "../../src/tools/compare-periods.js";
-import type {
-  Recovery,
-  Sleep,
-  Cycle,
-  PaginatedResponse,
-} from "../../src/api/types.js";
+import type { Recovery, Sleep, Cycle, PaginatedResponse } from "../../src/api/types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
