@@ -14,6 +14,7 @@ import {
   WHOOP_REDIRECT_URI,
   WHOOP_REQUIRED_SCOPES,
 } from "../api/endpoints.js";
+import { WhoopNetworkError } from "../api/client.js";
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -141,11 +142,17 @@ export async function refreshAccessToken(
     client_secret: config.clientSecret,
   });
 
-  const response = await fetch(WHOOP_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
+  let response: Response;
+  try {
+    response = await fetch(WHOOP_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+  } catch (error) {
+    // fetch throws on transport-level failures (DNS, TCP, TLS) — distinct from auth failure.
+    throw new WhoopNetworkError(error);
+  }
 
   if (!response.ok) {
     const errorBody = (await response.json().catch(() => ({}))) as Record<string, unknown>;
@@ -265,6 +272,10 @@ export async function authenticate(config: OAuthConfig): Promise<string> {
       console.error("Token refresh successful.");
       return tokens.access_token;
     } catch (error: unknown) {
+      // Network failures shouldn't force the user through a fresh OAuth flow — let the caller retry.
+      if (error instanceof WhoopNetworkError) {
+        throw error;
+      }
       // Log the refresh failure so it's diagnosable, then fall through to full OAuth flow
       const message = error instanceof Error ? error.message : "unknown error";
       console.error(`Token refresh failed, starting full OAuth flow: ${message}`);

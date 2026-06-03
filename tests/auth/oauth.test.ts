@@ -22,6 +22,7 @@ import {
   WHOOP_REQUIRED_SCOPES,
   WHOOP_TOKEN_URL,
 } from "../../src/api/endpoints.js";
+import { WhoopNetworkError } from "../../src/api/client.js";
 
 // ---------------------------------------------------------------------------
 // Shared test fixtures
@@ -366,6 +367,14 @@ describe("refreshAccessToken", () => {
     });
 
     await expect(refreshAccessToken("error-refresh", TEST_CONFIG)).rejects.toThrow(/unknown error/);
+  });
+
+  it("wraps fetch transport failures in WhoopNetworkError", async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"));
+
+    await expect(refreshAccessToken("any-refresh", TEST_CONFIG)).rejects.toBeInstanceOf(
+      WhoopNetworkError
+    );
   });
 });
 
@@ -770,5 +779,61 @@ describe("authenticate", () => {
   it("throws a clear error if clientSecret is missing", async () => {
     const badConfig = { ...TEST_CONFIG, clientSecret: "" };
     await expect(authenticate(badConfig)).rejects.toThrow(/WHOOP_CLIENT_SECRET|client.*secret/i);
+  });
+
+  it("rethrows WhoopNetworkError from refresh; does not start full OAuth flow", async () => {
+    const expiredTokens: OAuthTokens = {
+      ...VALID_TOKENS,
+      expires_at: Date.now() - 1000,
+    };
+    mockLoadTokens.mockResolvedValueOnce(expiredTokens);
+    mockIsTokenExpired.mockReturnValueOnce(true);
+
+    // Refresh fetch fails at transport level — refreshAccessToken wraps in WhoopNetworkError.
+    mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"));
+
+    await expect(authenticate(TEST_CONFIG)).rejects.toBeInstanceOf(WhoopNetworkError);
+    expect(mockStartCallbackServer).not.toHaveBeenCalled();
+    expect(mockSaveTokens).not.toHaveBeenCalled();
+  });
+
+  it("starts full OAuth flow when refresh fails with non-network error (e.g., invalid_grant)", async () => {
+    const expiredTokens: OAuthTokens = {
+      ...VALID_TOKENS,
+      expires_at: Date.now() - 1000,
+    };
+    mockLoadTokens.mockResolvedValueOnce(expiredTokens);
+    mockIsTokenExpired.mockReturnValueOnce(true);
+    mockSaveTokens.mockResolvedValueOnce(undefined);
+
+    // 401 invalid_grant from server — not a network error.
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () =>
+        Promise.resolve({
+          error: "invalid_grant",
+          error_description: "Refresh token revoked",
+        }),
+    });
+
+    mockStartCallbackServer.mockReturnValueOnce({
+      port: 3000,
+      result: Promise.resolve({
+        code: "fallback-auth-code",
+        state: "mock-state",
+      }),
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(MOCK_TOKEN_RESPONSE),
+    });
+
+    const token = await authenticate(TEST_CONFIG);
+
+    expect(token).toBe("access-token-123");
+    expect(mockStartCallbackServer).toHaveBeenCalledOnce();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });
