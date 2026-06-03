@@ -6,6 +6,10 @@
 > **Prior spec:** [v2-feature-enhancements.md](./v2-feature-enhancements.md)
 > **Reviews:** [code-review-checkpoint-10](../reviews/code-review-checkpoint-10.md), [security-audit-6](../security-audits/security-audit-6.md)
 
+## Spec Revision Log
+
+- **2026-06-03** — Addresses GitHub issues #124–#150 (see issue tracker). Added explicit rate-limit assumptions section, tradeoffs / open decisions section (covering webhook read-only contradiction options and SDK `ProxyOAuthServerProvider` evaluation), and consolidated cache invalidation rationale. No prior content removed.
+
 ---
 
 ## Objective
@@ -1209,6 +1213,61 @@ interface HealthResponse {
 
 ---
 
+## WHOOP API Rate Limit Assumptions
+
+> Addresses #149. Documents the rate-limit budget that parallel-fetching tools (`get_today`, `get_calendar`) and the cache TTLs are designed against.
+
+| Assumption | Value | Source |
+|------------|-------|--------|
+| Per-user request budget | ~100 req/min (working assumption) | WHOOP developer docs do not publish a hard public number; verify before v0.4.0 ships |
+| Burst tolerance | 5–10 concurrent requests appears safe in practice | Empirical from V1/V2 testing |
+| 429 response | API client already retries with `Retry-After` honoring + exponential backoff | `src/api/client.ts` |
+
+**Per-tool budget impact:**
+
+| Tool | Worst-case requests | Notes |
+|------|---------------------|-------|
+| `get_today` | 3 (parallel) | Single shot per invocation |
+| `get_calendar` (90 days) | ~12 (4 pages × 3 endpoints, parallel across endpoints, serial within each) | Within 100/min budget |
+| `get_correlations` (30–90 days) | ~9–12 | Same shape as calendar |
+
+**Defenses:**
+- Client-level `Retry-After` honoring already implemented (V1).
+- Cache (Feature 9) reduces redundant fetches across rapid successive tool calls.
+- **Open:** consider a process-wide concurrency limiter (semaphore, e.g. p-limit-style ≤ 8) if real-world 429s appear after v0.4.0 ships. Tracked under Open Questions #2.
+
+---
+
+## Tradeoffs / Open Decisions
+
+This section captures decisions where the issue tracker raised valid alternatives that should NOT be picked unilaterally during spec revision. Each is a product decision to be resolved before the corresponding feature lands.
+
+### TD-1: Webhook management vs. read-only invariant (refs #128)
+
+Feature 8 (`manage_webhooks`) issues `POST /v2/webhook` and `DELETE /v2/webhook/:id`. Assumption #4 has been softened to "infrastructure-level writes," but the underlying decision remains open:
+
+| Option | Rationale | Cost |
+|--------|-----------|------|
+| **A. Frame as infrastructure write (current spec text)** | Webhook subscriptions are not health-data mutations. Aligns with how most MCP servers expose webhook setup. | Slight expansion of "read-only" promise we made to users. |
+| **B. Gate Feature 8 entirely on developer.whoop.com confirmation** | Removes contradiction by making webhooks conditional. | Webhook feature may be deferred indefinitely if API is private. |
+| **C. Drop Feature 8; provide a CLI-only webhook helper outside MCP** | Keeps the MCP surface 100% read. | Loses LLM-driven webhook management. |
+
+**Status:** Spec currently encodes A + B together (Feature 8 is gated on API availability and reframed as infra). Final decision deferred to v0.6.0 planning.
+
+### TD-2: SDK `ProxyOAuthServerProvider` vs. self-issued JWTs (refs #150)
+
+The SDK ships `ProxyOAuthServerProvider` (`server/auth/providers/proxyProvider.js`) which proxies an upstream OAuth server rather than issuing local tokens. Since this server already authenticates against WHOOP OAuth, proxying could eliminate the custom JWT layer entirely.
+
+| Option | Rationale | Cost |
+|--------|-----------|------|
+| **A. Self-issued JWTs (current spec, HKDF-derived signing key)** | Decouples MCP-client auth from WHOOP-user auth — fits Session Model (single WHOOP user, many MCP clients). | More moving parts: JWT signing, expiry, rotation. |
+| **B. ProxyOAuthServerProvider proxying WHOOP OAuth** | Zero custom JWT code; SDK-blessed pattern. | Forces every MCP client to complete a WHOOP OAuth flow — breaks the "one WHOOP user, many devices" model documented in Session Model. |
+| **C. ProxyOAuthServerProvider proxying a different upstream IdP (e.g., self-hosted)** | Cleanest separation. | Requires standing up an IdP for what is currently a single-user tool. |
+
+**Status:** Spec retains A. Re-evaluate in v0.5.0 implementation kickoff after spiking ProxyOAuthServerProvider against a real claude.ai connector handshake.
+
+---
+
 ## Success Metrics
 
 | Metric | Current (v0.3.1) | Target (v0.7.0) |
@@ -1253,3 +1312,4 @@ interface HealthResponse {
 | 2026-05-31 | Initial V3 platform enhancement spec drafted |
 | 2026-06-01 | Incorporated code-review-checkpoint-10 (16 issues) + security-audit-6 (10 findings). Key changes: SDK OAuthServerProvider (not hand-rolled), HKDF JWT derivation, SHA-256 length oracle prevention, full SSRF DNS resolution, `sleep_consistency_vs_hrv` windowed computation, cache replaces ResourceCache, `idempotency_key` on write pattern, Docker healthcheck uses node fetch, CLI config backup, `MCP_TRANSPORT=both`, rate limits per endpoint, max connections, state param, connector password validation, disclaimer field on correlations |
 | 2026-06-01 | Addressed final review gaps: (1) webhook inbound signature verification (HMAC-SHA256), (2) `p_significant` critical r-value lookup table (\u03b1=0.05 two-tailed), (3) observability section — structured JSON logging, request correlation IDs, WHOOP API health tracking, `/health` endpoint schema |
+| 2026-06-03 | Single-pass revision against issues #124–#150. Added Spec Revision Log, WHOOP API Rate Limit Assumptions section (#149), and Tradeoffs / Open Decisions section covering webhook read-only contradiction (#128) and `ProxyOAuthServerProvider` evaluation (#150). All HIGH/MEDIUM/LOW security findings (#124–#126, #131, #133, #135, #137, #139, #141, #142) and remaining checkpoint-10 items (#127, #130, #132, #134, #136, #138, #140, #143–#148) verified against existing spec text — most were already encoded in the 2026-06-01 pass; this revision tightens cross-references rather than re-introducing content. |
