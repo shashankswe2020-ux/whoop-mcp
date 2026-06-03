@@ -240,6 +240,27 @@ Previous config backed up to: /Users/shashankmishra/Library/Application Support/
 Restart Claude Desktop to load the new server.
 ```
 
+Re-running against an already-configured Claude Desktop install (existing
+`whoop` entry in `claude_desktop_config.json`) short-circuits to a
+verification-only flow — no prompts, no rewrite:
+
+```text
+shashankmishra@Shashanks-MacBook-Pro ~ % whoop-ai-mcp setup --verify
+WHOOP MCP — Setup Wizard
+------------------------
+
+Target client (claude-desktop / claude-code) [claude-desktop]:
+Existing whoop entry found in /Users/shashankmishra/Library/Application Support/Claude/claude_desktop_config.json.
+
+Verifying credentials with WHOOP...
+Cached tokens expired, attempting refresh...
+Token refresh successful.
+OAuth flow complete. Fetching profile...
+Profile OK: {"user_id":35253045,"email":"shashank.swe.2020@gmail.com","first_name":"Shashank","last_name":"Mishra"}
+
+Existing config verified — no changes made.
+```
+
 ## Configuration
 
 ### Environment Variables
