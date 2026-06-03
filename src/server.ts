@@ -407,7 +407,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
           .string()
           .optional()
           .describe(
-            "Start date — ISO 8601 or relative ('last 14 days', 'this month'). Defaults to N days ago."
+            "ISO 8601 start date (YYYY-MM-DD). When provided, the calendar grid starts at this date and iterates forward for `days` days, clamped to today."
           ),
       }),
       annotations: { readOnlyHint: true },

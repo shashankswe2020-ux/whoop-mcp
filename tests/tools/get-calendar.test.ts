@@ -444,7 +444,83 @@ describe("getCalendar", () => {
 
     const result = await getCalendar(client, {});
 
-    // Our mock cycles don't have workout count info, so default to 0
-    expect(result.days[0].workout_count).toBe(0);
+    // workout_count was removed from the response shape in v0.5.x.
+    expect(result.days[0]).not.toHaveProperty("workout_count");
+  });
+
+  // -------------------------------------------------------------------------
+  // `start` parameter (Issue #154)
+  // -------------------------------------------------------------------------
+  describe("start parameter", () => {
+    it("uses start parameter as grid origin and iterates forward", async () => {
+      const client = createMockClient({
+        "/v2/recovery": { records: recoveries, next_token: undefined },
+        "/v2/activity/sleep": { records: sleeps, next_token: undefined },
+        "/v2/cycle": { records: cycles, next_token: undefined },
+      });
+
+      const result = await getCalendar(client, { start: "2026-03-09", days: 3 });
+
+      expect(result.period.start).toBe("2026-03-09");
+      expect(result.period.end).toBe("2026-03-11");
+      expect(result.period.days).toBe(3);
+      expect(result.days).toHaveLength(3);
+      // Ascending order when start is provided
+      expect(result.days[0].date).toBe("2026-03-09");
+      expect(result.days[1].date).toBe("2026-03-10");
+      expect(result.days[2].date).toBe("2026-03-11");
+    });
+
+    it("handles start + days interaction correctly", async () => {
+      // FIXED_NOW is 2026-03-15. start=2026-03-09 + days=7 → 2026-03-09..2026-03-15.
+      const client = createMockClient({
+        "/v2/recovery": { records: recoveries, next_token: undefined },
+        "/v2/activity/sleep": { records: sleeps, next_token: undefined },
+        "/v2/cycle": { records: cycles, next_token: undefined },
+      });
+
+      const result = await getCalendar(client, { start: "2026-03-09", days: 7 });
+
+      expect(result.period.start).toBe("2026-03-09");
+      expect(result.period.end).toBe("2026-03-15");
+      expect(result.period.days).toBe(7);
+      expect(result.days[0].date).toBe("2026-03-09");
+      expect(result.days[6].date).toBe("2026-03-15");
+    });
+
+    it("clamps grid end to today when start + days extends into the future", async () => {
+      // FIXED_NOW is 2026-03-15. start=2026-03-13 + days=10 → would extend to 2026-03-22,
+      // but is clamped to 2026-03-15 (3 days total).
+      const client = createMockClient({
+        "/v2/recovery": { records: recoveries, next_token: undefined },
+        "/v2/activity/sleep": { records: sleeps, next_token: undefined },
+        "/v2/cycle": { records: cycles, next_token: undefined },
+      });
+
+      const result = await getCalendar(client, { start: "2026-03-13", days: 10 });
+
+      expect(result.period.start).toBe("2026-03-13");
+      expect(result.period.end).toBe("2026-03-15");
+      expect(result.period.days).toBe(3);
+      expect(result.days).toHaveLength(3);
+      expect(result.days.map((d) => d.date)).toEqual(["2026-03-13", "2026-03-14", "2026-03-15"]);
+    });
+
+    it("returns empty grid when start is in the future", async () => {
+      const client = createMockClient({
+        "/v2/recovery": { records: [], next_token: undefined },
+        "/v2/activity/sleep": { records: [], next_token: undefined },
+        "/v2/cycle": { records: [], next_token: undefined },
+      });
+
+      const result = await getCalendar(client, { start: "2026-04-01", days: 7 });
+
+      expect(result.period.start).toBe("2026-04-01");
+      expect(result.period.days).toBe(0);
+      expect(result.days).toHaveLength(0);
+      expect(result.averages.recovery).toBeNull();
+      expect(result.averages.sleep_hours).toBeNull();
+      expect(result.averages.strain).toBeNull();
+    });
   });
 });

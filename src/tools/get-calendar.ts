@@ -23,7 +23,6 @@ export interface CalendarDay {
   sleep_hours: number | null;
   sleep_performance_pct: number | null;
   day_strain: number | null;
-  workout_count: number;
 }
 
 export interface CalendarAverages {
@@ -101,25 +100,62 @@ export async function getCalendar(
 ): Promise<CalendarGrid> {
   const numDays = params.days ?? DEFAULT_DAYS;
   const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-  // Determine date range
-  let startDate: Date;
+  // Determine grid origin and direction
+  // - With `start`: grid begins at `start`, iterates forward, clamped to today (no future days).
+  // - Without `start`: grid ends today and extends backward `numDays`.
+  let gridStart: Date;
+  let gridEnd: Date;
+  let ascending: boolean;
   if (params.start) {
     const resolved = resolveDateExpression(params.start);
-    startDate = new Date(resolved.start);
-  } else {
-    startDate = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - numDays + 1)
+    gridStart = new Date(resolved.start);
+    gridStart = new Date(
+      Date.UTC(gridStart.getUTCFullYear(), gridStart.getUTCMonth(), gridStart.getUTCDate())
     );
+    const tentativeEnd = new Date(
+      Date.UTC(
+        gridStart.getUTCFullYear(),
+        gridStart.getUTCMonth(),
+        gridStart.getUTCDate() + numDays - 1
+      )
+    );
+    gridEnd = tentativeEnd.getTime() > today.getTime() ? today : tentativeEnd;
+    ascending = true;
+  } else {
+    gridEnd = today;
+    gridStart = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - numDays + 1)
+    );
+    ascending = false;
   }
 
-  const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  // Future start: nothing to render. Surface user-provided start as period anchor.
+  if (gridStart.getTime() > today.getTime()) {
+    return {
+      period: { start: formatDateUTC(gridStart), end: formatDateUTC(gridStart), days: 0 },
+      days: [],
+      averages: { recovery: null, sleep_hours: null, strain: null },
+    };
+  }
+
+  const gridLength =
+    Math.round((gridEnd.getTime() - gridStart.getTime()) / (24 * MILLI_PER_HOUR)) + 1;
 
   const startISO = new Date(
-    Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate())
+    Date.UTC(gridStart.getUTCFullYear(), gridStart.getUTCMonth(), gridStart.getUTCDate())
   ).toISOString();
   const endISO = new Date(
-    Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59, 999)
+    Date.UTC(
+      gridEnd.getUTCFullYear(),
+      gridEnd.getUTCMonth(),
+      gridEnd.getUTCDate(),
+      23,
+      59,
+      59,
+      999
+    )
   ).toISOString();
 
   // Fetch all three streams in parallel
@@ -128,16 +164,16 @@ export async function getCalendar(
       client,
       `${ENDPOINT_RECOVERY}?start=${startISO}&end=${endISO}&limit=25`,
       {
-        maxRecords: numDays * 2,
+        maxRecords: gridLength * 2,
         interPageDelayMs: 0,
       }
     ),
     fetchAllPages<Sleep>(client, `${ENDPOINT_SLEEP}?start=${startISO}&end=${endISO}&limit=25`, {
-      maxRecords: numDays * 2,
+      maxRecords: gridLength * 2,
       interPageDelayMs: 0,
     }),
     fetchAllPages<Cycle>(client, `${ENDPOINT_CYCLE}?start=${startISO}&end=${endISO}&limit=25`, {
-      maxRecords: numDays * 2,
+      maxRecords: gridLength * 2,
       interPageDelayMs: 0,
     }),
   ]);
@@ -154,7 +190,6 @@ export async function getCalendar(
   for (const s of sleepResult.records) {
     if (s.nap) continue;
     const date = dateFromTimestamp(s.end);
-    // Only keep the first (most recent) non-nap sleep per day
     if (!sleepByDate.has(date)) {
       sleepByDate.set(date, s);
     }
@@ -167,11 +202,14 @@ export async function getCalendar(
     cycleByDate.set(date, c);
   }
 
-  // Build day grid (most recent first)
+  // Build day grid. Without `start`: most-recent-first (descending from gridEnd).
+  // With `start`: ascending from gridStart.
   const days: CalendarDay[] = [];
-  for (let i = 0; i < numDays; i++) {
+  for (let i = 0; i < gridLength; i++) {
+    const anchor = ascending ? gridStart : gridEnd;
+    const offset = ascending ? i : -i;
     const d = new Date(
-      Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate() - i)
+      Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate() + offset)
     );
     const dateStr = formatDateUTC(d);
 
@@ -190,7 +228,6 @@ export async function getCalendar(
         : null,
       sleep_performance_pct: sleep?.score?.sleep_performance_percentage ?? null,
       day_strain: cycle?.score?.strain ?? null,
-      workout_count: 0, // Workout count not available from cycle endpoint directly
     });
   }
 
@@ -201,17 +238,9 @@ export async function getCalendar(
 
   return {
     period: {
-      start: formatDateUTC(
-        new Date(
-          Date.UTC(
-            endDate.getUTCFullYear(),
-            endDate.getUTCMonth(),
-            endDate.getUTCDate() - numDays + 1
-          )
-        )
-      ),
-      end: formatDateUTC(endDate),
-      days: numDays,
+      start: formatDateUTC(gridStart),
+      end: formatDateUTC(gridEnd),
+      days: gridLength,
     },
     days,
     averages: {
