@@ -7,6 +7,7 @@
  */
 
 import { WHOOP_API_BASE_URL } from "./endpoints.js";
+import type { Logger } from "../logging/logger.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,6 +20,14 @@ export interface WhoopClientOptions {
   baseUrl?: string;
   /** Callback to refresh the access token on 401. Returns a new access token. */
   onTokenRefresh?: () => Promise<string>;
+  /**
+   * Optional structured logger for API call observability.
+   * Successful calls log at `debug` with `durationMs`; 429 responses log at
+   * `warn`; timeouts/network errors log at `error`.
+   */
+  logger?: Logger;
+  /** Optional request ID propagated to all log entries for this client. */
+  requestId?: string;
 }
 
 /** WHOOP API client returned by createWhoopClient */
@@ -123,10 +132,17 @@ function parseRetryAfter(response: Response): number | null {
  */
 export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
   const baseUrl = options.baseUrl ?? WHOOP_API_BASE_URL;
+  const logger = options.logger;
+  const requestId = options.requestId;
+
+  function logExtras(extra: Record<string, unknown>): Record<string, unknown> {
+    return requestId !== undefined ? { requestId, ...extra } : extra;
+  }
 
   async function doFetch(url: string, accessToken: string): Promise<Response> {
+    const startedAt = Date.now();
     try {
-      return await fetch(url, {
+      const res = await fetch(url, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -134,9 +150,21 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
         },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
+      logger?.debug("whoop api request", logExtras({ url, status: res.status, durationMs: Date.now() - startedAt }));
+      return res;
     } catch (error: unknown) {
+      const durationMs = Date.now() - startedAt;
       if (error instanceof WhoopApiError) {
         throw error;
+      }
+      // AbortError from AbortSignal.timeout → request timed out
+      const isTimeout =
+        error instanceof Error &&
+        (error.name === "TimeoutError" || error.name === "AbortError");
+      if (isTimeout) {
+        logger?.error("whoop api timeout", logExtras({ url, durationMs, error: error.message }));
+      } else {
+        logger?.error("whoop api network error", logExtras({ url, durationMs, error: error instanceof Error ? error.message : String(error) }));
       }
       throw new WhoopNetworkError(error);
     }
@@ -176,6 +204,11 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
 
         // Only retry on 429 rate limit
         if (response.status === 429) {
+          const retryAfterMs = parseRetryAfter(response);
+          logger?.warn(
+            "whoop api rate limited",
+            logExtras({ url, attempt, retryAfterMs: retryAfterMs ?? undefined })
+          );
           lastError = apiError;
           lastResponse = response;
           continue;
@@ -186,6 +219,7 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
           let newToken: string;
           try {
             newToken = await options.onTokenRefresh();
+            logger?.info("whoop token refreshed", logExtras({ url }));
           } catch (refreshError: unknown) {
             throw new WhoopAuthError(refreshError);
           }

@@ -334,4 +334,244 @@ describe("HTTP Server", () => {
       ).rejects.toThrow(/MCP_AUTH_TOKEN/);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // /health — upstream WHOOP API status (Task 13a/13d gap)
+  // ---------------------------------------------------------------------------
+
+  describe("/health WHOOP API probe", () => {
+    it("reports whoopApi='ok' when healthCheck resolves true (authed)", async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        healthCheck: () => Promise.resolve(true),
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const res = await request(server, "/health", {
+        headers: { authorization: "Bearer test-token-abc123" },
+      });
+      const body = JSON.parse(res.body) as { whoopApi: string };
+      expect(body.whoopApi).toBe("ok");
+    });
+
+    it("reports whoopApi='error' when healthCheck rejects (authed)", async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        healthCheck: () => Promise.reject(new Error("upstream down")),
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const res = await request(server, "/health", {
+        headers: { authorization: "Bearer test-token-abc123" },
+      });
+      const body = JSON.parse(res.body) as { whoopApi: string };
+      expect(body.whoopApi).toBe("error");
+    });
+
+    it("reports whoopApi='unknown' when no healthCheck configured (authed)", async () => {
+      const result = await createHttpServer(defaultOptions);
+      server = result.server;
+      cleanup = result.close;
+
+      const res = await request(server, "/health", {
+        headers: { authorization: "Bearer test-token-abc123" },
+      });
+      const body = JSON.parse(res.body) as { whoopApi: string };
+      expect(body.whoopApi).toBe("unknown");
+    });
+
+    it("does not include whoopApi field on unauthenticated /health", async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        healthCheck: () => Promise.resolve(true),
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const res = await request(server, "/health");
+      const body = JSON.parse(res.body) as { whoopApi?: string };
+      expect(body.whoopApi).toBeUndefined();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Per-IP rate limiting on /mcp (Task 13c-13)
+  // ---------------------------------------------------------------------------
+
+  describe("/mcp per-IP rate limit", () => {
+    it("returns 429 once the per-IP window cap is exceeded", async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        mcpRateLimit: { windowMs: 60_000, max: 2 },
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const headers = {
+        authorization: "Bearer test-token-abc123",
+        "content-type": "application/json",
+      };
+      const body = JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 });
+
+      const r1 = await request(server, "/mcp", { method: "POST", headers, body });
+      const r2 = await request(server, "/mcp", { method: "POST", headers, body });
+      const r3 = await request(server, "/mcp", { method: "POST", headers, body });
+
+      expect(r1.status).not.toBe(429);
+      expect(r2.status).not.toBe(429);
+      expect(r3.status).toBe(429);
+      expect(r3.headers["retry-after"]).toBeDefined();
+    });
+
+    it("can be disabled with mcpRateLimit max=0", async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        mcpRateLimit: { windowMs: 60_000, max: 0 },
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const headers = {
+        authorization: "Bearer test-token-abc123",
+        "content-type": "application/json",
+      };
+      const body = JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 });
+
+      // Many requests, none should be 429
+      for (let i = 0; i < 5; i++) {
+        const r = await request(server, "/mcp", { method: "POST", headers, body });
+        expect(r.status).not.toBe(429);
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // OAuth handler forwarding (Task 13c runtime wiring)
+  // ---------------------------------------------------------------------------
+
+  describe("OAuth handler forwarding", () => {
+    it("forwards /authorize, /token, /register, /.well-known/* to the configured handler", async () => {
+      const seen: string[] = [];
+      const oauthHandler = (req: http.IncomingMessage, res: http.ServerResponse): void => {
+        seen.push(req.url ?? "");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ forwarded: req.url }));
+      };
+
+      const result = await createHttpServer({ ...defaultOptions, oauthHandler });
+      server = result.server;
+      cleanup = result.close;
+
+      const paths = ["/authorize?x=1", "/token", "/register", "/.well-known/oauth-authorization-server"];
+      for (const p of paths) {
+        const r = await request(server, p);
+        expect(r.status).toBe(200);
+        const body = JSON.parse(r.body) as { forwarded: string };
+        expect(body.forwarded).toBe(p);
+      }
+      expect(seen).toHaveLength(4);
+    });
+
+    it("does not forward when oauthHandler is undefined (returns 404)", async () => {
+      const result = await createHttpServer(defaultOptions);
+      server = result.server;
+      cleanup = result.close;
+
+      const r = await request(server, "/authorize");
+      expect(r.status).toBe(404);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // trustProxy: client IP from X-Forwarded-For
+  // ---------------------------------------------------------------------------
+
+  describe("trustProxy header parsing", () => {
+    it("uses X-Forwarded-For first IP for rate-limit bucketing when trustProxy is true", async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        trustProxy: true,
+        mcpRateLimit: { windowMs: 60_000, max: 1 },
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const body = JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 });
+      const headersA = {
+        authorization: "Bearer test-token-abc123",
+        "content-type": "application/json",
+        "x-forwarded-for": "10.0.0.1",
+      };
+      const headersB = {
+        authorization: "Bearer test-token-abc123",
+        "content-type": "application/json",
+        "x-forwarded-for": "10.0.0.2",
+      };
+
+      const r1 = await request(server, "/mcp", { method: "POST", headers: headersA, body });
+      const r2 = await request(server, "/mcp", { method: "POST", headers: headersA, body });
+      const r3 = await request(server, "/mcp", { method: "POST", headers: headersB, body });
+
+      expect(r1.status).not.toBe(429);
+      expect(r2.status).toBe(429); // same XFF IP
+      expect(r3.status).not.toBe(429); // different XFF IP
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // SSE periodic token re-validation (Task 13c-15)
+  // ---------------------------------------------------------------------------
+
+  describe("SSE re-auth sweep", () => {
+    it("closes an active SSE connection when validateBearerToken returns false", async () => {
+      let valid = true;
+      const result = await createHttpServer({
+        ...defaultOptions,
+        sseReauthIntervalMs: 25, // fast for test
+        validateBearerToken: () => valid,
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const addr = server.address();
+      if (!addr || typeof addr === "string") throw new Error("no port");
+
+      // Open an SSE connection (GET /mcp). Don't await — we want it open.
+      const sseDone = new Promise<void>((resolve) => {
+        const req = http.request(
+          {
+            hostname: "127.0.0.1",
+            port: addr.port,
+            path: "/mcp",
+            method: "GET",
+            headers: {
+              authorization: "Bearer test-token-abc123",
+              accept: "text/event-stream",
+            },
+          },
+          (res) => {
+            res.on("data", () => {});
+            res.on("end", resolve);
+            res.on("close", resolve);
+          }
+        );
+        req.on("error", () => resolve());
+        req.end();
+      });
+
+      // Wait for connection to register
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Invalidate the token — sweep should close the connection
+      valid = false;
+
+      // sse re-auth runs on 25 ms interval; allow up to ~250 ms
+      await Promise.race([
+        sseDone,
+        new Promise<void>((_, rej) => setTimeout(() => rej(new Error("SSE not closed in time")), 1000)),
+      ]);
+    });
+  });
 });

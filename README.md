@@ -565,6 +565,11 @@ Required env vars (HTTP mode):
 | `MCP_TRUST_PROXY`       | no       | `0`          | Set `1` when behind a reverse proxy (Fly/Railway).          |
 | `LOG_LEVEL`             | no       | `info`       | `debug`/`info`/`warn`/`error`.                              |
 | `LOG_FORMAT`            | no       | `json`       | `json` for prod, `pretty` for local dev.                    |
+| `MCP_CONNECTOR_PASSWORD`| no       | —            | If set (≥12 chars), enables the OAuth 2.1 connector for claude.ai web/mobile. Requires `PUBLIC_URL` + `ALLOWED_REDIRECT_URIS`. |
+| `PUBLIC_URL`            | no       | —            | Public `https://` origin used as OAuth issuer.              |
+| `ALLOWED_REDIRECT_URIS` | no       | —            | Comma-separated exact-match list of OAuth redirect URIs.    |
+| `MCP_JWT_SECRET`        | no       | (HKDF)       | Override JWT signing key. Defaults to HKDF derivation from `MCP_AUTH_TOKEN`. |
+| `MCP_OAUTH_CLIENT_ID`   | no       | `whoop-mcp-connector` | OAuth client identifier advertised by the connector. |
 
 ### Fly.io
 

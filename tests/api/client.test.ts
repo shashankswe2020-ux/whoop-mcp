@@ -724,3 +724,140 @@ describe("createWhoopClient", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Logging integration
+// ---------------------------------------------------------------------------
+
+describe("createWhoopClient — logger integration", () => {
+  const TEST_BASE_URL = "https://test.whoop.api";
+  const TEST_TOKEN = "test_access_token_abc123";
+
+  let mockFetch: ReturnType<typeof vi.fn>;
+  let logger: {
+    debug: ReturnType<typeof vi.fn>;
+    info: ReturnType<typeof vi.fn>;
+    warn: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("logs successful GET at debug level with durationMs and requestId", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ user_id: 1 }),
+    } as Response);
+
+    const client = createWhoopClient({
+      accessToken: TEST_TOKEN,
+      baseUrl: TEST_BASE_URL,
+      logger,
+      requestId: "req-abc",
+    });
+    await client.get("/v2/user/profile/basic");
+
+    expect(logger.debug).toHaveBeenCalledTimes(1);
+    const [msg, extra] = logger.debug.mock.calls[0] as [string, Record<string, unknown>];
+    expect(msg).toBe("whoop api request");
+    expect(extra.requestId).toBe("req-abc");
+    expect(extra.status).toBe(200);
+    expect(typeof extra.durationMs).toBe("number");
+    expect(extra.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("logs 429 responses at warn level with attempt + retryAfterMs", async () => {
+    const headers429 = new Headers();
+    headers429.set("retry-after", "0"); // zero so test is fast
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: "Too Many Requests",
+        headers: headers429,
+        json: () => Promise.resolve({ message: "rate limited" }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: "ok" }),
+      } as Response);
+
+    const client = createWhoopClient({
+      accessToken: TEST_TOKEN,
+      baseUrl: TEST_BASE_URL,
+      logger,
+      requestId: "req-rate",
+    });
+    await client.get("/v2/recovery");
+
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    const [msg, extra] = logger.warn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(msg).toBe("whoop api rate limited");
+    expect(extra.requestId).toBe("req-rate");
+    expect(extra.attempt).toBe(0);
+    expect(extra.retryAfterMs).toBe(0);
+  });
+
+  it("logs network/timeout errors at error level", async () => {
+    const timeoutErr = new Error("The operation timed out.");
+    timeoutErr.name = "TimeoutError";
+    mockFetch.mockRejectedValueOnce(timeoutErr);
+
+    const client = createWhoopClient({
+      accessToken: TEST_TOKEN,
+      baseUrl: TEST_BASE_URL,
+      logger,
+    });
+
+    await expect(client.get("/v2/recovery")).rejects.toBeInstanceOf(WhoopNetworkError);
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    const [msg, extra] = logger.error.mock.calls[0] as [string, Record<string, unknown>];
+    expect(msg).toBe("whoop api timeout");
+    expect(typeof extra.durationMs).toBe("number");
+  });
+
+  it("logs at info level when token is refreshed after 401", async () => {
+    const onTokenRefresh = vi.fn().mockResolvedValue("new_token");
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+        json: () => Promise.resolve({ error: "invalid_token" }),
+        text: () => Promise.resolve('{"error":"invalid_token"}'),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ user_id: 1 }),
+      } as Response);
+
+    const client = createWhoopClient({
+      accessToken: TEST_TOKEN,
+      baseUrl: TEST_BASE_URL,
+      onTokenRefresh,
+      logger,
+    });
+    await client.get("/v2/user/profile/basic");
+
+    expect(logger.info).toHaveBeenCalledWith(
+      "whoop token refreshed",
+      expect.objectContaining({ url: expect.stringContaining("/v2/user/profile/basic") })
+    );
+  });
+});

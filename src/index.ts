@@ -142,7 +142,7 @@ export async function main(): Promise<void> {
     return newTokens.access_token;
   };
 
-  const client = createWhoopClient({ accessToken, onTokenRefresh });
+  const client = createWhoopClient({ accessToken, onTokenRefresh, logger });
 
   // 5. Create the MCP server with all WHOOP tools and resources
   const disableResources = process.env.WHOOP_MCP_DISABLE_RESOURCES === "1";
@@ -151,6 +151,7 @@ export async function main(): Promise<void> {
 
   // 6. Connect transports based on MCP_TRANSPORT mode
   const httpResults: HttpServerResult[] = [];
+  let oauthCloseFn: (() => void) | null = null;
 
   if (transportMode === "stdio" || transportMode === "both") {
     await connectStdioTransport(server);
@@ -163,12 +164,64 @@ export async function main(): Promise<void> {
     const allowedOrigins = parseAllowedOrigins();
     const trustProxy = process.env.MCP_TRUST_PROXY === "1";
 
+    // Lightweight upstream WHOOP health probe used by GET /health (authed).
+    const healthCheck = async (): Promise<boolean> => {
+      try {
+        await client.get("/v2/user/profile/basic");
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    // Optional OAuth 2.1 connector — mounted on the same HTTP port if all
+    // required env vars are set. Letting any required var be missing simply
+    // disables the connector (keeps stdio/http parity for local dev).
+    let oauthHandler:
+      | ((req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void)
+      | undefined;
+    const connectorPassword = process.env.MCP_CONNECTOR_PASSWORD;
+    const publicUrl = process.env.PUBLIC_URL;
+    const allowedRedirectUris = process.env.ALLOWED_REDIRECT_URIS;
+
+    if (connectorPassword && publicUrl && allowedRedirectUris) {
+      const { createOAuthApp } = await import("./transport/oauth-connector.js");
+      const { deriveJwtSecret, parseAllowedRedirectUris } = await import(
+        "./transport/oauth-helpers.js"
+      );
+      const jwtSecretEnv = process.env.MCP_JWT_SECRET;
+      const jwtSecret = jwtSecretEnv
+        ? Buffer.from(jwtSecretEnv, "utf-8")
+        : await deriveJwtSecret(authToken);
+      const oauthApp = createOAuthApp({
+        connectorPassword,
+        publicUrl,
+        allowedRedirectUris: parseAllowedRedirectUris(allowedRedirectUris),
+        jwtSecret,
+        scopes: ["mcp"],
+        client: {
+          clientId: process.env.MCP_OAUTH_CLIENT_ID ?? "whoop-mcp-connector",
+          clientName: "WHOOP MCP Connector",
+          redirectUris: parseAllowedRedirectUris(allowedRedirectUris),
+        },
+        trustProxy: trustProxy ? 1 : false,
+      });
+      oauthHandler = oauthApp.app as unknown as (
+        req: import("node:http").IncomingMessage,
+        res: import("node:http").ServerResponse
+      ) => void;
+      oauthCloseFn = oauthApp.close;
+      logger.info("oauth connector mounted", { publicUrl });
+    }
+
     const httpResult = await createHttpServer({
       authToken,
       port,
       host,
       allowedOrigins,
       trustProxy,
+      healthCheck,
+      oauthHandler,
     });
     await server.connect(httpResult.transport);
     httpResults.push(httpResult);
@@ -177,6 +230,7 @@ export async function main(): Promise<void> {
       port,
       host,
       allowedOriginsCount: allowedOrigins.length,
+      oauthMounted: oauthHandler !== undefined,
     });
   }
 
@@ -184,6 +238,13 @@ export async function main(): Promise<void> {
   if (httpResults.length > 0) {
     const shutdown = async (): Promise<void> => {
       logger.info("shutting down");
+      if (oauthCloseFn) {
+        try {
+          oauthCloseFn();
+        } catch {
+          /* ignore */
+        }
+      }
       for (const r of httpResults) {
         try {
           await r.close();

@@ -29,6 +29,36 @@ export interface HttpServerOptions {
   allowedOrigins?: string[];
   /** Whether to trust proxy headers (default: false) */
   trustProxy?: boolean;
+  /**
+   * Optional async probe used by GET /health (with valid bearer) to report
+   * upstream WHOOP API status. Resolves true if reachable, false otherwise.
+   * Probe failures are caught and reported as `whoopApi: "error"`.
+   */
+  healthCheck?: () => Promise<boolean>;
+  /**
+   * Optional handler for OAuth-related routes. When provided, requests whose
+   * pathname starts with `/authorize`, `/token`, `/register`, or
+   * `/.well-known/` are forwarded to it (typically an Express app from
+   * `createOAuthApp`). Allows the connector + MCP transport to share a port.
+   */
+  oauthHandler?: (req: IncomingMessage, res: ServerResponse) => void;
+  /**
+   * Per-IP rate limit for /mcp (default: 100 requests / 60s window).
+   * Set both to 0 to disable.
+   */
+  mcpRateLimit?: { windowMs: number; max: number };
+  /**
+   * SSE re-validation interval in ms (default: 5 * 60 * 1000 = 5 min).
+   * Active /mcp GET (SSE) connections whose bearer token no longer matches
+   * are terminated. Set to 0 to disable.
+   */
+  sseReauthIntervalMs?: number;
+  /**
+   * Optional bearer-token validator used by the SSE re-auth sweep. Defaults
+   * to a static comparison against `authToken` (never expires). Override to
+   * plug in OAuth JWT expiry checks.
+   */
+  validateBearerToken?: (token: string) => boolean;
 }
 
 export interface HttpServerResult {
@@ -42,6 +72,8 @@ export interface HealthResponse {
   status: "ok";
   uptime?: number;
   version?: string;
+  /** Upstream WHOOP API reachability — only present on authed /health */
+  whoopApi?: "ok" | "error" | "unknown";
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +194,12 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
     host = "0.0.0.0",
     maxConnections = 5,
     allowedOrigins = [],
+    trustProxy = false,
+    healthCheck,
+    oauthHandler,
+    mcpRateLimit = { windowMs: 60_000, max: 100 },
+    sseReauthIntervalMs = 5 * 60 * 1000,
+    validateBearerToken,
   } = options;
 
   if (!authToken) {
@@ -174,6 +212,48 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   // Track active connections for limiting
   let activeConnections = 0;
   const startTime = Date.now();
+
+  // Per-IP fixed-window rate limiter for /mcp (no extra deps).
+  const mcpRateBuckets = new Map<string, { count: number; resetAt: number }>();
+  function checkMcpRateLimit(ip: string): boolean {
+    if (mcpRateLimit.max <= 0 || mcpRateLimit.windowMs <= 0) return true;
+    const now = Date.now();
+    const bucket = mcpRateBuckets.get(ip);
+    if (!bucket || bucket.resetAt <= now) {
+      mcpRateBuckets.set(ip, { count: 1, resetAt: now + mcpRateLimit.windowMs });
+      return true;
+    }
+    if (bucket.count >= mcpRateLimit.max) return false;
+    bucket.count++;
+    return true;
+  }
+
+  function clientIp(req: IncomingMessage): string {
+    if (trustProxy) {
+      const xff = req.headers["x-forwarded-for"];
+      if (typeof xff === "string" && xff.length > 0) {
+        const first = xff.split(",")[0]?.trim();
+        if (first) return first;
+      }
+    }
+    return req.socket.remoteAddress ?? "unknown";
+  }
+
+  // Track live SSE responses so we can re-validate the bearer token periodically.
+  const sseConnections = new Set<{ res: ServerResponse; token: string }>();
+  let sseTimer: NodeJS.Timeout | null = null;
+  if (sseReauthIntervalMs > 0) {
+    sseTimer = setInterval(() => {
+      const validate = validateBearerToken ?? ((t: string): boolean => safeTokenCompare(t, authToken));
+      for (const c of sseConnections) {
+        if (!validate(c.token)) {
+          c.res.end();
+          sseConnections.delete(c);
+        }
+      }
+    }, sseReauthIntervalMs);
+    sseTimer.unref();
+  }
 
   // Create the SDK transport (stateful with session IDs)
   const transport = new StreamableHTTPServerTransport({
@@ -198,8 +278,29 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
       const health: HealthResponse = { status: "ok" };
       if (isAuthed) {
         health.uptime = Math.floor((Date.now() - startTime) / 1000);
+        if (healthCheck) {
+          try {
+            health.whoopApi = (await healthCheck()) ? "ok" : "error";
+          } catch {
+            health.whoopApi = "error";
+          }
+        } else {
+          health.whoopApi = "unknown";
+        }
       }
       sendJson(res, 200, health);
+      return;
+    }
+
+    // OAuth connector routes — forward to mounted handler if configured
+    if (
+      oauthHandler &&
+      (pathname === "/authorize" ||
+        pathname === "/token" ||
+        pathname === "/register" ||
+        pathname.startsWith("/.well-known/"))
+    ) {
+      oauthHandler(req, res);
       return;
     }
 
@@ -212,6 +313,13 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
         return;
       }
 
+      // Per-IP rate limit (100/min default)
+      if (!checkMcpRateLimit(clientIp(req))) {
+        res.setHeader("Retry-After", String(Math.ceil(mcpRateLimit.windowMs / 1000)));
+        sendJson(res, 429, { error: "Too Many Requests" });
+        return;
+      }
+
       // Connection limit check
       if (activeConnections >= maxConnections) {
         sendJson(res, 503, { error: "Service Unavailable", message: "Maximum connections reached" });
@@ -220,8 +328,13 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
 
       // Track connection
       activeConnections++;
+      const sseEntry = { res, token };
+      if (req.method === "GET") {
+        sseConnections.add(sseEntry);
+      }
       res.on("close", () => {
         activeConnections--;
+        sseConnections.delete(sseEntry);
       });
 
       // Parse body for POST requests
@@ -262,6 +375,10 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
 
   // Graceful shutdown
   const close = async (): Promise<void> => {
+    if (sseTimer) {
+      clearInterval(sseTimer);
+      sseTimer = null;
+    }
     await transport.close();
     await new Promise<void>((resolve, reject) => {
       server.close((err) => {
