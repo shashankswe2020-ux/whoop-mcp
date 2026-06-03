@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-06-03
+
+### Security
+- **OAuth `openBrowser` URL scheme validation** (#151) — reject non-HTTP(S) URL schemes (`javascript:`, `file:`, `vbscript:`, malformed URLs) BEFORE spawning the child process. Defense-in-depth; the URL is constructed from constants today.
+- **OAuth callback `Referrer-Policy: no-referrer`** (#110) — added to all callback HTML responses so the auth code in the callback URL cannot leak via Referer. All four HTML response paths now flow through a single `HTML_RESPONSE_HEADERS` constant.
+- **Token refresh error differentiation** (#111) — `refreshAccessToken` now wraps fetch in try/catch and raises `WhoopNetworkError` on transport failures; `authenticate`'s refresh catch block rethrows network errors so callers can retry instead of forcing the user through a full re-auth on transient DNS/connection issues.
+- **Windows `cmd /c start` title guard** (#109) — verified the empty `""` title placeholder is in place; added a platform=win32 unit test to lock it in.
+
+### Changed
+- **BREAKING: `get_calendar` removes `workout_count` field** (#156) — the field was hard-coded to `0` (no implementation path that wouldn't add a workout API fetch). Removed from `CalendarDay` for honesty over backwards compatibility. No in-repo callers consumed it.
+- **`get_calendar.start` is now the grid origin** (#154) — when provided, the grid iterates FORWARD from `start` for `days` days, clamped to today (no future days). Previously `start` only filtered the API query while the displayed grid stayed anchored at today. `period.start` in the response now equals the provided `start`.
+- **YYYY-MM date inputs reject years outside 2010–2099** (#158) — typos like `0226-05` previously parsed as year 226 and returned empty WHOOP data. Now throws `InvalidDateExpression` with a clear message.
+- **`get_calendar` throttles inter-page delay for large ranges** (#152) — `numDays > 30` now uses `interPageDelayMs=100` across all three paginated streams (recovery/sleep/cycle); `numDays ≤ 30` retains `0` (unchanged hot path). Mitigates 429 risk on 90-day requests.
+- **`compare_periods` schema-level ISO 8601 validation** (#153) — all four date params now use a shared `isoDateString` schema with a clear error message instead of bare `z.string()`. Centralized `ISO_8601_REGEX` export from `src/tools/date-utils.ts`.
+
+### Added
+- **End-to-end MCP integration test over HTTP transport** (#161) — new `tests/transport/http.integration.test.ts` exercises `initialize` → `tools/list` → `tools/call get_profile` through the real SDK `StreamableHTTPClientTransport` ↔ `StreamableHTTPServerTransport` pair, with WHOOP API mocked at `globalThis.fetch`.
+- **HTTP transport regression test** (#159) — verifies `activeConnections` counter cannot drift negative under repeated malformed JSON bodies; the malformed-JSON catch block now has an inline comment locking in the `res.on('close')` ownership invariant.
+- **README privacy notes for analytical tools** (#99) — documents that `get_weekly_summary`, `get_trend`, and `compare_periods` return concentrated summaries derived from underlying records, with the `anomalies` array flagging deviations from your personal baseline. No new data exposure vs the per-record collection tools.
+- **V3 platform spec audit pass** — `docs/specs/v3-platform-enhancements.md` revised with revision log, WHOOP API rate-limit assumptions section (#149), and tradeoffs / open decisions section (TD-1 webhook vs read-only #128, TD-2 self-issued JWT vs SDK ProxyOAuthServerProvider #150). 24 other spec-review issues verified already encoded.
+
+### Test count
+- 691 → **716** (+25 across 35 test files). Lint, typecheck, build clean.
+
 ## [0.5.1] - 2026-06-03
 
 ### Added
