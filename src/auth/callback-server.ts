@@ -74,6 +74,12 @@ const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+} as const;
+
+const HTML_RESPONSE_HEADERS = {
+  "Content-Type": "text/html; charset=utf-8",
+  ...SECURITY_HEADERS,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -106,7 +112,7 @@ export function startCallbackServer(options: CallbackServerOptions): CallbackSer
       const url = new URL(req.url ?? "/", `http://localhost:${resolvedPort}`);
 
       if (url.pathname !== "/callback") {
-        res.writeHead(404, { "Content-Type": "text/plain", ...SECURITY_HEADERS });
+        res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", ...SECURITY_HEADERS });
         res.end("Not found");
         return;
       }
@@ -115,7 +121,7 @@ export function startCallbackServer(options: CallbackServerOptions): CallbackSer
       const oauthError = url.searchParams.get("error");
       if (oauthError) {
         const description = url.searchParams.get("error_description") ?? oauthError;
-        res.writeHead(400, { "Content-Type": "text/html", ...SECURITY_HEADERS });
+        res.writeHead(400, HTML_RESPONSE_HEADERS);
         res.end(errorHtml(description));
         cleanup();
         if (!settled) {
@@ -130,7 +136,7 @@ export function startCallbackServer(options: CallbackServerOptions): CallbackSer
 
       // Validate required params
       if (!code) {
-        res.writeHead(400, { "Content-Type": "text/html", ...SECURITY_HEADERS });
+        res.writeHead(400, HTML_RESPONSE_HEADERS);
         res.end(errorHtml("Missing authorization code in callback."));
         cleanup();
         if (!settled) {
@@ -142,7 +148,7 @@ export function startCallbackServer(options: CallbackServerOptions): CallbackSer
 
       // Validate state parameter (CSRF protection)
       if (state !== options.expectedState) {
-        res.writeHead(400, { "Content-Type": "text/html", ...SECURITY_HEADERS });
+        res.writeHead(400, HTML_RESPONSE_HEADERS);
         res.end(errorHtml("State parameter mismatch — possible CSRF attack."));
         cleanup();
         if (!settled) {
@@ -153,7 +159,7 @@ export function startCallbackServer(options: CallbackServerOptions): CallbackSer
       }
 
       // Success — return the code
-      res.writeHead(200, { "Content-Type": "text/html", ...SECURITY_HEADERS });
+      res.writeHead(200, HTML_RESPONSE_HEADERS);
       res.end(SUCCESS_HTML);
       cleanup();
       if (!settled) {
