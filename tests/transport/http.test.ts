@@ -236,6 +236,70 @@ describe("HTTP Server", () => {
       const body = JSON.parse(res.body) as { error: string };
       expect(body.error).toBe("Service Unavailable");
     });
+
+    it("activeConnections counter does not go negative after repeated malformed JSON bodies", async () => {
+      // Regression for double-decrement bug: a malformed-JSON catch path must
+      // not decrement activeConnections explicitly, since res.on("close")
+      // already handles it. Otherwise the counter goes negative and the
+      // connection limit silently stops working.
+      const result = await createHttpServer({
+        ...defaultOptions,
+        maxConnections: 1,
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      // Send several malformed POSTs sequentially. Each should return 400
+      // and leave activeConnections at 0 (would go to -5 with the bug).
+      for (let i = 0; i < 5; i++) {
+        const res = await request(server, "/mcp", {
+          method: "POST",
+          headers: {
+            authorization: "Bearer test-token-abc123",
+            "content-type": "application/json",
+          },
+          body: "this is not json",
+        });
+        expect(res.status).toBe(400);
+      }
+
+      // Open a POST that writes a partial body but never ends, so the server
+      // is stuck inside `await readBody(...)`. This holds activeConnections
+      // at 1 (== maxConnections). With the bug it would be at -4 and the
+      // limit would not engage.
+      const addr = server.address();
+      if (!addr || typeof addr === "string") throw new Error("no port");
+      const slowReq = http.request({
+        hostname: "127.0.0.1",
+        port: addr.port,
+        path: "/mcp",
+        method: "POST",
+        headers: {
+          authorization: "Bearer test-token-abc123",
+          "content-type": "application/json",
+          "transfer-encoding": "chunked",
+        },
+      });
+      slowReq.on("error", () => {});
+      slowReq.write("{");
+      // Brief wait so the server-side handler reaches `await readBody` and
+      // activeConnections is incremented.
+      await new Promise((r) => setTimeout(r, 50));
+
+      // A subsequent POST must be rejected with 503 because the limiter is
+      // still working (counter at cap, not negative).
+      const blocked = await request(server, "/mcp", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer test-token-abc123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 }),
+      });
+      expect(blocked.status).toBe(503);
+
+      slowReq.destroy();
+    });
   });
 
   // ---------------------------------------------------------------------------

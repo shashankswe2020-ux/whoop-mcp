@@ -345,6 +345,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
           parsedBody = JSON.parse(rawBody) as unknown;
         } catch {
           sendJson(res, 400, { error: "Bad Request", message: "Invalid JSON body" });
+          // res.on("close") handles activeConnections decrement
           return;
         }
       }
