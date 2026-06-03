@@ -150,7 +150,10 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
         },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
-      logger?.debug("whoop api request", logExtras({ url, status: res.status, durationMs: Date.now() - startedAt }));
+      logger?.debug(
+        "whoop api request",
+        logExtras({ url, status: res.status, durationMs: Date.now() - startedAt })
+      );
       return res;
     } catch (error: unknown) {
       const durationMs = Date.now() - startedAt;
@@ -159,12 +162,18 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
       }
       // AbortError from AbortSignal.timeout → request timed out
       const isTimeout =
-        error instanceof Error &&
-        (error.name === "TimeoutError" || error.name === "AbortError");
+        error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
       if (isTimeout) {
         logger?.error("whoop api timeout", logExtras({ url, durationMs, error: error.message }));
       } else {
-        logger?.error("whoop api network error", logExtras({ url, durationMs, error: error instanceof Error ? error.message : String(error) }));
+        logger?.error(
+          "whoop api network error",
+          logExtras({
+            url,
+            durationMs,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        );
       }
       throw new WhoopNetworkError(error);
     }

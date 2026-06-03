@@ -7,7 +7,11 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import http from "node:http";
-import { safeTokenCompare, createHttpServer, type HttpServerOptions } from "../../src/transport/http.js";
+import {
+  safeTokenCompare,
+  createHttpServer,
+  type HttpServerOptions,
+} from "../../src/transport/http.js";
 
 // ---------------------------------------------------------------------------
 // Helper: make HTTP requests to the test server
@@ -329,9 +333,9 @@ describe("HTTP Server", () => {
 
   describe("startup validation", () => {
     it("throws if authToken is empty", async () => {
-      await expect(
-        createHttpServer({ ...defaultOptions, authToken: "" })
-      ).rejects.toThrow(/MCP_AUTH_TOKEN/);
+      await expect(createHttpServer({ ...defaultOptions, authToken: "" })).rejects.toThrow(
+        /MCP_AUTH_TOKEN/
+      );
     });
   });
 
@@ -464,7 +468,12 @@ describe("HTTP Server", () => {
       server = result.server;
       cleanup = result.close;
 
-      const paths = ["/authorize?x=1", "/token", "/register", "/.well-known/oauth-authorization-server"];
+      const paths = [
+        "/authorize?x=1",
+        "/token",
+        "/register",
+        "/.well-known/oauth-authorization-server",
+      ];
       for (const p of paths) {
         const r = await request(server, p);
         expect(r.status).toBe(200);
@@ -570,7 +579,9 @@ describe("HTTP Server", () => {
       // sse re-auth runs on 25 ms interval; allow up to ~250 ms
       await Promise.race([
         sseDone,
-        new Promise<void>((_, rej) => setTimeout(() => rej(new Error("SSE not closed in time")), 1000)),
+        new Promise<void>((_, rej) =>
+          setTimeout(() => rej(new Error("SSE not closed in time")), 1000)
+        ),
       ]);
     });
   });

@@ -186,6 +186,26 @@ npm install
 npm run build
 ```
 
+### Setup wizard (`whoop-ai-mcp setup`)
+
+For a guided installation that writes the Claude Desktop config (or prints the
+`claude mcp add` command for Claude Code) and verifies your WHOOP credentials
+in one go:
+
+```bash
+npx whoop-ai-mcp setup
+```
+
+Flags:
+
+- `--client=claude-desktop` (default) writes/merges `claude_desktop_config.json`
+  with an automatic `.bak` backup.
+- `--client=claude-code` prints the equivalent `claude mcp add` command.
+- `--verify` runs the OAuth flow end-to-end and fetches your profile to confirm
+  everything is wired correctly before exiting.
+- `--client-id` / `--client-secret` skip the interactive prompts (useful for
+  scripts; secrets entered interactively are masked).
+
 ## Configuration
 
 ### Environment Variables
@@ -617,6 +637,33 @@ The image is a stock OCI artifact and runs anywhere Docker does — Render, Clou
 Run, Kubernetes, Hetzner, etc. The only platform-specific knob is
 `MCP_TRUST_PROXY=1` whenever you sit behind a TLS-terminating proxy.
 
+### Connecting from claude.ai (OAuth 2.1 connector)
+
+Claude Desktop and Claude Code can use the static `MCP_AUTH_TOKEN` bearer
+directly. The **claude.ai web/mobile** clients expect an OAuth 2.1 connector
+with PKCE — set the three env vars below and the server mounts the connector
+automatically on the same port as `/mcp`:
+
+```bash
+fly secrets set \
+  MCP_CONNECTOR_PASSWORD="$(openssl rand -base64 24)" \
+  PUBLIC_URL="https://whoop-mcp-<your-suffix>.fly.dev" \
+  ALLOWED_REDIRECT_URIS="https://claude.ai/api/mcp/auth_callback"
+```
+
+- `MCP_CONNECTOR_PASSWORD` (≥12 chars) — the human-facing password you'll type
+  into the claude.ai connector dialog. Treat it like any other shared secret.
+- `PUBLIC_URL` — the public `https://` origin claude.ai will reach. Used as
+  the OAuth issuer (e.g. `https://example.com` → metadata at
+  `/.well-known/oauth-authorization-server`).
+- `ALLOWED_REDIRECT_URIS` — comma-separated **exact-match** allowlist. For
+  claude.ai the value is `https://claude.ai/api/mcp/auth_callback`.
+- Optional: `MCP_JWT_SECRET` overrides the JWT signing key (defaults to an
+  HKDF derivation from `MCP_AUTH_TOKEN`); `MCP_OAUTH_CLIENT_ID` overrides the
+  advertised client id (default `whoop-mcp-connector`).
+
+In claude.ai → Settings → Connectors → Add custom connector, point it at
+`PUBLIC_URL/mcp` and supply `MCP_CONNECTOR_PASSWORD` when prompted.
 
 ## Development
 

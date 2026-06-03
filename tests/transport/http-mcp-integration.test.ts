@@ -16,7 +16,7 @@ import type { WhoopClient } from "../../src/api/client.js";
 
 function makeMockWhoopClient(): WhoopClient {
   return {
-    get: <T,>(): Promise<T> =>
+    get: <T>(): Promise<T> =>
       Promise.resolve({
         user_id: 42,
         email: "test@example.com",
@@ -49,10 +49,7 @@ describe("HTTP transport — MCP integration", () => {
     const addr = httpResult.server.address();
     if (!addr || typeof addr === "string") throw new Error("server has no port");
 
-    const client = new Client(
-      { name: "test-client", version: "0.0.0" },
-      { capabilities: {} }
-    );
+    const client = new Client({ name: "test-client", version: "0.0.0" }, { capabilities: {} });
     const transport = new StreamableHTTPClientTransport(
       new URL(`http://127.0.0.1:${addr.port}/mcp`),
       {
@@ -103,9 +100,7 @@ describe("HTTP transport — MCP integration", () => {
     const httpResult = await createHttpServer({
       authToken: "test-bearer-token",
       port: 0,
-      oauthHandler: oauth.app as unknown as Parameters<
-        typeof createHttpServer
-      >[0]["oauthHandler"],
+      oauthHandler: oauth.app as unknown as Parameters<typeof createHttpServer>[0]["oauthHandler"],
     });
     cleanup = async (): Promise<void> => {
       oauth.close();
@@ -114,9 +109,7 @@ describe("HTTP transport — MCP integration", () => {
 
     const addr = httpResult.server.address();
     if (!addr || typeof addr === "string") throw new Error("no port");
-    const r = await fetch(
-      `http://127.0.0.1:${addr.port}/.well-known/oauth-authorization-server`
-    );
+    const r = await fetch(`http://127.0.0.1:${addr.port}/.well-known/oauth-authorization-server`);
     expect(r.status).toBe(200);
     const body = (await r.json()) as { issuer: string };
     expect(body.issuer).toMatch(/^https:\/\/example\.com\/?$/);

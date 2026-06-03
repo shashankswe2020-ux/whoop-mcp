@@ -50,7 +50,9 @@ describe("deriveJwtSecret", () => {
 
 describe("validateConnectorPassword", () => {
   it("accepts password >= 12 chars", () => {
-    expect(() => validateConnectorPassword("a".repeat(MIN_CONNECTOR_PASSWORD_LENGTH))).not.toThrow();
+    expect(() =>
+      validateConnectorPassword("a".repeat(MIN_CONNECTOR_PASSWORD_LENGTH))
+    ).not.toThrow();
     expect(() => validateConnectorPassword("a".repeat(20))).not.toThrow();
   });
 
@@ -138,9 +140,7 @@ describe("isAllowedRedirectUri", () => {
 
 describe("parseAllowedRedirectUris", () => {
   it("parses single URI", () => {
-    expect(parseAllowedRedirectUris("https://example.com/cb")).toEqual([
-      "https://example.com/cb",
-    ]);
+    expect(parseAllowedRedirectUris("https://example.com/cb")).toEqual(["https://example.com/cb"]);
   });
 
   it("parses comma-separated URIs", () => {

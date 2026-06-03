@@ -554,10 +554,7 @@ describe("openBrowser", () => {
     openBrowser("https://example.com/auth");
 
     expect(onListener).toHaveBeenCalled();
-    const [event, handler] = onListener.mock.calls[0] as [
-      string,
-      (err: Error) => void,
-    ];
+    const [event, handler] = onListener.mock.calls[0] as [string, (err: Error) => void];
     expect(event).toBe("error");
     expect(typeof handler).toBe("function");
 

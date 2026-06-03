@@ -66,9 +66,7 @@ describe("mergeClaudeDesktopConfig", () => {
   });
 
   it("preserves unrelated top-level keys", () => {
-    const existing = { theme: "dark" } as unknown as Parameters<
-      typeof mergeClaudeDesktopConfig
-    >[0];
+    const existing = { theme: "dark" } as unknown as Parameters<typeof mergeClaudeDesktopConfig>[0];
     const merged = mergeClaudeDesktopConfig(existing, entry);
     expect((merged as { theme?: string }).theme).toBe("dark");
   });
@@ -76,7 +74,11 @@ describe("mergeClaudeDesktopConfig", () => {
   it("replaces an existing whoop entry rather than duplicating", () => {
     const existing = {
       mcpServers: {
-        whoop: { command: "old", args: [], env: { WHOOP_CLIENT_ID: "old", WHOOP_CLIENT_SECRET: "old" } },
+        whoop: {
+          command: "old",
+          args: [],
+          env: { WHOOP_CLIENT_ID: "old", WHOOP_CLIENT_SECRET: "old" },
+        },
       },
     } as Parameters<typeof mergeClaudeDesktopConfig>[0];
     const merged = mergeClaudeDesktopConfig(existing, entry);
@@ -153,9 +155,7 @@ describe("parseSetupArgs", () => {
   });
 
   it("captures --config-path", () => {
-    expect(parseSetupArgs(["--config-path=/tmp/c.json"]).configPath).toBe(
-      "/tmp/c.json"
-    );
+    expect(parseSetupArgs(["--config-path=/tmp/c.json"]).configPath).toBe("/tmp/c.json");
   });
 });
 
@@ -205,7 +205,10 @@ function makeFakeFs(seed: Record<string, string> = {}): FakeFs {
   return { files, fs: fakeFs };
 }
 
-function makeIo(): { io: { input: NodeJS.ReadableStream; output: NodeJS.WritableStream }; output: () => string } {
+function makeIo(): {
+  io: { input: NodeJS.ReadableStream; output: NodeJS.WritableStream };
+  output: () => string;
+} {
   let captured = "";
   const writable: NodeJS.WritableStream = {
     write: (chunk: string | Uint8Array): boolean => {
@@ -413,10 +416,7 @@ describe("runSetup — non-interactive", () => {
     const { io } = makeIo();
     const fake = makeFakeFs();
     await expect(
-      runSetup(
-        { clientId: "   ", clientSecret: "s", client: "claude-code" },
-        { io, fs: fake.fs }
-      )
+      runSetup({ clientId: "   ", clientSecret: "s", client: "claude-code" }, { io, fs: fake.fs })
     ).rejects.toThrow(/WHOOP_CLIENT_ID is required/);
   });
 });
@@ -432,8 +432,7 @@ describe("runSetup — interactive prompts", () => {
     let captured = "";
     const output: NodeJS.WritableStream = {
       write: (chunk: string | Uint8Array): boolean => {
-        const text =
-          typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+        const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
         captured += text;
         // Feed the next answer as each prompt appears in output. This avoids
         // a race where readline may not pick up data buffered before it
@@ -462,8 +461,7 @@ describe("runSetup — interactive prompts", () => {
     let captured = "";
     const output: NodeJS.WritableStream = {
       write: (chunk: string | Uint8Array): boolean => {
-        const text =
-          typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+        const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
         captured += text;
         if (text.includes("Target client")) input.write("\n");
         return true;
@@ -489,8 +487,7 @@ describe("runSetup — interactive prompts", () => {
     const input = new PassThrough();
     const output: NodeJS.WritableStream = {
       write: (chunk: string | Uint8Array): boolean => {
-        const text =
-          typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+        const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
         if (text.includes("Target client")) input.write("bogus\n");
         return true;
       },
@@ -498,10 +495,7 @@ describe("runSetup — interactive prompts", () => {
     const fake = makeFakeFs();
 
     await expect(
-      runSetup(
-        { clientId: "id", clientSecret: "s" },
-        { io: { input, output }, fs: fake.fs }
-      )
+      runSetup({ clientId: "id", clientSecret: "s" }, { io: { input, output }, fs: fake.fs })
     ).rejects.toThrow(/Invalid client target/);
   });
 });
@@ -562,8 +556,7 @@ describe("runSetup — masked-secret prompt", () => {
     let captured = "";
     const output: NodeJS.WritableStream = {
       write: (chunk: string | Uint8Array): boolean => {
-        captured +=
-          typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+        captured += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
         return true;
       },
     } as unknown as NodeJS.WritableStream;
@@ -593,15 +586,14 @@ describe("runSetup — masked-secret prompt", () => {
     // the target prompt uses `createInterface` which reads via 'data'/'line'
     // events. Since our fake stdin's `on('data')` accepts listeners and we
     // can emit on demand, we'll feed "claude-code\n" after the secret resolves.
-    const baseEmit = (secretInput as unknown as { _emit?: () => void });
+    const baseEmit = secretInput as unknown as { _emit?: () => void };
     void baseEmit; // unused — see below
 
     // We schedule the target answer by writing to output and detecting it.
     let targetSent = false;
     const composedOutput: NodeJS.WritableStream = {
       write: (chunk: string | Uint8Array): boolean => {
-        const text =
-          typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+        const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
         captured += text;
         if (!targetSent && text.includes("Target client")) {
           targetSent = true;

@@ -110,11 +110,7 @@ function extractBearerToken(req: IncomingMessage): string | null {
 // CORS handling
 // ---------------------------------------------------------------------------
 
-function handleCors(
-  req: IncomingMessage,
-  res: ServerResponse,
-  allowedOrigins: string[]
-): boolean {
+function handleCors(req: IncomingMessage, res: ServerResponse, allowedOrigins: string[]): boolean {
   const origin = req.headers.origin;
 
   if (origin && allowedOrigins.includes(origin)) {
@@ -244,7 +240,8 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   let sseTimer: NodeJS.Timeout | null = null;
   if (sseReauthIntervalMs > 0) {
     sseTimer = setInterval(() => {
-      const validate = validateBearerToken ?? ((t: string): boolean => safeTokenCompare(t, authToken));
+      const validate =
+        validateBearerToken ?? ((t: string): boolean => safeTokenCompare(t, authToken));
       for (const c of sseConnections) {
         if (!validate(c.token)) {
           c.res.end();
@@ -322,7 +319,10 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
 
       // Connection limit check
       if (activeConnections >= maxConnections) {
-        sendJson(res, 503, { error: "Service Unavailable", message: "Maximum connections reached" });
+        sendJson(res, 503, {
+          error: "Service Unavailable",
+          message: "Maximum connections reached",
+        });
         return;
       }
 

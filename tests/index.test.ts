@@ -467,9 +467,7 @@ describe("main() entry point", () => {
       const { main } = await importMain();
       await main();
 
-      expect(mockCreateHttpServer).toHaveBeenCalledWith(
-        expect.objectContaining({ port: 3000 })
-      );
+      expect(mockCreateHttpServer).toHaveBeenCalledWith(expect.objectContaining({ port: 3000 }));
     });
 
     it("forwards MCP_HOST and MCP_ALLOWED_ORIGINS to the HTTP server", async () => {

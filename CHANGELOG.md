@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-03
+
+### Added
+- **HTTP transport** — new `MCP_TRANSPORT=http` (or `both`) mode powered by the SDK's `StreamableHTTPServerTransport`. Bearer-auth via `MCP_AUTH_TOKEN`, `/health` endpoint with optional upstream WHOOP API status (`whoopApi: "ok"|"error"|"unknown"`), CORS via `MCP_ALLOWED_ORIGINS`, per-IP `/mcp` rate limit (default 100 req/60 s), SSE periodic re-validation (default 5 min), `MCP_TRUST_PROXY=1` for `X-Forwarded-For` parsing behind reverse proxies, and graceful SIGTERM/SIGINT shutdown.
+- **OAuth 2.1 connector** — claude.ai web/mobile can now connect via PKCE S256. Set `MCP_CONNECTOR_PASSWORD` (≥12 chars) + `PUBLIC_URL` + `ALLOWED_REDIRECT_URIS` and the connector mounts on the same HTTP port. JWT signing key derived via HKDF from `MCP_AUTH_TOKEN` (or override with `MCP_JWT_SECRET`).
+- **Docker image** — multi-stage `node:22-alpine` Dockerfile, runs as non-root, tini PID 1, native-fetch healthcheck. **58 MB compressed** (registry pull). Fly.io and Railway deployment guides in README.
+- **CLI setup wizard** — `npx whoop-ai-mcp setup` walks through credential entry, writes/merges Claude Desktop config (with atomic `.bak` backup), or prints the equivalent `claude mcp add` command for Claude Code. Optional `--verify` flag runs OAuth + profile fetch end-to-end. Zero new runtime deps.
+- **Structured logging** — JSON-lines logger to stderr with `LOG_LEVEL` (`debug`/`info`/`warn`/`error`) and `LOG_FORMAT` (`json`/`pretty`). Request correlation IDs flow through the WHOOP API client; 429s log at `warn` with `retryAfterMs`, timeouts at `error`, token refreshes at `info`, successes at `debug` with `durationMs`.
+- **Hardening** — OAuth callback responses now include `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`. `openBrowser` uses `spawn` with arg arrays (no shell injection) and handles async error events gracefully in headless containers.
+
+### Changed
+- Test count: 502 → **687** (34 test files; coverage on new code: `src/cli` 90.93%, `src/logging` 100%, `src/transport` 94.63%).
+- Node engine bumped to **>=20.0.0** (was >=18) — required for `AbortSignal.timeout` and modern `fetch` semantics.
+- `src/index.ts` refactored to dispatch on `MCP_TRANSPORT` (`stdio` | `http` | `both`); the legacy stdio-only path is preserved as the default for backward compatibility.
+
 ## [0.4.0] - 2026-05-31
 
 ### Added

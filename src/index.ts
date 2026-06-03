@@ -56,8 +56,7 @@ function parseTransport(): TransportMode {
     return raw;
   }
   throw new Error(
-    `Invalid MCP_TRANSPORT: "${process.env.MCP_TRANSPORT}". ` +
-      `Must be one of: stdio, http, both.`
+    `Invalid MCP_TRANSPORT: "${process.env.MCP_TRANSPORT}". ` + `Must be one of: stdio, http, both.`
   );
 }
 
@@ -76,17 +75,14 @@ function parseLogLevel(): LogLevel {
     return raw;
   }
   throw new Error(
-    `Invalid LOG_LEVEL: "${process.env.LOG_LEVEL}". ` +
-      `Must be one of: debug, info, warn, error.`
+    `Invalid LOG_LEVEL: "${process.env.LOG_LEVEL}". ` + `Must be one of: debug, info, warn, error.`
   );
 }
 
 function parseLogFormat(): "json" | "pretty" {
   const raw = (process.env.LOG_FORMAT ?? "json").toLowerCase().trim();
   if (raw === "json" || raw === "pretty") return raw;
-  throw new Error(
-    `Invalid LOG_FORMAT: "${process.env.LOG_FORMAT}". Must be one of: json, pretty.`
-  );
+  throw new Error(`Invalid LOG_FORMAT: "${process.env.LOG_FORMAT}". Must be one of: json, pretty.`);
 }
 
 function parseAllowedOrigins(): string[] {
@@ -178,7 +174,10 @@ export async function main(): Promise<void> {
     // required env vars are set. Letting any required var be missing simply
     // disables the connector (keeps stdio/http parity for local dev).
     let oauthHandler:
-      | ((req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void)
+      | ((
+          req: import("node:http").IncomingMessage,
+          res: import("node:http").ServerResponse
+        ) => void)
       | undefined;
     const connectorPassword = process.env.MCP_CONNECTOR_PASSWORD;
     const publicUrl = process.env.PUBLIC_URL;
@@ -186,9 +185,8 @@ export async function main(): Promise<void> {
 
     if (connectorPassword && publicUrl && allowedRedirectUris) {
       const { createOAuthApp } = await import("./transport/oauth-connector.js");
-      const { deriveJwtSecret, parseAllowedRedirectUris } = await import(
-        "./transport/oauth-helpers.js"
-      );
+      const { deriveJwtSecret, parseAllowedRedirectUris } =
+        await import("./transport/oauth-helpers.js");
       const jwtSecretEnv = process.env.MCP_JWT_SECRET;
       const jwtSecret = jwtSecretEnv
         ? Buffer.from(jwtSecretEnv, "utf-8")
@@ -296,9 +294,7 @@ if (isMainModule()) {
         const opts = parseSetupArgs(process.argv.slice(3));
         await runSetup(opts);
       } catch (error: unknown) {
-        console.error(
-          `Setup failed: ${error instanceof Error ? error.message : String(error)}`
-        );
+        console.error(`Setup failed: ${error instanceof Error ? error.message : String(error)}`);
         process.exit(1);
       }
     })();

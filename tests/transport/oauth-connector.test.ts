@@ -288,9 +288,7 @@ describe("OAuthConnectorProvider", () => {
     });
 
     it("allows narrowing scopes", async () => {
-      const next = await provider.exchangeRefreshToken(fullClient, refreshToken, [
-        "read:profile",
-      ]);
+      const next = await provider.exchangeRefreshToken(fullClient, refreshToken, ["read:profile"]);
       expect(next.scope).toBe("read:profile");
     });
 
@@ -333,9 +331,9 @@ describe("OAuthConnectorProvider", () => {
           ...fullClient,
           client_id: "different-client",
         };
-      await expect(
-        provider.exchangeRefreshToken(otherClient, refreshToken)
-      ).rejects.toThrow(/different client/);
+      await expect(provider.exchangeRefreshToken(otherClient, refreshToken)).rejects.toThrow(
+        /different client/
+      );
     });
   });
 
@@ -392,9 +390,9 @@ describe("OAuthConnectorProvider", () => {
         "https://claude.ai/api/mcp/callback"
       );
 
-      await expect(
-        provider.verifyAccessToken(tokens.refresh_token!)
-      ).rejects.toThrow(/not an access token/);
+      await expect(provider.verifyAccessToken(tokens.refresh_token!)).rejects.toThrow(
+        /not an access token/
+      );
     });
 
     it("rejects garbage tokens", async () => {

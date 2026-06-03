@@ -258,10 +258,7 @@ async function defaultFetchProfile(accessToken: string): Promise<unknown> {
  * Run the setup wizard. Resolves after writing config / printing instructions,
  * or rejects with a human-readable Error if anything goes wrong.
  */
-export async function runSetup(
-  options: SetupOptions = {},
-  deps: RunSetupDeps = {}
-): Promise<void> {
+export async function runSetup(options: SetupOptions = {}, deps: RunSetupDeps = {}): Promise<void> {
   const merged: Required<Omit<RunSetupDeps, "io">> & { io: PromptIO } = {
     ...DEFAULT_DEPS,
     ...deps,
@@ -277,10 +274,9 @@ export async function runSetup(
   const clientId =
     options.clientId !== undefined
       ? options.clientId.trim()
-      : (await promptText(
-          merged.io,
-          "WHOOP Client ID (from https://developer.whoop.com): "
-        )).trim();
+      : (
+          await promptText(merged.io, "WHOOP Client ID (from https://developer.whoop.com): ")
+        ).trim();
   if (!clientId) throw new Error("WHOOP_CLIENT_ID is required");
 
   const clientSecret =
@@ -318,10 +314,10 @@ export async function runSetup(
   // --- Step 3: target client ---
   const target: ClientTarget =
     options.client ??
-    ((await promptText(
+    (((await promptText(
       merged.io,
       "Target client (claude-desktop / claude-code) [claude-desktop]: "
-    )) || "claude-desktop") as ClientTarget;
+    )) || "claude-desktop") as ClientTarget);
 
   if (target !== "claude-desktop" && target !== "claude-code") {
     throw new Error(`Invalid client target: "${target}"`);
