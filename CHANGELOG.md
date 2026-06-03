@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-06-03
+
+### Added
+- **Setup wizard credential precedence** — `npx whoop-ai-mcp setup` now resolves WHOOP credentials from (1) `--client-id` / `--client-secret` flags, then (2) an existing `whoop` entry in the target Claude Desktop config (no rewrite, no `.bak`), then (3) `WHOOP_CLIENT_ID` / `WHOOP_CLIENT_SECRET` env vars, then (4) interactive prompts. With `--verify` and an existing config the wizard runs OAuth + profile fetch against the stored creds and prints `Existing config verified — no changes made` without touching the file.
+
 ## [0.5.0] - 2026-06-03
 
 ### Added

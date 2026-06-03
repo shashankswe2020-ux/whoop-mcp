@@ -206,6 +206,25 @@ Flags:
 - `--client-id` / `--client-secret` skip the interactive prompts (useful for
   scripts; secrets entered interactively are masked).
 
+If `WHOOP_CLIENT_ID` and `WHOOP_CLIENT_SECRET` are already exported in your
+shell, the wizard uses them automatically — no prompts. Combine with
+`--verify` to do a one-shot config-correctness check:
+
+```bash
+WHOOP_CLIENT_ID=... WHOOP_CLIENT_SECRET=... npx whoop-ai-mcp setup --verify
+```
+
+If the Claude Desktop config file already contains a `whoop` MCP entry from
+a previous setup, the wizard short-circuits — it reads the existing
+credentials, prints `Existing whoop entry found in <path>`, and either
+verifies them (with `--verify`) or exits without rewriting the file. To
+overwrite an existing entry, pass explicit `--client-id` / `--client-secret`
+flags.
+
+Precedence: `--client-id` / `--client-secret` flags > existing claude-desktop
+config > `WHOOP_CLIENT_ID` / `WHOOP_CLIENT_SECRET` env vars > interactive
+prompts.
+
 Example session:
 
 ```text

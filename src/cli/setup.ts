@@ -270,19 +270,73 @@ export async function runSetup(options: SetupOptions = {}, deps: RunSetupDeps = 
   out.write("WHOOP MCP — Setup Wizard\n");
   out.write("------------------------\n\n");
 
+  // --- Resolve target client first so we can peek at any existing config. ---
+  const target: ClientTarget =
+    options.client ??
+    (((await promptText(
+      merged.io,
+      "Target client (claude-desktop / claude-code) [claude-desktop]: "
+    )) || "claude-desktop") as ClientTarget);
+  if (target !== "claude-desktop" && target !== "claude-code") {
+    throw new Error(`Invalid client target: "${target}"`);
+  }
+
+  // --- Existing claude-desktop config short-circuit. ---
+  // If the user already ran setup, the target config will contain a `whoop`
+  // entry with valid env. In that case skip prompting + rewriting; just use
+  // those creds and (if --verify) confirm they still work. Explicit
+  // --client-id / --client-secret flags force a rewrite.
+  const explicitFlags = options.clientId !== undefined || options.clientSecret !== undefined;
+  let existingCreds: { clientId: string; clientSecret: string } | null = null;
+  let existingConfigPath: string | null = null;
+  if (target === "claude-desktop" && !explicitFlags) {
+    existingConfigPath = options.configPath ?? claudeDesktopConfigPath();
+    existingCreds = await readExistingWhoopCreds(existingConfigPath, merged.fs);
+  }
+
+  if (existingCreds && existingConfigPath) {
+    out.write(`Existing whoop entry found in ${existingConfigPath}.\n`);
+    process.env.WHOOP_CLIENT_ID = existingCreds.clientId;
+    process.env.WHOOP_CLIENT_SECRET = existingCreds.clientSecret;
+    if (options.verify) {
+      await verifyCredentials(existingCreds, merged, out);
+      out.write("Existing config verified — no changes made.\n");
+    } else {
+      out.write("Re-run with --verify to confirm credentials work.\n");
+    }
+    return;
+  }
+
   // --- Step 1: credentials ---
+  // Precedence: explicit flags > WHOOP_CLIENT_ID/SECRET env vars > interactive prompt.
+  const envId = process.env.WHOOP_CLIENT_ID?.trim() ?? "";
+  const envSecret = process.env.WHOOP_CLIENT_SECRET?.trim() ?? "";
+  const usingEnvCreds =
+    options.clientId === undefined &&
+    options.clientSecret === undefined &&
+    envId.length > 0 &&
+    envSecret.length > 0;
+
+  if (usingEnvCreds) {
+    out.write("Using credentials from environment (WHOOP_CLIENT_ID, WHOOP_CLIENT_SECRET).\n\n");
+  }
+
   const clientId =
     options.clientId !== undefined
       ? options.clientId.trim()
-      : (
-          await promptText(merged.io, "WHOOP Client ID (from https://developer.whoop.com): ")
-        ).trim();
+      : usingEnvCreds
+        ? envId
+        : (
+            await promptText(merged.io, "WHOOP Client ID (from https://developer.whoop.com): ")
+          ).trim();
   if (!clientId) throw new Error("WHOOP_CLIENT_ID is required");
 
   const clientSecret =
     options.clientSecret !== undefined
       ? options.clientSecret.trim()
-      : (await promptSecret(merged.io, "WHOOP Client Secret (input hidden): ")).trim();
+      : usingEnvCreds
+        ? envSecret
+        : (await promptSecret(merged.io, "WHOOP Client Secret (input hidden): ")).trim();
   if (!clientSecret) throw new Error("WHOOP_CLIENT_SECRET is required");
 
   // Expose to downstream calls (authenticate / fetchProfile pull from env)
@@ -291,39 +345,10 @@ export async function runSetup(options: SetupOptions = {}, deps: RunSetupDeps = 
 
   // --- Step 2: optional --verify (OAuth + profile fetch) ---
   if (options.verify) {
-    out.write("\nVerifying credentials with WHOOP...\n");
-    let accessToken: string;
-    try {
-      accessToken = await merged.authenticate({ clientId, clientSecret });
-    } catch (err) {
-      throw new Error(
-        `Verification failed during OAuth: ${err instanceof Error ? err.message : String(err)}`
-      );
-    }
-    out.write("OAuth flow complete. Fetching profile...\n");
-    try {
-      const profile = await merged.fetchProfile(accessToken);
-      out.write(`Profile OK: ${JSON.stringify(profile)}\n\n`);
-    } catch (err) {
-      throw new Error(
-        `Verification failed fetching profile: ${err instanceof Error ? err.message : String(err)}`
-      );
-    }
+    await verifyCredentials({ clientId, clientSecret }, merged, out);
   }
 
-  // --- Step 3: target client ---
-  const target: ClientTarget =
-    options.client ??
-    (((await promptText(
-      merged.io,
-      "Target client (claude-desktop / claude-code) [claude-desktop]: "
-    )) || "claude-desktop") as ClientTarget);
-
-  if (target !== "claude-desktop" && target !== "claude-code") {
-    throw new Error(`Invalid client target: "${target}"`);
-  }
-
-  // --- Step 4: emit config ---
+  // --- Step 3: emit config ---
   const env = { WHOOP_CLIENT_ID: clientId, WHOOP_CLIENT_SECRET: clientSecret };
 
   if (target === "claude-code") {
@@ -335,6 +360,54 @@ export async function runSetup(options: SetupOptions = {}, deps: RunSetupDeps = 
   // claude-desktop — read existing, backup, merge, write atomically
   const path = options.configPath ?? claudeDesktopConfigPath();
   await writeClaudeDesktopConfig(path, env, merged.fs, out);
+}
+
+async function readExistingWhoopCreds(
+  path: string,
+  filesystem: Required<RunSetupDeps>["fs"]
+): Promise<{ clientId: string; clientSecret: string } | null> {
+  let raw: string;
+  try {
+    raw = await filesystem.readFile(path, "utf8");
+  } catch {
+    return null;
+  }
+  let parsed: ClaudeDesktopConfig;
+  try {
+    parsed = JSON.parse(raw) as ClaudeDesktopConfig;
+  } catch {
+    return null;
+  }
+  const entry = parsed.mcpServers?.whoop;
+  const clientId = entry?.env?.WHOOP_CLIENT_ID?.trim();
+  const clientSecret = entry?.env?.WHOOP_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
+}
+
+async function verifyCredentials(
+  creds: { clientId: string; clientSecret: string },
+  deps: Required<Omit<RunSetupDeps, "io">> & { io: PromptIO },
+  out: NodeJS.WritableStream
+): Promise<void> {
+  out.write("\nVerifying credentials with WHOOP...\n");
+  let accessToken: string;
+  try {
+    accessToken = await deps.authenticate(creds);
+  } catch (err) {
+    throw new Error(
+      `Verification failed during OAuth: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+  out.write("OAuth flow complete. Fetching profile...\n");
+  try {
+    const profile = await deps.fetchProfile(accessToken);
+    out.write(`Profile OK: ${JSON.stringify(profile)}\n\n`);
+  } catch (err) {
+    throw new Error(
+      `Verification failed fetching profile: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 }
 
 async function writeClaudeDesktopConfig(

@@ -368,6 +368,124 @@ describe("runSetup — non-interactive", () => {
     expect(output()).toContain("Profile OK");
   });
 
+  it("falls back to WHOOP_CLIENT_ID/SECRET env vars when flags are absent", async () => {
+    const { io, output } = makeIo();
+    const fake = makeFakeFs();
+    process.env.WHOOP_CLIENT_ID = "env-id";
+    process.env.WHOOP_CLIENT_SECRET = "env-secret";
+    const authenticate = vi.fn(async () => "access-token-from-env");
+    const fetchProfile = vi.fn(async () => ({ user_id: 99 }));
+
+    await runSetup(
+      { client: "claude-code", verify: true },
+      { io, fs: fake.fs, authenticate, fetchProfile }
+    );
+
+    expect(authenticate).toHaveBeenCalledWith({
+      clientId: "env-id",
+      clientSecret: "env-secret",
+    });
+    expect(fetchProfile).toHaveBeenCalledWith("access-token-from-env");
+    expect(output()).toContain("Using credentials from environment");
+    expect(output()).toContain("Profile OK");
+  });
+
+  it("reuses existing Claude Desktop whoop config without rewriting (verify-only)", async () => {
+    const { io, output } = makeIo();
+    const existingConfig = JSON.stringify({
+      mcpServers: {
+        whoop: {
+          command: "npx",
+          args: ["-y", "whoop-ai-mcp"],
+          env: { WHOOP_CLIENT_ID: "existing-id", WHOOP_CLIENT_SECRET: "existing-secret" },
+        },
+      },
+    });
+    const fake = makeFakeFs({ "/fake/config.json": existingConfig });
+    const authenticate = vi.fn(async () => "tok-existing");
+    const fetchProfile = vi.fn(async () => ({ user_id: 7 }));
+
+    await runSetup(
+      { client: "claude-desktop", configPath: "/fake/config.json", verify: true },
+      { io, fs: fake.fs, authenticate, fetchProfile }
+    );
+
+    // Existing config is unchanged
+    expect(fake.files.get("/fake/config.json")).toBe(existingConfig);
+    // No backup created (we didn't rewrite)
+    expect(fake.files.has("/fake/config.json.bak")).toBe(false);
+    // Used existing creds for verification
+    expect(authenticate).toHaveBeenCalledWith({
+      clientId: "existing-id",
+      clientSecret: "existing-secret",
+    });
+    expect(output()).toContain("Existing whoop entry found");
+    expect(output()).toContain("Profile OK");
+    expect(output()).toContain("Existing config verified");
+    expect(output()).not.toContain("Claude Desktop config written");
+  });
+
+  it("reuses existing Claude Desktop whoop config without verification (no --verify)", async () => {
+    const { io, output } = makeIo();
+    const existingConfig = JSON.stringify({
+      mcpServers: {
+        whoop: {
+          command: "npx",
+          args: ["-y", "whoop-ai-mcp"],
+          env: { WHOOP_CLIENT_ID: "existing-id", WHOOP_CLIENT_SECRET: "existing-secret" },
+        },
+      },
+    });
+    const fake = makeFakeFs({ "/fake/config.json": existingConfig });
+    const authenticate = vi.fn(async () => "tok");
+    const fetchProfile = vi.fn(async () => ({ user_id: 7 }));
+
+    await runSetup(
+      { client: "claude-desktop", configPath: "/fake/config.json" },
+      { io, fs: fake.fs, authenticate, fetchProfile }
+    );
+
+    expect(fake.files.get("/fake/config.json")).toBe(existingConfig);
+    expect(authenticate).not.toHaveBeenCalled();
+    expect(fetchProfile).not.toHaveBeenCalled();
+    expect(output()).toContain("Existing whoop entry found");
+    expect(output()).toContain("Re-run with --verify");
+    expect(output()).not.toContain("Claude Desktop config written");
+  });
+
+  it("explicit --client-id flag forces rewrite even when existing whoop entry is present", async () => {
+    const { io, output } = makeIo();
+    const existingConfig = JSON.stringify({
+      mcpServers: {
+        whoop: {
+          command: "npx",
+          args: ["-y", "whoop-ai-mcp"],
+          env: { WHOOP_CLIENT_ID: "old-id", WHOOP_CLIENT_SECRET: "old-secret" },
+        },
+      },
+    });
+    const fake = makeFakeFs({ "/fake/config.json": existingConfig });
+
+    await runSetup(
+      {
+        client: "claude-desktop",
+        configPath: "/fake/config.json",
+        clientId: "new-id",
+        clientSecret: "new-secret",
+      },
+      { io, fs: fake.fs }
+    );
+
+    // Config rewritten with new creds
+    const written = JSON.parse(fake.files.get("/fake/config.json") ?? "{}") as {
+      mcpServers: { whoop: { env: { WHOOP_CLIENT_ID: string } } };
+    };
+    expect(written.mcpServers.whoop.env.WHOOP_CLIENT_ID).toBe("new-id");
+    expect(fake.files.get("/fake/config.json.bak")).toBe(existingConfig);
+    expect(output()).toContain("Claude Desktop config written");
+    expect(output()).not.toContain("Existing whoop entry found");
+  });
+
   it("--verify surfaces a clear error if authenticate fails", async () => {
     const { io } = makeIo();
     const fake = makeFakeFs();
