@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { WhoopClient } from "../../src/api/client.js";
 import { getCalendar } from "../../src/tools/get-calendar.js";
+import * as pagination from "../../src/api/pagination.js";
 import type { Recovery, Sleep, Cycle } from "../../src/api/types.js";
 
 // ---------------------------------------------------------------------------
@@ -521,6 +522,43 @@ describe("getCalendar", () => {
       expect(result.averages.recovery).toBeNull();
       expect(result.averages.sleep_hours).toBeNull();
       expect(result.averages.strain).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Inter-page delay throttling (Issue #152)
+  // -------------------------------------------------------------------------
+  describe("interPageDelayMs throttling", () => {
+    it("passes interPageDelayMs=0 for small ranges (numDays <= 30)", async () => {
+      const spy = vi.spyOn(pagination, "fetchAllPages").mockResolvedValue({
+        records: [],
+        truncated: false,
+      });
+      const client = { get: vi.fn() } as unknown as WhoopClient;
+
+      await getCalendar(client, { days: 30 });
+
+      expect(spy).toHaveBeenCalledTimes(3);
+      for (const call of spy.mock.calls) {
+        expect(call[2]?.interPageDelayMs).toBe(0);
+      }
+      spy.mockRestore();
+    });
+
+    it("passes interPageDelayMs=100 for large ranges (numDays > 30)", async () => {
+      const spy = vi.spyOn(pagination, "fetchAllPages").mockResolvedValue({
+        records: [],
+        truncated: false,
+      });
+      const client = { get: vi.fn() } as unknown as WhoopClient;
+
+      await getCalendar(client, { days: 90 });
+
+      expect(spy).toHaveBeenCalledTimes(3);
+      for (const call of spy.mock.calls) {
+        expect(call[2]?.interPageDelayMs).toBe(100);
+      }
+      spy.mockRestore();
     });
   });
 });

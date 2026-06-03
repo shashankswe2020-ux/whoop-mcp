@@ -158,6 +158,11 @@ export async function getCalendar(
     )
   ).toISOString();
 
+  // Throttle inter-page requests for large ranges to avoid 429s across
+  // three parallel paginated streams. Threshold is on requested numDays,
+  // not gridLength, since the API stream depth tracks the request range.
+  const interPageDelayMs = numDays > 30 ? 100 : 0;
+
   // Fetch all three streams in parallel
   const [recoveryResult, sleepResult, cycleResult] = await Promise.all([
     fetchAllPages<Recovery>(
@@ -165,16 +170,16 @@ export async function getCalendar(
       `${ENDPOINT_RECOVERY}?start=${startISO}&end=${endISO}&limit=25`,
       {
         maxRecords: gridLength * 2,
-        interPageDelayMs: 0,
+        interPageDelayMs,
       }
     ),
     fetchAllPages<Sleep>(client, `${ENDPOINT_SLEEP}?start=${startISO}&end=${endISO}&limit=25`, {
       maxRecords: gridLength * 2,
-      interPageDelayMs: 0,
+      interPageDelayMs,
     }),
     fetchAllPages<Cycle>(client, `${ENDPOINT_CYCLE}?start=${startISO}&end=${endISO}&limit=25`, {
       maxRecords: gridLength * 2,
-      interPageDelayMs: 0,
+      interPageDelayMs,
     }),
   ]);
 
