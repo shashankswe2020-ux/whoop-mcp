@@ -180,10 +180,19 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
   }
 
   async function parseErrorBody(response: Response): Promise<unknown> {
+    // Read the body stream exactly once. response.json() consumes the body even
+    // when JSON parsing fails, so falling back to response.text() in the catch
+    // throws "Body is unusable: Body has already been read". WHOOP returns some
+    // error responses (e.g. 401 with the plain-text body "Authorization was not
+    // valid") under a Content-Type: application/json header, which makes
+    // response.json() throw a SyntaxError and triggers exactly that double-read.
+    // Because the error escapes here, it short-circuits the status === 401
+    // refresh branch below, so automatic token refresh never runs.
+    const text = await response.text();
     try {
-      return await response.json();
+      return JSON.parse(text);
     } catch {
-      return await response.text();
+      return text;
     }
   }
 
