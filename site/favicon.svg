@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="whoop-mcp">
+  <rect width="32" height="32" fill="#16150f" />
+  <circle cx="16" cy="16" r="9" fill="none" stroke="#f3f1ea" stroke-width="2.5" />
+  <circle cx="16" cy="16" r="3" fill="#f3f1ea" />
+  <path d="M16 4v3M16 25v3M4 16h3M25 16h3" stroke="#f3f1ea" stroke-width="2.5" stroke-linecap="square" />
+</svg>
