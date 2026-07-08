@@ -214,9 +214,14 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
 
   async function parseErrorBody(response: Response): Promise<unknown> {
     try {
-      return await response.json();
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
     } catch {
-      return await response.text();
+      return "unable to read response body";
     }
   }
 

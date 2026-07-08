@@ -23,16 +23,30 @@ export interface CollectionParams {
  * If already ISO 8601, passes through unchanged.
  * Returns undefined if input is undefined.
  */
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Normalize a date-only string (YYYY-MM-DD) to a full ISO 8601 datetime.
+ * The WHOOP API requires a full datetime for start/end query parameters;
+ * date-only strings return HTTP 404.
+ */
+function normalizeToISO8601(value: string): string {
+  if (DATE_ONLY_REGEX.test(value)) {
+    return value + "T00:00:00.000Z";
+  }
+  return value;
+}
+
 function resolveStart(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
   try {
     const resolved = resolveDateExpression(value);
-    return resolved.start;
+    return normalizeToISO8601(resolved.start);
   } catch (e) {
     if (e instanceof InvalidDateExpression) {
       throw e;
     }
-    return value;
+    return normalizeToISO8601(value);
   }
 }
 
@@ -45,12 +59,12 @@ function resolveEnd(value: string | undefined): string | undefined {
   if (value === undefined) return undefined;
   try {
     const resolved = resolveDateExpression(value);
-    return resolved.end;
+    return normalizeToISO8601(resolved.end);
   } catch (e) {
     if (e instanceof InvalidDateExpression) {
       throw e;
     }
-    return value;
+    return normalizeToISO8601(value);
   }
 }
 
