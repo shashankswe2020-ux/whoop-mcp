@@ -1,7 +1,7 @@
 {
   "name": "whoop-ai-mcp",
-  "version": "0.6.0",
-  "mcpName": "io.github.shashankswe2020-ux/whoop",
+  "version": "0.7.0",
+  "mcpName": "io.github.codeOfJannik/whoop",
   "description": "MCP server wrapping the WHOOP REST API for AI assistant access to health and fitness data",
   "type": "module",
   "main": "dist/index.js",
@@ -35,21 +35,27 @@
     "ai",
     "claude"
   ],
-  "author": "Shashank Mishra",
+  "author": "Jannik Schlemmer",
+  "contributors": [
+    "Shashank Mishra (original author)"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shashankswe2020-ux/whoop-mcp.git"
+    "url": "git+https://github.com/codeOfJannik/whoop-mcp.git"
   },
-  "homepage": "https://github.com/shashankswe2020-ux/whoop-mcp#readme",
+  "homepage": "https://github.com/codeOfJannik/whoop-mcp#readme",
   "bugs": {
-    "url": "https://github.com/shashankswe2020-ux/whoop-mcp/issues"
+    "url": "https://github.com/codeOfJannik/whoop-mcp/issues"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "jose": "^6.2.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

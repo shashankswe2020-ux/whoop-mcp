@@ -180,7 +180,7 @@ npm install -g whoop-ai-mcp
 ### From source
 
 ```bash
-git clone https://github.com/shashankswe2020-ux/whoop-mcp.git
+git clone https://github.com/codeOfJannik/whoop-mcp.git
 cd whoop-mcp
 npm install
 npm run build
@@ -632,10 +632,17 @@ to your personal WHOOP data over the network. A production-ready
 [Dockerfile](Dockerfile) is included.
 
 > **Security warning.** When running over HTTP you are exposing your WHOOP data
-> behind a single bearer token. Use a strong random `MCP_AUTH_TOKEN`
-> (`openssl rand -hex 32`), only deploy behind TLS, restrict
-> `MCP_ALLOWED_ORIGINS`, and treat the host as a personal-use deployment — not
-> a multi-tenant service.
+> behind a single bearer token, and this server authenticates with **one**
+> WHOOP account (yours) — anyone who holds the bearer token or connector
+> password can read all of your health data. Use a strong random
+> `MCP_AUTH_TOKEN` (`openssl rand -hex 32`; **≥32 chars is enforced** in HTTP
+> mode), only deploy behind TLS, restrict `MCP_ALLOWED_ORIGINS`, and treat the
+> host as a single-user personal deployment — not a multi-tenant service.
+>
+> `MCP_HOST` defaults to `127.0.0.1` (loopback) so a local HTTP run is not
+> exposed on your network. Container/cloud deployments must bind `0.0.0.0`
+> (the included Dockerfile already does this) and rely on the platform's
+> firewall + TLS-terminating proxy for isolation.
 
 ### Image characteristics
 
@@ -673,11 +680,11 @@ Required env vars (HTTP mode):
 | Variable                | Required | Default      | Notes                                                       |
 | ----------------------- | -------- | ------------ | ----------------------------------------------------------- |
 | `MCP_TRANSPORT`         | no       | `http`       | Image default; override with `stdio` or `both` if needed.   |
-| `MCP_AUTH_TOKEN`        | **yes**  | —            | Bearer token clients must send. Generate ≥32 random bytes.  |
+| `MCP_AUTH_TOKEN`        | **yes**  | —            | Admin bearer token clients must send. **≥32 chars enforced.** Generate with `openssl rand -hex 32`. |
 | `WHOOP_CLIENT_ID`       | **yes**  | —            | From your WHOOP developer app.                              |
 | `WHOOP_CLIENT_SECRET`   | **yes**  | —            | From your WHOOP developer app.                              |
 | `MCP_PORT`              | no       | `3000`       | Listen port.                                                |
-| `MCP_HOST`              | no       | `0.0.0.0`    | Listen interface.                                           |
+| `MCP_HOST`              | no       | `127.0.0.1`  | Listen interface. Loopback by default; set `0.0.0.0` for containers (Dockerfile already does). |
 | `MCP_ALLOWED_ORIGINS`   | no       | (none)       | Comma-separated CORS allowlist.                             |
 | `MCP_TRUST_PROXY`       | no       | `0`          | Set `1` when behind a reverse proxy (Fly/Railway).          |
 | `LOG_LEVEL`             | no       | `info`       | `debug`/`info`/`warn`/`error`.                              |
@@ -760,14 +767,18 @@ fly secrets set \
   advertised client id (default `whoop-mcp-connector`).
 
 In claude.ai → Settings → Connectors → Add custom connector, point it at
-`PUBLIC_URL/mcp` and supply `MCP_CONNECTOR_PASSWORD` when prompted.
+`PUBLIC_URL/mcp` and supply `MCP_CONNECTOR_PASSWORD` when prompted. After the
+OAuth handshake, claude.ai (web and mobile) presents a connector-issued JWT on
+every `/mcp` request; the server verifies it alongside the static admin bearer,
+so both Claude Desktop/Code (static token) and claude.ai (OAuth JWT) work
+against the same endpoint.
 
 ## Development
 
 ### Setup
 
 ```bash
-git clone https://github.com/shashankswe2020-ux/whoop-mcp.git
+git clone https://github.com/codeOfJannik/whoop-mcp.git
 cd whoop-mcp
 npm install
 ```

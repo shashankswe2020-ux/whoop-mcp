@@ -114,4 +114,93 @@ describe("HTTP transport — MCP integration", () => {
     const body = (await r.json()) as { issuer: string };
     expect(body.issuer).toMatch(/^https:\/\/example\.com\/?$/);
   });
+
+  it("accepts a connector-issued JWT at /mcp and rejects a forged one", async () => {
+    // Reproduces the claude.ai web/mobile path: the connector signs a JWT
+    // access token that /mcp must accept alongside the static admin bearer.
+    const { OAuthConnectorProvider } = await import("../../src/transport/oauth-connector.js");
+    const { deriveJwtSecret } = await import("../../src/transport/oauth-helpers.js");
+    const { signToken, ACCESS_TOKEN_TTL_SECONDS } = await import(
+      "../../src/transport/oauth-jwt.js"
+    );
+    const { safeTokenCompare } = await import("../../src/transport/http.js");
+
+    const jwtSecret = await deriveJwtSecret("a".repeat(40));
+    const provider = new OAuthConnectorProvider({
+      client: {
+        clientId: "whoop-mcp-connector",
+        redirectUris: ["https://claude.ai/api/mcp/auth_callback"],
+      },
+      allowedRedirectUris: ["https://claude.ai/api/mcp/auth_callback"],
+      jwtSecret,
+      scopes: ["mcp"],
+    });
+
+    const jwt = await signToken(
+      {
+        clientId: "whoop-mcp-connector",
+        scopes: ["mcp"],
+        ttlSeconds: ACCESS_TOKEN_TTL_SECONDS,
+        type: "access",
+      },
+      jwtSecret
+    );
+
+    const authToken = "static-admin-token-0123456789abcdef";
+    const verifyBearer = async (token: string): Promise<boolean> => {
+      if (safeTokenCompare(token, authToken)) return true;
+      try {
+        await provider.verifyAccessToken(token);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const { server: mcpServer } = createWhoopServer(makeMockWhoopClient());
+    const httpResult = await createHttpServer({ authToken, port: 0, verifyBearer });
+    await mcpServer.connect(httpResult.transport);
+    cleanup = async (): Promise<void> => {
+      provider.stop();
+      await httpResult.close();
+    };
+
+    const addr = httpResult.server.address();
+    if (!addr || typeof addr === "string") throw new Error("no port");
+    const mcpUrl = `http://127.0.0.1:${addr.port}/mcp`;
+    const initBody = JSON.stringify({
+      jsonrpc: "2.0",
+      method: "initialize",
+      id: 1,
+      params: {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "t", version: "0" },
+      },
+    });
+
+    // Valid connector JWT clears the auth gate (may be a non-401 transport code).
+    const good = await fetch(mcpUrl, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${jwt}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: initBody,
+    });
+    expect(good.status).not.toBe(401);
+
+    // A forged token is rejected at the gate.
+    const bad = await fetch(mcpUrl, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer forged.jwt.token",
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: initBody,
+    });
+    expect(bad.status).toBe(401);
+  });
 });

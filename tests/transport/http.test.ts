@@ -211,6 +211,56 @@ describe("HTTP Server", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Custom verifyBearer (OAuth connector JWT path) — /mcp must accept tokens
+  // the injected verifier approves, not only the static admin bearer.
+  // ---------------------------------------------------------------------------
+
+  describe("/mcp with custom verifyBearer (async JWT-style verifier)", () => {
+    beforeEach(async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        // Simulates index.ts wiring: accept the static bearer OR a "JWT".
+        verifyBearer: (token: string): Promise<boolean> =>
+          Promise.resolve(token === "test-token-abc123" || token === "connector-jwt-xyz"),
+      });
+      server = result.server;
+      cleanup = result.close;
+    });
+
+    it("accepts a connector-issued token approved by verifyBearer", async () => {
+      const res = await request(server, "/mcp", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer connector-jwt-xyz",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "initialize", id: 1 }),
+      });
+      expect(res.status).not.toBe(401);
+    });
+
+    it("still accepts the static admin bearer", async () => {
+      const res = await request(server, "/mcp", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer test-token-abc123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "initialize", id: 1 }),
+      });
+      expect(res.status).not.toBe(401);
+    });
+
+    it("returns 401 for a token the verifier rejects", async () => {
+      const res = await request(server, "/mcp", {
+        method: "POST",
+        headers: { authorization: "Bearer forged-token" },
+      });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Connection limiting
   // ---------------------------------------------------------------------------
 

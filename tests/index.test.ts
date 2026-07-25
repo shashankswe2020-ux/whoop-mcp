@@ -418,7 +418,7 @@ describe("main() entry point", () => {
 
     it("MCP_TRANSPORT=http starts only the HTTP server (no stdio)", async () => {
       process.env.MCP_TRANSPORT = "http";
-      process.env.MCP_AUTH_TOKEN = "test-bearer-token-32chars-aaaa";
+      process.env.MCP_AUTH_TOKEN = "test-bearer-token-0123456789abcdef";
       process.env.MCP_PORT = "4001";
       setupHappyPath();
       setupHttpHappyPath();
@@ -430,7 +430,7 @@ describe("main() entry point", () => {
       expect(mockCreateHttpServer).toHaveBeenCalledOnce();
       expect(mockCreateHttpServer).toHaveBeenCalledWith(
         expect.objectContaining({
-          authToken: "test-bearer-token-32chars-aaaa",
+          authToken: "test-bearer-token-0123456789abcdef",
           port: 4001,
         })
       );
@@ -440,7 +440,7 @@ describe("main() entry point", () => {
 
     it("MCP_TRANSPORT=both starts both stdio AND HTTP", async () => {
       process.env.MCP_TRANSPORT = "both";
-      process.env.MCP_AUTH_TOKEN = "test-bearer-token-32chars-aaaa";
+      process.env.MCP_AUTH_TOKEN = "test-bearer-token-0123456789abcdef";
       setupHappyPath();
       setupHttpHappyPath();
 
@@ -455,7 +455,7 @@ describe("main() entry point", () => {
 
     it("uses default port 3000 when MCP_PORT is unset", async () => {
       process.env.MCP_TRANSPORT = "http";
-      process.env.MCP_AUTH_TOKEN = "tok";
+      process.env.MCP_AUTH_TOKEN = "test-bearer-token-0123456789abcdef";
       setupHappyPath();
       setupHttpHappyPath();
 
@@ -467,7 +467,7 @@ describe("main() entry point", () => {
 
     it("forwards MCP_HOST and MCP_ALLOWED_ORIGINS to the HTTP server", async () => {
       process.env.MCP_TRANSPORT = "http";
-      process.env.MCP_AUTH_TOKEN = "tok";
+      process.env.MCP_AUTH_TOKEN = "test-bearer-token-0123456789abcdef";
       process.env.MCP_HOST = "127.0.0.1";
       process.env.MCP_ALLOWED_ORIGINS = "https://claude.ai, https://app.example.com";
       setupHappyPath();
@@ -486,7 +486,7 @@ describe("main() entry point", () => {
 
     it("MCP_TRUST_PROXY=1 enables trustProxy on the HTTP server", async () => {
       process.env.MCP_TRANSPORT = "http";
-      process.env.MCP_AUTH_TOKEN = "tok";
+      process.env.MCP_AUTH_TOKEN = "test-bearer-token-0123456789abcdef";
       process.env.MCP_TRUST_PROXY = "1";
       setupHappyPath();
       setupHttpHappyPath();
@@ -523,9 +523,18 @@ describe("main() entry point", () => {
       await expect(main()).rejects.toThrow(/MCP_AUTH_TOKEN/);
     });
 
+    it("throws when MCP_AUTH_TOKEN is shorter than 32 chars in http mode", async () => {
+      process.env.MCP_TRANSPORT = "http";
+      process.env.MCP_AUTH_TOKEN = "too-short-token";
+      setupHappyPath();
+
+      const { main } = await importMain();
+      await expect(main()).rejects.toThrow(/at least 32 characters/i);
+    });
+
     it("throws on non-numeric MCP_PORT", async () => {
       process.env.MCP_TRANSPORT = "http";
-      process.env.MCP_AUTH_TOKEN = "tok";
+      process.env.MCP_AUTH_TOKEN = "test-bearer-token-0123456789abcdef";
       process.env.MCP_PORT = "abc";
       setupHappyPath();
 
@@ -535,7 +544,7 @@ describe("main() entry point", () => {
 
     it("throws on out-of-range MCP_PORT", async () => {
       process.env.MCP_TRANSPORT = "http";
-      process.env.MCP_AUTH_TOKEN = "tok";
+      process.env.MCP_AUTH_TOKEN = "test-bearer-token-0123456789abcdef";
       process.env.MCP_PORT = "99999";
       setupHappyPath();
 

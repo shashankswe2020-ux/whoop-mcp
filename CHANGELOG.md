@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-25
+
+Hardening pass for **hosted deployments** (fork maintained at
+`github.com/codeOfJannik/whoop-mcp`).
+
+### Fixed
+- **OAuth connector was non-functional over HTTP** — the connector issued JWT
+  access tokens to claude.ai web/mobile clients, but the `/mcp` route only
+  accepted the static `MCP_AUTH_TOKEN`, so every authenticated request from a
+  connector client returned `401`. `/mcp` now accepts **either** the static
+  admin bearer **or** a valid connector-issued JWT (verified via
+  `provider.verifyAccessToken`). The SSE re-auth sweep uses the same verifier.
+- **Missing runtime dependencies** — `express`, `express-rate-limit`, and
+  `jose` are used by the OAuth connector but were absent from `dependencies`,
+  so a clean `npm install` produced a runtime `MODULE_NOT_FOUND` crash the
+  moment the connector loaded. They are now declared.
+
+### Security
+- **`MCP_AUTH_TOKEN` strength is now enforced** (≥32 chars) in HTTP mode. The
+  connector's JWT signing key is HKDF-derived from this token using public
+  salt/info constants, so a weak value made connector access tokens forgeable.
+  The server fails fast with a clear error and an `openssl rand -hex 32` hint.
+- **Safe-by-default bind address** — `MCP_HOST` now defaults to `127.0.0.1`
+  (loopback) instead of `0.0.0.0`, so a local/dev HTTP run no longer exposes
+  WHOOP data on the LAN by accident. The Dockerfile continues to set
+  `0.0.0.0` for container deployments. A non-loopback bind now logs a warning.
+
+### Added
+- `.env.example` now documents all HTTP-transport and OAuth-connector env vars.
+
 ## [0.6.0] - 2026-06-13
 
 ### Added

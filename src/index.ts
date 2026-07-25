@@ -23,7 +23,7 @@ import { createWhoopClient } from "./api/client.js";
 import { MemoryCache } from "./cache/memory-cache.js";
 import { createWhoopServer } from "./server.js";
 import { connectStdioTransport } from "./transport/stdio.js";
-import { createHttpServer, type HttpServerResult } from "./transport/http.js";
+import { createHttpServer, safeTokenCompare, type HttpServerResult } from "./transport/http.js";
 import { createLogger, type LogLevel, type Logger } from "./logging/logger.js";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
@@ -35,6 +35,12 @@ import { realpathSync } from "node:fs";
 
 export type TransportMode = "stdio" | "http" | "both";
 
+/** Minimum MCP_AUTH_TOKEN length enforced in HTTP mode (128 bits hex = 32 chars). */
+const MIN_AUTH_TOKEN_LENGTH = 32;
+
+/** Host values that keep the server off the network (loopback only). */
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+
 // ---------------------------------------------------------------------------
 // Env parsing helpers
 // ---------------------------------------------------------------------------
@@ -45,7 +51,7 @@ function getRequiredEnv(name: string): string {
     throw new Error(
       `Missing required environment variable: ${name}.\n` +
         `Set it in your Claude Desktop config or shell environment.\n` +
-        `See: https://github.com/shashankswe2020-ux/whoop-mcp#configuration`
+        `See: https://github.com/codeOfJannik/whoop-mcp#configuration`
     );
   }
   return value;
@@ -157,10 +163,29 @@ export async function main(): Promise<void> {
 
   if (transportMode === "http" || transportMode === "both") {
     const authToken = getRequiredEnv("MCP_AUTH_TOKEN");
+    // MCP_AUTH_TOKEN is both the admin bearer for /mcp AND the seed the OAuth
+    // connector's JWT signing key is HKDF-derived from (public salt/info), so
+    // a weak value makes connector access tokens forgeable. Enforce entropy.
+    if (authToken.length < MIN_AUTH_TOKEN_LENGTH) {
+      throw new Error(
+        `MCP_AUTH_TOKEN must be at least ${MIN_AUTH_TOKEN_LENGTH} characters when using the HTTP transport ` +
+          `(got ${authToken.length}). Generate one with: openssl rand -hex 32`
+      );
+    }
     const port = parsePort();
-    const host = process.env.MCP_HOST ?? "0.0.0.0";
+    const host = process.env.MCP_HOST ?? "127.0.0.1";
     const allowedOrigins = parseAllowedOrigins();
     const trustProxy = process.env.MCP_TRUST_PROXY === "1";
+
+    // Binding to anything other than loopback exposes your WHOOP data on the
+    // network — only safe behind a TLS-terminating proxy + firewall (e.g. a
+    // container platform). Warn loudly so an accidental LAN bind is visible.
+    if (!LOOPBACK_HOSTS.has(host)) {
+      logger.warn(
+        "http transport binding to a non-loopback interface — ensure it is firewalled and fronted by TLS",
+        { host }
+      );
+    }
 
     // Lightweight upstream WHOOP health probe used by GET /health (authed).
     const healthCheck = async (): Promise<boolean> => {
@@ -181,6 +206,9 @@ export async function main(): Promise<void> {
           res: import("node:http").ServerResponse
         ) => void)
       | undefined;
+    // When the connector is mounted, /mcp must accept its JWT access tokens in
+    // addition to the static admin bearer. Left undefined otherwise (static only).
+    let verifyBearer: ((token: string) => Promise<boolean>) | undefined;
     const connectorPassword = process.env.MCP_CONNECTOR_PASSWORD;
     const publicUrl = process.env.PUBLIC_URL;
     const allowedRedirectUris = process.env.ALLOWED_REDIRECT_URIS;
@@ -211,6 +239,20 @@ export async function main(): Promise<void> {
         res: import("node:http").ServerResponse
       ) => void;
       oauthCloseFn = oauthApp.close;
+
+      // Accept the static admin bearer OR a valid connector-issued JWT so
+      // claude.ai web/mobile clients can reach /mcp after the OAuth flow.
+      const provider = oauthApp.provider;
+      verifyBearer = async (token: string): Promise<boolean> => {
+        if (safeTokenCompare(token, authToken)) return true;
+        try {
+          await provider.verifyAccessToken(token);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
       logger.info("oauth connector mounted", { publicUrl });
     }
 
@@ -222,6 +264,7 @@ export async function main(): Promise<void> {
       trustProxy,
       healthCheck,
       oauthHandler,
+      ...(verifyBearer !== undefined && { verifyBearer }),
     });
     await server.connect(httpResult.transport);
     httpResults.push(httpResult);

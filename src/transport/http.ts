@@ -21,7 +21,7 @@ export interface HttpServerOptions {
   authToken: string;
   /** Port to listen on (0 = dynamic, used in tests) */
   port: number;
-  /** Hostname to bind to (default: 0.0.0.0) */
+  /** Hostname to bind to (default: 127.0.0.1 — loopback, safe by default) */
   host?: string;
   /** Maximum concurrent connections (default: 5) */
   maxConnections?: number;
@@ -54,11 +54,16 @@ export interface HttpServerOptions {
    */
   sseReauthIntervalMs?: number;
   /**
-   * Optional bearer-token validator used by the SSE re-auth sweep. Defaults
-   * to a static comparison against `authToken` (never expires). Override to
-   * plug in OAuth JWT expiry checks.
+   * Bearer-token verifier for the /mcp route AND the SSE re-auth sweep.
+   *
+   * Defaults to a constant-time comparison against the static `authToken`
+   * (the admin bearer used by Claude Desktop / Claude Code). When the OAuth
+   * connector is mounted, `index.ts` overrides this with a verifier that
+   * ALSO accepts connector-issued JWT access tokens (so claude.ai web/mobile
+   * clients can reach /mcp after completing the OAuth flow). May be async
+   * because JWT verification is async.
    */
-  validateBearerToken?: (token: string) => boolean;
+  verifyBearer?: (token: string) => boolean | Promise<boolean>;
 }
 
 export interface HttpServerResult {
@@ -187,7 +192,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   const {
     authToken,
     port,
-    host = "0.0.0.0",
+    host = "127.0.0.1",
     maxConnections = 5,
     allowedOrigins = [],
     trustProxy = false,
@@ -195,7 +200,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
     oauthHandler,
     mcpRateLimit = { windowMs: 60_000, max: 100 },
     sseReauthIntervalMs = 5 * 60 * 1000,
-    validateBearerToken,
+    verifyBearer,
   } = options;
 
   if (!authToken) {
@@ -204,6 +209,12 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
         "Set it to a secure random string (32+ characters recommended)."
     );
   }
+
+  // Default verifier: constant-time compare against the static admin bearer.
+  // index.ts overrides this to ALSO accept connector-issued JWTs when the
+  // OAuth connector is mounted.
+  const verifyBearerToken =
+    verifyBearer ?? ((t: string): boolean => safeTokenCompare(t, authToken));
 
   // Track active connections for limiting
   let activeConnections = 0;
@@ -240,13 +251,14 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
   let sseTimer: NodeJS.Timeout | null = null;
   if (sseReauthIntervalMs > 0) {
     sseTimer = setInterval(() => {
-      const validate =
-        validateBearerToken ?? ((t: string): boolean => safeTokenCompare(t, authToken));
-      for (const c of sseConnections) {
-        if (!validate(c.token)) {
-          c.res.end();
-          sseConnections.delete(c);
-        }
+      // Snapshot to avoid mutating the Set while async checks are in flight.
+      for (const c of [...sseConnections]) {
+        void Promise.resolve(verifyBearerToken(c.token)).then((ok) => {
+          if (!ok) {
+            c.res.end();
+            sseConnections.delete(c);
+          }
+        });
       }
     }, sseReauthIntervalMs);
     sseTimer.unref();
@@ -303,9 +315,10 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
 
     // Route: /mcp (all methods)
     if (pathname === "/mcp") {
-      // Auth check
+      // Auth check — accepts the static admin bearer OR (when the OAuth
+      // connector is mounted) a valid connector-issued JWT access token.
       const token = extractBearerToken(req);
-      if (!token || !safeTokenCompare(token, authToken)) {
+      if (!token || !(await verifyBearerToken(token))) {
         sendJson(res, 401, { error: "Unauthorized" });
         return;
       }
