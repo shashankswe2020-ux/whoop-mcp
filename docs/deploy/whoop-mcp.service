@@ -1,0 +1,35 @@
+# WHOOP MCP server — systemd unit (HTTP transport).
+#
+# Install to: /etc/systemd/system/whoop-mcp.service
+# Then:  sudo systemctl daemon-reload && sudo systemctl enable --now whoop-mcp
+
+[Unit]
+Description=WHOOP MCP server (HTTP transport)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=whoop
+Group=whoop
+# os.homedir() resolves the WHOOP token path (~/.whoop-mcp/tokens.json) from HOME.
+Environment=HOME=/home/whoop
+WorkingDirectory=/opt/whoop-mcp
+EnvironmentFile=/etc/whoop-mcp/whoop-mcp.env
+ExecStart=/usr/bin/node /opt/whoop-mcp/dist/index.js
+Restart=always
+RestartSec=3
+
+# --- Hardening ---
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=false
+# The only path the service must write to is the token store.
+ReadWritePaths=/home/whoop/.whoop-mcp
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

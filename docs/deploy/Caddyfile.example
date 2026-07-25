@@ -1,0 +1,14 @@
+# Caddy reverse proxy for the WHOOP MCP server.
+#
+# Install to: /etc/caddy/Caddyfile   (replace YOURSUB with your DuckDNS name)
+# Then:  sudo systemctl restart caddy
+#
+# Caddy automatically obtains and renews a free Let's Encrypt certificate for
+# this hostname via the HTTP-01 challenge (ports 80 + 443 must be open and
+# YOURSUB.duckdns.org must resolve to this VM). It forwards every path —
+# /mcp, /authorize, /token, /.well-known/*, /health — to the loopback server.
+
+YOURSUB.duckdns.org {
+	encode gzip
+	reverse_proxy 127.0.0.1:3000
+}

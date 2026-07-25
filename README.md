@@ -631,6 +631,12 @@ hosting so that web/mobile MCP clients (e.g. claude.ai connectors) can connect
 to your personal WHOOP data over the network. A production-ready
 [Dockerfile](Dockerfile) is included.
 
+> 💸 **Free always-on hosting:** see
+> [docs/deploy/gcp-e2-micro-duckdns.md](docs/deploy/gcp-e2-micro-duckdns.md)
+> for a step-by-step ~$0/month setup on a Google Cloud Always-Free `e2-micro`
+> VM with Caddy (free Let's Encrypt TLS) and a DuckDNS hostname — reachable by
+> claude.ai web and mobile.
+
 > **Security warning.** When running over HTTP you are exposing your WHOOP data
 > behind a single bearer token, and this server authenticates with **one**
 > WHOOP account (yours) — anyone who holds the bearer token or connector
