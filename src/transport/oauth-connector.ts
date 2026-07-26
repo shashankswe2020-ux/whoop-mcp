@@ -427,14 +427,35 @@ function renderPasswordPage(params: Record<string, string>, error?: string): str
 </html>`;
 }
 
+/**
+ * Build the CSP `form-action` value for the password page: `'self'` (the POST
+ * target) plus the distinct origins of the allowed redirect URIs.
+ *
+ * The authorize POST succeeds server-side and responds with a 302 back to the
+ * client's redirect_uri (e.g. https://claude.ai/api/mcp/auth_callback).
+ * Browsers enforce `form-action` across that redirect, so the redirect target's
+ * origin MUST be listed or the OAuth flow dies one step from completion.
+ */
+function formActionForRedirectUris(allowedRedirectUris: string[]): string {
+  const origins = new Set<string>();
+  for (const uri of allowedRedirectUris) {
+    try {
+      origins.add(new URL(uri).origin);
+    } catch {
+      // Ignore malformed entries — startup config is validated elsewhere.
+    }
+  }
+  return ["'self'", ...origins].join(" ");
+}
+
 /** Apply anti-clickjacking + tight CSP headers to the password-prompt response. */
-function applyAuthorizePageHeaders(res: Response): void {
+function applyAuthorizePageHeaders(res: Response, formAction: string): void {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+    `default-src 'none'; style-src 'unsafe-inline'; form-action ${formAction}; frame-ancestors 'none'; base-uri 'none'`
   );
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -488,6 +509,10 @@ export function createOAuthApp(options: CreateOAuthAppOptions): CreateOAuthAppRe
   validateConnectorPassword(options.connectorPassword);
   const publicUrl = validatePublicUrl(options.publicUrl);
 
+  // CSP form-action for the password page must permit the post-authorization
+  // redirect back to the client's redirect_uri origin (e.g. https://claude.ai).
+  const authorizePageFormAction = formActionForRedirectUris(options.allowedRedirectUris);
+
   const provider =
     options.provider ??
     new OAuthConnectorProvider({
@@ -527,7 +552,7 @@ export function createOAuthApp(options: CreateOAuthAppOptions): CreateOAuthAppRe
       const v = req.query[k];
       if (typeof v === "string") params[k] = v;
     }
-    applyAuthorizePageHeaders(res);
+    applyAuthorizePageHeaders(res, authorizePageFormAction);
     res.status(200).send(renderPasswordPage(params));
   });
 
@@ -546,7 +571,7 @@ export function createOAuthApp(options: CreateOAuthAppOptions): CreateOAuthAppRe
           const v = body[k];
           if (typeof v === "string") params[k] = v;
         }
-        applyAuthorizePageHeaders(res);
+        applyAuthorizePageHeaders(res, authorizePageFormAction);
         res.status(401).send(renderPasswordPage(params, "Incorrect password. Try again."));
         return;
       }

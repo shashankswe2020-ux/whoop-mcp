@@ -13,6 +13,11 @@ Hardening pass for **hosted deployments** (fork maintained at
 `github.com/codeOfJannik/whoop-mcp`).
 
 ### Fixed
+- **Connector password page blocked the OAuth redirect** — the page's CSP was
+  `form-action 'self'`, which browsers enforce across the post-authorization
+  302 back to the client. The redirect to `https://claude.ai/...` was refused
+  (`Refused to load ... form-action`), so the flow died one step from done. The
+  password page now emits `form-action 'self' <redirect_uri origins>`.
 - **OAuth connector was non-functional over HTTP** — the connector issued JWT
   access tokens to claude.ai web/mobile clients, but the `/mcp` route only
   accepted the static `MCP_AUTH_TOKEN`, so every authenticated request from a

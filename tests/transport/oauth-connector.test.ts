@@ -536,6 +536,28 @@ describe("createOAuthApp (integration)", () => {
     }
   });
 
+  it("password page CSP allows form-action to the redirect_uri origin", async () => {
+    // Regression: form-action 'self' alone blocks the post-authorize 302 back
+    // to the client (e.g. https://claude.ai), killing the OAuth flow in-browser.
+    const ctx = await startApp();
+    try {
+      const url = new URL(`${ctx.baseUrl}/authorize`);
+      url.searchParams.set("client_id", ctx.clientId);
+      url.searchParams.set("redirect_uri", ctx.redirectUri);
+      url.searchParams.set("response_type", "code");
+      url.searchParams.set("code_challenge", "abc");
+      url.searchParams.set("code_challenge_method", "S256");
+      url.searchParams.set("state", "xyz-state");
+
+      const res = await fetch(url, { redirect: "manual" });
+      const csp = res.headers.get("content-security-policy") ?? "";
+      const redirectOrigin = new URL(ctx.redirectUri).origin;
+      expect(csp).toContain("form-action 'self' " + redirectOrigin);
+    } finally {
+      await ctx.close();
+    }
+  });
+
   it("POST /authorize with wrong password re-renders form with 401", async () => {
     const ctx = await startApp();
     try {
