@@ -115,6 +115,54 @@ describe("HTTP transport — MCP integration", () => {
     expect(body.issuer).toMatch(/^https:\/\/example\.com\/?$/);
   });
 
+  it("stateless mode: repeated initialize + tool listing without a session id", async () => {
+    // Reproduces the claude.ai web/mobile pattern: a fresh `initialize` every
+    // turn, no Mcp-Session-Id reused. A single shared stateful transport rejects
+    // the 2nd initialize with 400; the per-request stateless factory must not.
+    const authToken = "test-bearer-token-0123456789abcdef";
+    const httpResult = await createHttpServer({
+      authToken,
+      port: 0,
+      createMcpServer: () => createWhoopServer(makeMockWhoopClient()).server,
+    });
+    cleanup = async (): Promise<void> => {
+      await httpResult.close();
+    };
+    const addr = httpResult.server.address();
+    if (!addr || typeof addr === "string") throw new Error("no port");
+    const mcpUrl = `http://127.0.0.1:${addr.port}/mcp`;
+
+    const post = (method: string, id: number, params?: unknown): Promise<Response> =>
+      fetch(mcpUrl, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${authToken}`,
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method, id, ...(params ? { params } : {}) }),
+      });
+
+    const initParams = {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "t", version: "0" },
+    };
+
+    // Two independent initialize requests with NO session id reuse — both must
+    // succeed (the old shared stateful transport 400s on the second).
+    const init1 = await post("initialize", 1, initParams);
+    expect(init1.status).toBe(200);
+    const init2 = await post("initialize", 2, initParams);
+    expect(init2.status).toBe(200);
+
+    // A tool listing on a fresh stateless request returns the tool set.
+    const list = await post("tools/list", 3, {});
+    expect(list.status).toBe(200);
+    const text = await list.text();
+    expect(text).toContain("get_profile");
+  }, 15_000);
+
   it("accepts a connector-issued JWT at /mcp and rejects a forged one", async () => {
     // Reproduces the claude.ai web/mobile path: the connector signs a JWT
     // access token that /mcp must accept alongside the static admin bearer.

@@ -9,6 +9,9 @@
 # /mcp, /authorize, /token, /.well-known/*, /health — to the loopback server.
 
 YOURSUB.duckdns.org {
+	# Access logs to the journal (journalctl -u caddy) — handy for debugging
+	# which requests hit /mcp and what status they got. Authorization is redacted.
+	log
 	encode gzip
 	reverse_proxy 127.0.0.1:3000
 }

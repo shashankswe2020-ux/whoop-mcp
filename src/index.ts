@@ -151,14 +151,17 @@ export async function main(): Promise<void> {
 
   // 5. Create the MCP server with all WHOOP tools and resources
   const disableResources = process.env.WHOOP_MCP_DISABLE_RESOURCES === "1";
-  const { server } = createWhoopServer(client, { disableResources });
+  // Factory so the HTTP transport can build a fresh, stateless MCP server per
+  // request (required for clients like claude.ai that re-initialize each turn).
+  const createMcpServer = (): ReturnType<typeof createWhoopServer>["server"] =>
+    createWhoopServer(client, { disableResources }).server;
 
   // 6. Connect transports based on MCP_TRANSPORT mode
   const httpResults: HttpServerResult[] = [];
   let oauthCloseFn: (() => void) | null = null;
 
   if (transportMode === "stdio" || transportMode === "both") {
-    await connectStdioTransport(server);
+    await connectStdioTransport(createMcpServer());
   }
 
   if (transportMode === "http" || transportMode === "both") {
@@ -264,9 +267,9 @@ export async function main(): Promise<void> {
       trustProxy,
       healthCheck,
       oauthHandler,
+      createMcpServer,
       ...(verifyBearer !== undefined && { verifyBearer }),
     });
-    await server.connect(httpResult.transport);
     httpResults.push(httpResult);
 
     logger.info("http transport listening", {

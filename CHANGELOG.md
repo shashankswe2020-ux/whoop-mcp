@@ -13,6 +13,13 @@ Hardening pass for **hosted deployments** (fork maintained at
 `github.com/codeOfJannik/whoop-mcp`).
 
 ### Fixed
+- **HTTP transport dropped every request after the first (stateless clients)** —
+  the server used a single shared *stateful* `StreamableHTTPServerTransport`,
+  which accepts one `initialize` and rejects every later one with `400`. Clients
+  that re-`initialize` on each turn without reusing an `Mcp-Session-Id`
+  (claude.ai web/mobile) worked once, then failed on every subsequent call. The
+  HTTP transport now builds a fresh MCP server + session-less transport **per
+  request** (stateless mode) via a `createMcpServer` factory.
 - **Connector password page blocked the OAuth redirect** — the page's CSP was
   `form-action 'self'`, which browsers enforce across the post-authorization
   302 back to the client. The redirect to `https://claude.ai/...` was refused

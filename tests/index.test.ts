@@ -432,10 +432,12 @@ describe("main() entry point", () => {
         expect.objectContaining({
           authToken: "test-bearer-token-0123456789abcdef",
           port: 4001,
+          createMcpServer: expect.any(Function),
         })
       );
-      // server.connect was called with the http transport
-      expect(mockConnect).toHaveBeenCalledWith({ _http: true });
+      // HTTP builds a fresh per-request server internally, so the shared
+      // server.connect() is not used for the HTTP transport.
+      expect(mockConnect).not.toHaveBeenCalled();
     });
 
     it("MCP_TRANSPORT=both starts both stdio AND HTTP", async () => {
@@ -449,8 +451,8 @@ describe("main() entry point", () => {
 
       expect(MockStdioServerTransport).toHaveBeenCalledOnce();
       expect(mockCreateHttpServer).toHaveBeenCalledOnce();
-      // server.connect called for both transports
-      expect(mockConnect).toHaveBeenCalledTimes(2);
+      // Only stdio uses the shared server.connect(); HTTP builds per-request servers.
+      expect(mockConnect).toHaveBeenCalledTimes(1);
     });
 
     it("uses default port 3000 when MCP_PORT is unset", async () => {

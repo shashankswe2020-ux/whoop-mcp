@@ -11,6 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse, type Server } 
 import { createHash, timingSafeEqual } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,11 +65,29 @@ export interface HttpServerOptions {
    * because JWT verification is async.
    */
   verifyBearer?: (token: string) => boolean | Promise<boolean>;
+  /**
+   * Factory that builds a fresh MCP server for EACH /mcp request.
+   *
+   * When provided, the transport runs in **stateless** mode: every request gets
+   * a new server + `sessionIdGenerator: undefined` transport, so clients that
+   * re-`initialize` on every turn without reusing a session ID (e.g. claude.ai
+   * web/mobile) work correctly. A single stateful transport would reject the
+   * 2nd+ `initialize` with 400.
+   *
+   * When omitted, the server falls back to a single shared stateful transport
+   * exposed as {@link HttpServerResult.transport} (used by embedding tests that
+   * connect their own MCP server).
+   */
+  createMcpServer?: () => McpServer;
 }
 
 export interface HttpServerResult {
   server: Server;
-  transport: StreamableHTTPServerTransport;
+  /**
+   * The shared stateful transport — present ONLY when `createMcpServer` was not
+   * supplied (legacy/embedding path). Undefined in stateless mode.
+   */
+  transport?: StreamableHTTPServerTransport;
   /** Gracefully close the server and drain connections */
   close: () => Promise<void>;
 }
@@ -201,6 +220,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
     mcpRateLimit = { windowMs: 60_000, max: 100 },
     sseReauthIntervalMs = 5 * 60 * 1000,
     verifyBearer,
+    createMcpServer,
   } = options;
 
   if (!authToken) {
@@ -264,10 +284,11 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
     sseTimer.unref();
   }
 
-  // Create the SDK transport (stateful with session IDs)
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-  });
+  // Legacy shared stateful transport — only when no per-request factory is
+  // supplied. In production `createMcpServer` is always set (stateless mode).
+  const sharedTransport = createMcpServer
+    ? undefined
+    : new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID() });
 
   // Create HTTP server
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -363,9 +384,26 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
         }
       }
 
-      // Delegate to SDK transport
+      // Delegate to an MCP transport.
       try {
-        await transport.handleRequest(req, res, parsedBody);
+        if (createMcpServer) {
+          // Stateless per-request: a fresh server + session-less transport per
+          // request means a repeated `initialize` (as claude.ai sends every
+          // turn, with no Mcp-Session-Id) always hits a clean slate instead of
+          // being rejected with 400 by a carried-over session.
+          const perRequestServer = createMcpServer();
+          const perRequestTransport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+          });
+          res.on("close", () => {
+            void perRequestTransport.close();
+            void perRequestServer.close();
+          });
+          await perRequestServer.connect(perRequestTransport);
+          await perRequestTransport.handleRequest(req, res, parsedBody);
+        } else {
+          await sharedTransport!.handleRequest(req, res, parsedBody);
+        }
       } catch (error: unknown) {
         // If response hasn't been sent yet
         if (!res.headersSent) {
@@ -393,7 +431,9 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
       clearInterval(sseTimer);
       sseTimer = null;
     }
-    await transport.close();
+    if (sharedTransport) {
+      await sharedTransport.close();
+    }
     await new Promise<void>((resolve, reject) => {
       server.close((err) => {
         if (err) reject(err);
@@ -402,5 +442,5 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
     });
   };
 
-  return { server, transport, close };
+  return { server, transport: sharedTransport, close };
 }
