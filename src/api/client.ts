@@ -168,8 +168,41 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
   const requestId = options.requestId;
   const cache = options.cache;
 
+  // Mutable, factory-scoped so a token refreshed on one request is reused by
+  // every subsequent request. Without this, each request keeps presenting the
+  // token captured at startup — which expires after ~1h — forcing a refresh on
+  // literally every call once that token lapses.
+  let currentAccessToken = options.accessToken;
+
+  // Single-flight guard: concurrent 401s share ONE refresh instead of each
+  // firing its own. WHOOP rotates refresh tokens (single-use), so parallel
+  // refreshes race — all but one present an already-consumed refresh token and
+  // fail, which can persist a dead token and break auth until process restart.
+  let refreshInFlight: Promise<string> | null = null;
+
   function logExtras(extra: Record<string, unknown>): Record<string, unknown> {
     return requestId !== undefined ? { requestId, ...extra } : extra;
+  }
+
+  /**
+   * Refresh the access token at most once concurrently. Callers that arrive
+   * while a refresh is in progress await the same result rather than starting
+   * a competing refresh. On success the new token is cached in
+   * `currentAccessToken` for all future requests.
+   */
+  async function refreshAccessToken(): Promise<string> {
+    if (refreshInFlight) return refreshInFlight;
+    const pending = (async (): Promise<string> => {
+      const token = await options.onTokenRefresh!();
+      currentAccessToken = token;
+      return token;
+    })();
+    refreshInFlight = pending;
+    try {
+      return await pending;
+    } finally {
+      if (refreshInFlight === pending) refreshInFlight = null;
+    }
   }
 
   async function doFetch(url: string, accessToken: string): Promise<Response> {
@@ -233,7 +266,6 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
 
   async function doGet<T>(path: string): Promise<T> {
     const url = `${baseUrl}${path}`;
-    let currentToken = options.accessToken;
     let lastError: WhoopApiError | undefined;
     let lastResponse: Response | undefined;
 
@@ -245,7 +277,10 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
         await delay(retryDelay);
       }
 
-      const response = await doFetch(url, currentToken);
+      // Snapshot the token used for this attempt so we can detect whether a
+      // concurrent request refreshed it out from under us on a 401.
+      const tokenForAttempt = currentAccessToken;
+      const response = await doFetch(url, tokenForAttempt);
 
       if (response.ok) {
         return (await response.json()) as T;
@@ -269,15 +304,20 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
       // 401: attempt token refresh once
       if (response.status === 401 && options.onTokenRefresh) {
         let newToken: string;
-        try {
-          newToken = await options.onTokenRefresh();
-          logger?.info("whoop token refreshed", logExtras({ url }));
-        } catch (refreshError: unknown) {
-          throw new WhoopAuthError(refreshError);
+        if (currentAccessToken !== tokenForAttempt) {
+          // A concurrent request already refreshed the token while this attempt
+          // was in flight — reuse it instead of firing a redundant refresh.
+          newToken = currentAccessToken;
+        } else {
+          try {
+            newToken = await refreshAccessToken();
+            logger?.info("whoop token refreshed", logExtras({ url }));
+          } catch (refreshError: unknown) {
+            throw new WhoopAuthError(refreshError);
+          }
         }
 
         // Retry with the new token
-        currentToken = newToken;
         const retryResponse = await doFetch(url, newToken);
         if (retryResponse.ok) {
           return (await retryResponse.json()) as T;

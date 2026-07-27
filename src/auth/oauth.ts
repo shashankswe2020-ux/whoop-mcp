@@ -32,6 +32,14 @@ export interface OAuthConfig {
   tokenDir?: string;
   /** Callback server port. Default: 3000 */
   port?: number;
+  /**
+   * Whether the interactive browser OAuth flow may be launched as a last
+   * resort. Defaults to `true` (local stdio use). Set to `false` for headless
+   * server deployments (HTTP transport) where no browser exists — a missing or
+   * unrefreshable token then fails fast with an actionable error instead of
+   * silently hanging on a browser prompt that can never complete.
+   */
+  allowInteractive?: boolean;
 }
 
 /** Raw token response from the WHOOP token endpoint */
@@ -284,7 +292,19 @@ export async function authenticate(config: OAuthConfig): Promise<string> {
     console.error("No cached tokens found, starting OAuth flow...");
   }
 
-  // 3. Full OAuth flow
+  // 3. Full OAuth flow — but only if an interactive browser is available.
+  // Headless HTTP deployments have no browser: fail fast with guidance rather
+  // than hang forever waiting on a callback that will never arrive.
+  if (config.allowInteractive === false) {
+    throw new Error(
+      "WHOOP re-authentication is required, but interactive OAuth is disabled " +
+        "(headless HTTP mode). The stored token is missing or its refresh token " +
+        "is no longer valid. Run the WHOOP OAuth flow on a machine with a browser, " +
+        "then copy ~/.whoop-mcp/tokens.json to this host and restart the service.\n" +
+        "See: https://github.com/codeOfJannik/whoop-mcp#configuration"
+    );
+  }
+
   return performOAuthFlow(config);
 }
 

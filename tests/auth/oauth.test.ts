@@ -771,6 +771,32 @@ describe("authenticate", () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it("fails fast (no browser) when no tokens exist and interactive is disabled", async () => {
+    mockLoadTokens.mockResolvedValueOnce(null);
+
+    await expect(
+      authenticate({ ...TEST_CONFIG, allowInteractive: false })
+    ).rejects.toThrow(/interactive OAuth is disabled/i);
+    expect(mockStartCallbackServer).not.toHaveBeenCalled();
+  });
+
+  it("fails fast (no browser) when refresh fails and interactive is disabled", async () => {
+    const expiredTokens: OAuthTokens = { ...VALID_TOKENS, expires_at: Date.now() - 1000 };
+    mockLoadTokens.mockResolvedValueOnce(expiredTokens);
+    mockIsTokenExpired.mockReturnValueOnce(true);
+    // Refresh fetch fails with invalid_grant (dead refresh chain).
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ error: "invalid_grant" }),
+    });
+
+    await expect(
+      authenticate({ ...TEST_CONFIG, allowInteractive: false })
+    ).rejects.toThrow(/interactive OAuth is disabled/i);
+    expect(mockStartCallbackServer).not.toHaveBeenCalled();
+  });
+
   it("throws a clear error if clientId is missing", async () => {
     const badConfig = { ...TEST_CONFIG, clientId: "" };
     await expect(authenticate(badConfig)).rejects.toThrow(/WHOOP_CLIENT_ID|client.*id/i);

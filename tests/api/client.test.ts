@@ -643,6 +643,62 @@ describe("createWhoopClient", () => {
       await expect(client.get("/v2/recovery")).rejects.toThrow(WhoopApiError);
       expect(onTokenRefresh).not.toHaveBeenCalled();
     });
+
+    it("reuses the refreshed token on subsequent requests (no repeated refresh)", async () => {
+      const NEW_TOKEN = "refreshed_token_persisted";
+      // First request: expired token → 401 → refresh → success.
+      // Second request: must use the cached NEW_TOKEN and NOT 401 / refresh again.
+      mockFetch
+        .mockResolvedValueOnce(mock401Response())
+        .mockResolvedValueOnce(mockJsonResponse({ ok: 1 }))
+        .mockResolvedValueOnce(mockJsonResponse({ ok: 2 }));
+      const onTokenRefresh = vi.fn().mockResolvedValue(NEW_TOKEN);
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      await client.get("/v2/recovery");
+      await client.get("/v2/sleep");
+
+      // Refreshed exactly once across both requests.
+      expect(onTokenRefresh).toHaveBeenCalledOnce();
+      // 3 fetches total: 401, retry, then the second request's single call.
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      // The second request used the refreshed token directly.
+      const secondReqCall = mockFetch.mock.calls[2] as [string, RequestInit];
+      expect(secondReqCall[1].headers).toEqual(
+        expect.objectContaining({ Authorization: `Bearer ${NEW_TOKEN}` })
+      );
+    });
+
+    it("coalesces concurrent 401s into a single token refresh", async () => {
+      const NEW_TOKEN = "refreshed_token_shared";
+      // Two concurrent requests each get a 401 on their first fetch, then succeed.
+      mockFetch.mockImplementation((_url: string, init: RequestInit) => {
+        const auth = (init.headers as Record<string, string>).Authorization;
+        if (auth === `Bearer ${NEW_TOKEN}`) {
+          return Promise.resolve(mockJsonResponse({ ok: true }));
+        }
+        return Promise.resolve(mock401Response());
+      });
+      // Refresh is async; both requests should latch onto the same in-flight call.
+      const onTokenRefresh = vi.fn(
+        () => new Promise<string>((r) => setTimeout(() => r(NEW_TOKEN), 10))
+      );
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      await Promise.all([client.get("/v2/recovery"), client.get("/v2/sleep")]);
+
+      // Both concurrent 401s shared ONE refresh — critical for WHOOP's
+      // single-use rotating refresh tokens.
+      expect(onTokenRefresh).toHaveBeenCalledOnce();
+    });
   });
 
   // -------------------------------------------------------------------------
