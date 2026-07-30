@@ -19,7 +19,7 @@ export const WHOOP_REQUIRED_SCOPES =
   "offline read:recovery read:cycles read:workout read:sleep read:profile read:body_measurement";
 
 /** Default OAuth redirect URI for the local callback server */
-export const WHOOP_REDIRECT_URI = "http://localhost:3000/callback";
+export const WHOOP_REDIRECT_URI = process.env.WHOOP_REDIRECT_URI || "http://localhost:3000/callback";
 
 // ---------------------------------------------------------------------------
 // Endpoint paths (relative to WHOOP_API_BASE_URL)
