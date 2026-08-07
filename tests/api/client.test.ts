@@ -188,7 +188,7 @@ describe("createWhoopClient", () => {
         statusText: "Too Many Requests",
         headers: { get: () => null },
         json: () => Promise.resolve({ retry_after: 30 }),
-        text: () => Promise.resolve("rate limited"),
+        text: () => Promise.resolve('{"retry_after":30}'),
       } as unknown as Response;
       mockFetch
         .mockResolvedValueOnce(response429)
@@ -642,6 +642,85 @@ describe("createWhoopClient", () => {
 
       await expect(client.get("/v2/recovery")).rejects.toThrow(WhoopApiError);
       expect(onTokenRefresh).not.toHaveBeenCalled();
+    });
+
+    it("refreshes token when 401 body is plain text and not valid JSON", async () => {
+      const NEW_TOKEN = "refreshed_token_plain_text";
+      let bodyUsed = false;
+      const nonJson401Response = {
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+        headers: { get: () => null },
+        // Simulate undici behavior where parsing JSON consumes body and fails.
+        json: async () => {
+          bodyUsed = true;
+          throw new SyntaxError("Unexpected token U in JSON at position 0");
+        },
+        text: async () => {
+          if (bodyUsed) {
+            throw new TypeError("Body is unusable: Body has already been read");
+          }
+          bodyUsed = true;
+          return "Unauthorized";
+        },
+      } as unknown as Response;
+
+      mockFetch
+        .mockResolvedValueOnce(nonJson401Response)
+        .mockResolvedValueOnce(mockJsonResponse({ user_id: 42 }));
+      const onTokenRefresh = vi.fn().mockResolvedValue(NEW_TOKEN);
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      const result = await client.get<{ user_id: number }>("/v2/user/profile/basic");
+
+      expect(result.user_id).toBe(42);
+      expect(onTokenRefresh).toHaveBeenCalledOnce();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("persists refreshed token across sequential requests", async () => {
+      const NEW_TOKEN = "refreshed_token_persisted";
+      const onTokenRefresh = vi.fn().mockResolvedValue(NEW_TOKEN);
+
+      mockFetch.mockImplementation((_url: string, init?: RequestInit) => {
+        const authHeader = (init?.headers as Record<string, string>)["Authorization"];
+
+        if (authHeader === `Bearer ${TEST_TOKEN}`) {
+          return Promise.resolve({
+            ok: false,
+            status: 401,
+            statusText: "Unauthorized",
+            headers: { get: () => null },
+            json: () => Promise.resolve({ message: "Invalid token" }),
+            text: () => Promise.resolve("Unauthorized"),
+          } as unknown as Response);
+        }
+
+        if (authHeader === `Bearer ${NEW_TOKEN}`) {
+          return Promise.resolve(
+            mockJsonResponse({ user_id: 42, tokenUsed: NEW_TOKEN }) as unknown as Response
+          );
+        }
+
+        return Promise.reject(new Error(`unexpected authorization header: ${authHeader}`));
+      });
+
+      const client = createWhoopClient({
+        accessToken: TEST_TOKEN,
+        baseUrl: TEST_BASE_URL,
+        onTokenRefresh,
+      });
+
+      await client.get<{ user_id: number }>("/v2/user/profile/basic");
+      await client.get<{ user_id: number }>("/v2/user/profile/basic");
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
   });
 

@@ -214,9 +214,14 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
 
   async function parseErrorBody(response: Response): Promise<unknown> {
     try {
-      return await response.json();
+      const rawBody = await response.text();
+      try {
+        return JSON.parse(rawBody) as unknown;
+      } catch {
+        return rawBody;
+      }
     } catch {
-      return await response.text();
+      return null;
     }
   }
 
@@ -277,6 +282,7 @@ export function createWhoopClient(options: WhoopClientOptions): WhoopClient {
         }
 
         // Retry with the new token
+        options.accessToken = newToken;
         currentToken = newToken;
         const retryResponse = await doFetch(url, newToken);
         if (retryResponse.ok) {
