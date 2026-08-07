@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-08
+
+### Fixed
+- **Token refresh path recovered for non-JSON 401 responses** (#219) — `parseErrorBody()` now reads the response body once and parses JSON from the captured text, preventing undici's `Body is unusable: Body has already been read` failure that previously blocked 401 refresh handling.
+- **Refreshed access token now persists across subsequent client calls** (#219) — after a successful 401 refresh, the client stores the new token for future requests to avoid repeated `401 -> refresh -> retry` cycles.
+
+### Test count
+- 748 → **750** (+2 regression tests for #219). Full suite, lint, typecheck, and build pass.
+
 ## [0.6.0] - 2026-06-13
 
 ### Added
@@ -152,7 +161,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI entry point** — `npx whoop-mcp` with environment variable configuration
 - **202 tests** with full coverage of auth, API client, tools, and error handling
 
-[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.5.2...v0.6.0
 [0.2.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.1.1...v0.2.0
 [0.1.2]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.1.0...v0.1.1
