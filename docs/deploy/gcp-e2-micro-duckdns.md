@@ -187,8 +187,12 @@ curl https://YOURSUB.duckdns.org/.well-known/oauth-authorization-server
   **budget alert at $1** so any accidental overage is visible.
 - **Logs:** `journalctl -u whoop-mcp -f` (server) and `journalctl -u caddy -f`
   (TLS). Secrets are redacted from server logs.
-- **Update the server:**
-  `cd /opt/whoop-mcp && sudo git pull && sudo npm ci && sudo npm run build && sudo npm prune --omit=dev && sudo systemctl restart whoop-mcp`
+- **Update the server:** run the deploy script — it pulls, rebuilds `dist/`,
+  restarts the service, and health-checks the WHOOP upstream in one step:
+  `curl -fsSL https://raw.githubusercontent.com/codeOfJannik/whoop-mcp/main/docs/deploy/update.sh | sudo bash`
+  (or `sudo bash /opt/whoop-mcp/docs/deploy/update.sh`). A bare `git pull` does
+  **not** deploy: the service runs the compiled `dist/`, so without a rebuild +
+  restart the old code keeps running.
 - **Token expiry:** if WHOOP ever fully revokes the refresh token, the service
   will fail to start (it can't run a headless browser flow). Re-seed with
   step 1 locally and re-copy `tokens.json` (step 4).
