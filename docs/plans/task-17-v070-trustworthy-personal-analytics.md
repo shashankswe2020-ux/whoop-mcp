@@ -1,6 +1,6 @@
 # Task 17: Trustworthy Personal Analytics Execution
 
-Approved for implementation: 2026-09-10. Target release: 0.7.0, not yet published.
+Approved for implementation and publication: 2026-09-10. Release: 0.7.0.
 Contract: [release spec](../specs/v070-trustworthy-personal-analytics.md).
 
 ## Increment Status
@@ -39,11 +39,12 @@ Contract: [release spec](../specs/v070-trustworthy-personal-analytics.md).
       `npm run format:check` and `git diff --check` also pass.
 - [x] Built `node dist/index.js doctor --json` smoke-tested. It correctly reports
       missing shell credentials without network calls; local token-file metadata checks pass.
-- [ ] Manual Claude Desktop or VS Code client smoke check: standard discovery, structured
-      result display, JSON-text fallback, then aggregate discovery after reconnect.
-- [ ] Human release review, version metadata bump and publishing authorization.
-      Synchronize package, lockfile and MCP registry versions at release time;
-      the registry descriptor currently retains its historical 0.6.0 version.
+- [x] Manual Claude Desktop or VS Code client smoke check confirmed passed by the
+      release owner on 2026-09-10: standard and aggregate modes. This is a user
+      confirmation, not a claim of an additional agent-run desktop UI test.
+- [x] Human release review and publishing authorization received; package, lockfile
+      and MCP registry descriptor versions synchronized to 0.7.0.
+- [ ] Publication verified against the npm registry after the release workflow.
 
 The automated transport checks are not a claim that a desktop client's UI was
 manually exercised. No WHOOP health API calls were made in automated tests.

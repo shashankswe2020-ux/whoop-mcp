@@ -7,7 +7,7 @@
     <title>whoop-mcp: Your WHOOP data, in any AI assistant</title>
     <meta
       name="description"
-      content="Connect WHOOP to AI assistants. Preview 0.7.0: personal baselines, sleep debt, structured results, and optional aggregate-only access."
+      content="Connect WHOOP to AI assistants. Version 0.7.0: personal baselines, sleep debt, structured results, and optional aggregate-only access."
     />
     <meta property="og:title" content="whoop-mcp" />
     <meta property="og:description" content="Your WHOOP data, in any AI assistant." />
@@ -569,7 +569,7 @@
       <header class="nav">
         <a class="wordmark" href="./">whoop-mcp</a>
         <nav class="nav-links">
-          <a href="#release">0.7.0 preview</a>
+          <a href="#release">0.7.0 release</a>
           <a href="https://github.com/shashankswe2020-ux/whoop-mcp#readme">Docs</a>
           <a class="opt" href="https://www.npmjs.com/package/whoop-ai-mcp">npm</a>
           <a href="https://github.com/shashankswe2020-ux/whoop-mcp">GitHub</a>
@@ -582,7 +582,7 @@
       <main>
         <section class="hero">
           <div class="hero-left">
-            <p class="release-label">Published: 0.6.1 / Next: 0.7.0</p>
+            <p class="release-label">Version 0.7.0 / Trustworthy Personal Analytics</p>
             <h1>Your WHOOP data, in any AI assistant</h1>
             <p class="lede">
               An MCP server that wraps the WHOOP REST API, so Claude, Cursor, and any MCP client can
@@ -610,7 +610,7 @@
                 </svg>
               </button>
             </div>
-            <p class="stat">0.7.0 preview: 16 tools · 4 resources · 5 prompts in standard mode</p>
+            <p class="stat">16 tools · 4 resources · 5 prompts in standard mode</p>
           </div>
 
           <div class="hero-right">
@@ -722,19 +722,19 @@
             <h2>Private by design</h2>
             <p>
               Read-only tools with OAuth and PKCE. Tokens stay on the server host with 0600
-              permissions. Health results reach your assistant provider; the 0.7.0 preview adds
-              optional aggregate-only access.
+              permissions. Health results reach your assistant provider; version 0.7.0 adds optional
+              aggregate-only access.
             </p>
           </article>
         </section>
 
         <section class="release" id="release" aria-labelledby="release-title">
-          <p class="release-label">Upcoming release / 0.7.0 / Not yet on npm</p>
+          <p class="release-label">Release 0.7.0 / September 10, 2026</p>
           <h2 id="release-title">Personal analytics, grounded in your history</h2>
           <p class="release-intro">
             Two new tools join the existing fourteen, with clearer data quality and control over
-            what your assistant receives. These features are implemented in the release work,
-            pending final client checks and publication.
+            what your assistant receives. Built for read-only workflows over stdio and HTTP, with
+            explicit missing-data states and no persistent health-data store.
           </p>
           <div class="release-grid">
             <article class="release-item">
@@ -775,8 +775,7 @@
           </div>
           <p class="release-note">
             Local diagnostics: <code>whoop-ai-mcp doctor --json</code> checks configuration and
-            token-file metadata without calling WHOOP or launching OAuth. Available in the 0.7.0
-            release work, not the published 0.6.1 package.
+            token-file metadata without calling WHOOP or launching OAuth. Included in version 0.7.0.
           </p>
           <p class="release-note">
             <a href="https://github.com/shashankswe2020-ux/whoop-mcp/blob/main/CHANGELOG.md"
@@ -792,8 +791,8 @@
         <section class="setup" id="setup">
           <h2 class="setup-head">Connect the published release</h2>
           <p class="setup-sub">
-            These commands install the published package, currently 0.6.1. The setup wizard writes
-            or prints your client configuration; add <code>--verify</code>
+            These commands install the latest package. The setup wizard writes or prints your client
+            configuration; add <code>--verify</code>
             for an explicit live authorization check. Have your WHOOP Developer App client ID and
             secret ready from
             <a href="https://developer.whoop.com">developer.whoop.com</a>.

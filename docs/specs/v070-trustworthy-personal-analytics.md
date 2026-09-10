@@ -1,7 +1,7 @@
 # Next Release: Trustworthy Personal Analytics
 
-> Status: approved by the user on 2026-09-10; implemented in the working tree, not published.
-> Proposed release: `0.7.0`, from shipped package `0.6.1`.
+> Status: implemented and merged; manual client smoke test confirmed by the user, publication authorized on 2026-09-10.
+> Release: `0.7.0`, from shipped package `0.6.1`.
 > Date: 2026-09-10.
 > Baseline: 14 tools, four resources, five prompts; 750 tests passing.
 > Evidence: [September SOTA scan](../ideas/sota-feature-scan-2026-09-10.md).
@@ -225,8 +225,9 @@ npm test -- --coverage
 
 The user approved the release contract and requested implementation on 2026-09-10.
 See the [execution checklist](../plans/task-17-v070-trustworthy-personal-analytics.md)
-for implemented slices and outstanding release gates. Package metadata remains at
-0.6.1 until manual client smoke checks and release authorization are complete.
+for implemented slices and release gates. On 2026-09-10 the user confirmed the
+manual client smoke test passed and authorized publication. Package, lockfile and
+MCP descriptor versions are synchronized to 0.7.0.
 
 Aggregate output omits observed-record timestamps and source-update timestamps;
 exposed period bounds are reduced to calendar dates. All five existing prompts

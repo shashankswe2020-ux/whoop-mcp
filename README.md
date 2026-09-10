@@ -16,9 +16,9 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 
 ## Features
 
-> **Upcoming 0.7.0:** This branch includes the features below. The published npm
-> package remains **0.6.1** until the [release checklist](docs/plans/task-17-v070-trustworthy-personal-analytics.md)
-> is completed. Existing npm/npx quickstarts install the published release, not this preview.
+> **0.7.0 — Trustworthy Personal Analytics:** Personal baselines, sleep debt,
+> structured results, aggregate privacy and local diagnostics. See the
+> [changelog](CHANGELOG.md#070---2026-09-10) and [release checklist](docs/plans/task-17-v070-trustworthy-personal-analytics.md).
 
 - 🏋️ **16 health data tools** — recovery, sleep, workouts, cycles, body measurements, profile, summaries, trends, comparisons, record lookups, today's snapshot, calendar, personal baselines, and sleep debt
 - 📊 **4 MCP Resources** — ambient health context (latest recovery, sleep, cycle, profile) available without explicit tool calls
@@ -72,8 +72,8 @@ this is an ecosystem comparison, not a source-code security audit._
 - Published to npm and the official MCP Registry, with documented OAuth,
   token refresh, retries, caching, HTTP hardening, and Inspector verification.
 
-The table above describes published artifacts, so its 14-tool count is intentional.
-The upcoming 0.7.0 adds two tools; its scope and evidence are in the
+The table above is the historical August 30 snapshot, so its 14-tool count is intentional.
+Version 0.7.0 adds two tools; its scope and evidence are in the
 [September feature scan](docs/ideas/sota-feature-scan-2026-09-10.md).
 
 **Evidence and reproducibility:** package names, versions, publish dates,
@@ -553,7 +553,7 @@ An offset is not a timezone database and cannot reconstruct within-sleep DST cha
 
 ## Local Diagnostics
 
-For a local build of this unreleased branch:
+For a local build:
 
 ```sh
 npm ci --ignore-scripts
@@ -561,8 +561,8 @@ npm run build
 node dist/index.js doctor --json
 ```
 
-After 0.7.0 is published and installed, use `whoop-ai-mcp doctor` or
-`whoop-ai-mcp doctor --json` directly. The command is not present in published 0.6.1.
+With 0.7.0 installed, use `whoop-ai-mcp doctor` or
+`whoop-ai-mcp doctor --json` directly. The command is not present in 0.6.1.
 
 Checks runtime, configuration presence, privacy/transport settings and token-file
 metadata without reading token contents, calling WHOOP, launching OAuth or writing
