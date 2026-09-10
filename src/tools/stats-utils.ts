@@ -16,6 +16,37 @@ function assertNonEmpty(values: number[], name: string): void {
   }
 }
 
+export function percentile(values: number[], percent: number): number {
+  assertNonEmpty(values, "percentile");
+  if (
+    !Number.isFinite(percent) ||
+    percent < 0 ||
+    percent > 100 ||
+    values.some((value) => !Number.isFinite(value))
+  ) {
+    throw new RangeError("Percentile requires finite observations and a percentage from 0 to 100.");
+  }
+  const sorted = [...values].sort((left, right) => left - right);
+  const position = ((sorted.length - 1) * percent) / 100;
+  const lower = Math.floor(position);
+  return sorted[lower]! + (sorted[Math.ceil(position)]! - sorted[lower]!) * (position - lower);
+}
+
+export function circularStats(minutes: number[]): { mean: number | null; sd: number | null } {
+  if (!minutes.length) return { mean: null, sd: null };
+  if (minutes.some((value) => !Number.isFinite(value)))
+    throw new RangeError("Clock times must be finite.");
+  const radians = minutes.map((value) => (value * Math.PI) / 720);
+  const cosine = mean(radians.map(Math.cos));
+  const sine = mean(radians.map(Math.sin));
+  const length = Math.min(1, Math.hypot(cosine, sine));
+  if (length < 1e-10) return { mean: null, sd: null };
+  return {
+    mean: ((Math.atan2(sine, cosine) * 720) / Math.PI + 1440) % 1440,
+    sd: (Math.sqrt(-2 * Math.log(length)) * 720) / Math.PI,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Basic statistics
 // ---------------------------------------------------------------------------

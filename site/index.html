@@ -7,7 +7,7 @@
     <title>whoop-mcp: Your WHOOP data, in any AI assistant</title>
     <meta
       name="description"
-      content="An MCP server that wraps the WHOOP REST API, so AI assistants can query your recovery, sleep, strain, and workouts through natural conversation."
+      content="Connect WHOOP to AI assistants. Preview 0.7.0: personal baselines, sleep debt, structured results, and optional aggregate-only access."
     />
     <meta property="og:title" content="whoop-mcp" />
     <meta property="og:description" content="Your WHOOP data, in any AI assistant." />
@@ -29,8 +29,8 @@
          ===================================================================== */
 
       :root {
-        --font: 'Archivo', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
-        --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        --font: "Archivo", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
         /* light / paper (default) */
         --paper: #f7f6f2;
@@ -237,6 +237,74 @@
         letter-spacing: 0.01em;
       }
 
+      .release-label {
+        margin: 0 0 1rem;
+        font-family: var(--mono);
+        font-size: 0.85rem;
+        color: var(--ink-2);
+      }
+      .release {
+        padding: 3rem 2rem;
+        border-top: 1px solid var(--rule);
+      }
+      .release h2 {
+        font-size: 2rem;
+        letter-spacing: 0;
+        margin: 0 0 1rem;
+      }
+      .release-intro,
+      .release-note {
+        max-width: 78ch;
+        color: var(--ink-2);
+        line-height: 1.6;
+      }
+      .release a {
+        color: var(--ink);
+        text-underline-offset: 3px;
+      }
+      .release-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 2rem;
+        margin: 2rem 0;
+      }
+      .release-item {
+        border-top: 1px solid var(--rule-soft);
+        padding-top: 1rem;
+        min-width: 0;
+      }
+      .release-item h3 {
+        font-size: 1.15rem;
+        letter-spacing: 0;
+        margin: 0 0 0.65rem;
+      }
+      .release-item p {
+        line-height: 1.6;
+        color: var(--ink-2);
+        margin: 0;
+      }
+      .release code {
+        font-family: var(--mono);
+        font-size: 0.85em;
+        overflow-wrap: anywhere;
+      }
+      .install {
+        max-width: 100%;
+      }
+      .install code {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .copy {
+        flex-shrink: 0;
+        min-width: 32px;
+        min-height: 32px;
+      }
+      :focus-visible {
+        outline: 2px solid var(--ink);
+        outline-offset: 4px;
+      }
+
       /* ---- hero diagram ---- */
       .graph {
         width: 100%;
@@ -281,7 +349,7 @@
         border-inline-start: 1px solid var(--rule);
       }
       .feature::before {
-        content: '';
+        content: "";
         grid-column: 2;
         grid-row: 1 / 3;
         align-self: stretch;
@@ -433,6 +501,12 @@
 
       /* ---- responsive ---- */
       @media (max-width: 860px) {
+        .release {
+          padding: 2.5rem 1.25rem;
+        }
+        .release-grid {
+          grid-template-columns: 1fr;
+        }
         .hero {
           grid-template-columns: 1fr;
         }
@@ -463,6 +537,11 @@
         }
         .nav {
           padding: 1rem 1.25rem;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+        .wordmark {
+          flex-shrink: 0;
         }
         .nav-links {
           gap: 0.85rem;
@@ -490,6 +569,7 @@
       <header class="nav">
         <a class="wordmark" href="./">whoop-mcp</a>
         <nav class="nav-links">
+          <a href="#release">0.7.0 preview</a>
           <a href="https://github.com/shashankswe2020-ux/whoop-mcp#readme">Docs</a>
           <a class="opt" href="https://www.npmjs.com/package/whoop-ai-mcp">npm</a>
           <a href="https://github.com/shashankswe2020-ux/whoop-mcp">GitHub</a>
@@ -502,18 +582,14 @@
       <main>
         <section class="hero">
           <div class="hero-left">
+            <p class="release-label">Published: 0.6.1 / Next: 0.7.0</p>
             <h1>Your WHOOP data, in any AI assistant</h1>
             <p class="lede">
-              An MCP server that wraps the WHOOP REST API, so Claude, Cursor, and any MCP
-              client can read your recovery, sleep, strain, and workouts through natural
-              conversation.
+              An MCP server that wraps the WHOOP REST API, so Claude, Cursor, and any MCP client can
+              read your recovery, sleep, strain, and workouts through natural conversation.
             </p>
             <div class="cta">
-              <a
-                class="btn btn-primary"
-                href="#setup"
-                >Get started</a
-              >
+              <a class="btn btn-primary" href="#setup">Get started</a>
               <a class="btn btn-ghost" href="https://www.npmjs.com/package/whoop-ai-mcp"
                 >View on npm</a
               >
@@ -534,7 +610,7 @@
                 </svg>
               </button>
             </div>
-            <p class="stat">14 tools · 4 resources · 5 prompts · stdio + HTTP transport</p>
+            <p class="stat">0.7.0 preview: 16 tools · 4 resources · 5 prompts in standard mode</p>
           </div>
 
           <div class="hero-right">
@@ -607,8 +683,8 @@
             </svg>
             <h2>Recovery, sleep &amp; strain</h2>
             <p>
-              14 tools for recovery scores, HRV, resting heart rate, sleep stages, daily
-              strain, and workouts, plus weekly summaries, trends, and period comparisons.
+              Read recovery scores, HRV, resting heart rate, sleep stages, daily strain, and
+              workouts, plus weekly summaries, trends, and period comparisons.
             </p>
           </article>
 
@@ -625,8 +701,8 @@
             </svg>
             <h2>MCP-native</h2>
             <p>
-              Tools, resources, and prompts over stdio or Streamable HTTP. Drop it into
-              Claude Desktop, or host it remotely for any MCP client.
+              Tools, resources, and prompts over stdio or Streamable HTTP. Drop it into Claude
+              Desktop, or host it remotely for any MCP client.
             </p>
           </article>
 
@@ -645,19 +721,81 @@
             </svg>
             <h2>Private by design</h2>
             <p>
-              Read-only OAuth2 with PKCE. Tokens stay on your machine at
-              <code>~/.whoop-mcp</code> with 0600 permissions, and the real API is never
-              touched in tests.
+              Read-only tools with OAuth and PKCE. Tokens stay on the server host with 0600
+              permissions. Health results reach your assistant provider; the 0.7.0 preview adds
+              optional aggregate-only access.
             </p>
           </article>
         </section>
 
+        <section class="release" id="release" aria-labelledby="release-title">
+          <p class="release-label">Upcoming release / 0.7.0 / Not yet on npm</p>
+          <h2 id="release-title">Personal analytics, grounded in your history</h2>
+          <p class="release-intro">
+            Two new tools join the existing fourteen, with clearer data quality and control over
+            what your assistant receives. These features are implemented in the release work,
+            pending final client checks and publication.
+          </p>
+          <div class="release-grid">
+            <article class="release-item">
+              <h3>What is typical for you?</h3>
+              <p>
+                <code>get_baselines</code> compares HRV, resting heart rate, sleep and recovery with
+                your own history. Percentile bands exclude the latest observation and current local
+                day. Fewer than 14 historical points returns an insufficient-data result, not a
+                guessed normal range.
+              </p>
+            </article>
+            <article class="release-item">
+              <h3>Sleep deficit, without double counting</h3>
+              <p>
+                <code>get_sleep_debt</code> separates observed nightly deficits from WHOOP's
+                standing debt. It uses scored asleep stages, accounts for naps, and describes local
+                sleep consistency. These are observations, not recovery forecasts or medical advice.
+              </p>
+            </article>
+            <article class="release-item">
+              <h3>Current data, clearly labeled</h3>
+              <p>
+                <code>get_today</code> matches recovery with the current cycle and primary sleep.
+                Pending or invalid sleep never substitutes an older score. All 16 tools return
+                validated structured results alongside compatible JSON text; missing measurements
+                stay distinct from zero.
+              </p>
+            </article>
+            <article class="release-item">
+              <h3>Choose aggregate-only access</h3>
+              <p>
+                <code>WHOOP_MCP_PRIVACY_MODE=aggregate</code> exposes five summary and analytics
+                tools, with no raw resources or prompts. Record arrays, latest observations,
+                identity fields and exact activity timestamps are omitted. Aggregates remain
+                sensitive data, not anonymous data.
+              </p>
+            </article>
+          </div>
+          <p class="release-note">
+            Local diagnostics: <code>whoop-ai-mcp doctor --json</code> checks configuration and
+            token-file metadata without calling WHOOP or launching OAuth. Available in the 0.7.0
+            release work, not the published 0.6.1 package.
+          </p>
+          <p class="release-note">
+            <a href="https://github.com/shashankswe2020-ux/whoop-mcp/blob/main/CHANGELOG.md"
+              >Changelog</a
+            >
+            ·
+            <a href="https://github.com/shashankswe2020-ux/whoop-mcp#structured-results-and-privacy"
+              >Privacy and compatibility notes</a
+            >
+          </p>
+        </section>
+
         <section class="setup" id="setup">
-          <h2 class="setup-head">Connect it in one command</h2>
+          <h2 class="setup-head">Connect the published release</h2>
           <p class="setup-sub">
-            The setup wizard writes your client config and verifies your WHOOP
-            credentials in one go. Have your WHOOP Developer App client ID and secret
-            ready from
+            These commands install the published package, currently 0.6.1. The setup wizard writes
+            or prints your client configuration; add <code>--verify</code>
+            for an explicit live authorization check. Have your WHOOP Developer App client ID and
+            secret ready from
             <a href="https://developer.whoop.com">developer.whoop.com</a>.
           </p>
           <div class="setup-grid">
@@ -681,8 +819,8 @@
               </div>
               <p>
                 Merges the <code>whoop</code> server into
-                <code>claude_desktop_config.json</code> (with a <code>.bak</code> backup),
-                then restart Claude Desktop to load it.
+                <code>claude_desktop_config.json</code> (with a <code>.bak</code> backup), then
+                restart Claude Desktop to load it.
               </p>
             </div>
 
@@ -708,9 +846,8 @@
                 </button>
               </div>
               <p>
-                Prints the equivalent <code>claude mcp add</code> command to register the
-                server with Claude Code. Add <code>--verify</code> to run the OAuth flow
-                end-to-end.
+                Prints the equivalent <code>claude mcp add</code> command to register the server
+                with Claude Code. Add <code>--verify</code> to run the OAuth flow end-to-end.
               </p>
             </div>
 
@@ -736,8 +873,8 @@
                 </button>
               </div>
               <p>
-                Prints a <code>codex mcp add</code> command that registers the server in
-                your <code>~/.codex/config.toml</code> for the OpenAI Codex CLI.
+                Prints a <code>codex mcp add</code> command that registers the server in your
+                <code>~/.codex/config.toml</code> for the OpenAI Codex CLI.
               </p>
             </div>
 
@@ -763,8 +900,8 @@
                 </button>
               </div>
               <p>
-                Prints a <code>code --add-mcp</code> command to register the server with
-                GitHub Copilot in VS Code.
+                Prints a <code>code --add-mcp</code> command to register the server with GitHub
+                Copilot in VS Code.
               </p>
             </div>
           </div>
@@ -783,13 +920,13 @@
     </div>
 
     <script>
-      document.querySelectorAll('.install').forEach((wrap) => {
-        const btn = wrap.querySelector('.copy');
+      document.querySelectorAll(".install").forEach((wrap) => {
+        const btn = wrap.querySelector(".copy");
         if (!btn) return;
         const original = btn.innerHTML;
-        btn.addEventListener('click', async () => {
+        btn.addEventListener("click", async () => {
           try {
-            await navigator.clipboard.writeText(wrap.getAttribute('data-install') || '');
+            await navigator.clipboard.writeText(wrap.getAttribute("data-install") || "");
             btn.innerHTML = '<span class="copied">Copied</span>';
             setTimeout(() => (btn.innerHTML = original), 1400);
           } catch {

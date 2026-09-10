@@ -134,9 +134,9 @@ export function registerResources(server: McpServer, client: WhoopClient): void 
               },
             ],
           };
-        } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : "Unknown error";
-          console.error(`[whoop-mcp] Resource read failed for ${def.uri}: ${message}`);
+        } catch {
+          const message = "Resource unavailable. Retry later or verify authorization.";
+          console.error(`[whoop-mcp] Resource read failed for ${def.uri}`);
           return {
             contents: [
               {

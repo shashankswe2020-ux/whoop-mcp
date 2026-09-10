@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target: **0.7.0 — Trustworthy Personal Analytics**. Not yet published; package
+metadata remains 0.6.1 until the manual client and release-review gates pass.
+
+### Added
+- `get_baselines`: personal percentile bands with baseline self-exclusion, calibration filtering, minimum sample counts and explicit truncation.
+- `get_sleep_debt`: observed nightly deficits, separate WHOOP standing debt, circular local-clock consistency and bounded nightly output.
+- Output schemas and equivalent structured/JSON-text results for all 16 tools.
+- Process-level aggregate privacy mode with a five-tool allowlist, explicit projections and no raw resources or incompatible prompts.
+- Local-only `doctor` command with JSON output and stable exit codes.
+- Site release preview covering personal analytics, current-day safeguards,
+  aggregate privacy and diagnostics, with published-install instructions clearly separated.
+
+### Fixed
+- `get_today` now matches recovery to the current cycle and primary sleep, checks score states, skips naps, and does not substitute older data for pending or invalid current sleep.
+- Accept nullable provider score objects and open-cycle end timestamps.
+- Tool/resource errors no longer expose provider bodies or arbitrary internal messages.
+- Targeted compatible dependency refresh clears runtime and high/critical audit findings. Three moderate development-only Vitest findings remain; a major test-runner migration is deferred.
+
+### Compatibility
+- `get_today.sleep.total_hours` retains time-in-bed semantics; new `time_in_bed_hours` and `asleep_hours` are explicit. Summaries use asleep time; missing optional sleep percentages now return null instead of zero.
+- New current-day/analytics metadata labels data quality and recorded-offset day attribution. Calendar/weekly-summary UTC grouping remains unchanged.
+- Aggregate mode intentionally reduces capabilities and output detail. Standard remains the default. No new runtime dependency, OAuth scope, WHOOP endpoint or health-data storage was added.
+
+### Verification
+- 750 → **797 tests** across 43 files, including real stdio subprocess and authenticated HTTP tests with synthetic WHOOP data.
+- Line coverage: **95.61% overall**, **98.84% API**, **99.18% auth**. Lint, typecheck, build and source/test formatting pass.
+- Runtime dependency audit: zero findings. Three moderate development-only Vitest entries remain; no major-version migration or risk suppression was applied.
+- Manual desktop-client smoke testing and publication remain separate release gates; automated transport tests do not replace client UI verification.
+
+## [0.6.1] - 2026-08-08
+
+### Fixed
+- **Token refresh path recovered for non-JSON 401 responses** (#219) — `parseErrorBody()` now reads the response body once and parses JSON from the captured text, preventing undici's `Body is unusable: Body has already been read` failure that previously blocked 401 refresh handling.
+- **Refreshed access token now persists across subsequent client calls** (#219) — after a successful 401 refresh, the client stores the new token for future requests to avoid repeated `401 -> refresh -> retry` cycles.
+
+### Test count
+- 748 → **750** (+2 regression tests for #219). Full suite, lint, typecheck, and build pass.
+
 ## [0.6.0] - 2026-06-13
 
 ### Added
@@ -152,7 +190,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI entry point** — `npx whoop-mcp` with environment variable configuration
 - **202 tests** with full coverage of auth, API client, tools, and error handling
 
-[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.5.2...v0.6.0
 [0.2.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.1.1...v0.2.0
 [0.1.2]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.1.0...v0.1.1

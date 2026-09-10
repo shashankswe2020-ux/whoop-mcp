@@ -233,7 +233,9 @@ describe("registerResources", () => {
         {
           uri: "whoop://v2/user/recovery/latest",
           mimeType: "application/json",
-          text: JSON.stringify({ error: "API timeout" }),
+          text: JSON.stringify({
+            error: "Resource unavailable. Retry later or verify authorization.",
+          }),
         },
       ],
     });

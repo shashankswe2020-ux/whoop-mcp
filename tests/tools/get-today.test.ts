@@ -7,6 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { WhoopClient } from "../../src/api/client.js";
+import { WhoopNetworkError } from "../../src/api/client.js";
 import { getToday } from "../../src/tools/get-today.js";
 import type { Recovery, Sleep, Cycle, Workout } from "../../src/api/types.js";
 
@@ -134,6 +135,143 @@ function createMockClient(responses: Record<string, unknown>): WhoopClient {
 // ---------------------------------------------------------------------------
 
 describe("getToday", () => {
+  it("accepts an open cycle with a null end and classifies null pending scores", async () => {
+    const result = await getToday(
+      createMockClient({
+        "/v2/recovery": { records: [mockRecovery] },
+        "/v2/cycle": { records: [{ ...mockCycle, end: null }] },
+        "/v2/activity/sleep": {
+          records: [{ ...mockSleep, score_state: "PENDING_SCORE", score: null }],
+        },
+        "/v2/activity/workout": { records: [] },
+      })
+    );
+    expect(result.strain?.day_strain).toBe(8.4);
+    expect(result.recovery).toBeNull();
+    expect(result.data_quality.sources.sleep?.status).toBe("pending");
+  });
+
+  it("does not substitute older sleep when the newest primary sleep has an invalid score", async () => {
+    const result = await getToday(
+      createMockClient({
+        "/v2/recovery": { records: [mockRecovery] },
+        "/v2/cycle": { records: [mockCycle] },
+        "/v2/activity/sleep": {
+          records: [
+            {
+              ...mockSleep,
+              id: "newest",
+              end: "2026-03-15T07:00:00Z",
+              score: { ...mockSleep.score, respiratory_rate: NaN },
+            },
+            mockSleep,
+          ],
+        },
+        "/v2/activity/workout": { records: [] },
+      })
+    );
+    expect(result.sleep).toBeNull();
+    expect(result.recovery).toBeNull();
+    expect(result.data_quality.sources.sleep?.status).toBe("invalid");
+  });
+
+  it.each([
+    {
+      label: "mismatched sleep",
+      recovery: { ...mockRecovery, sleep_id: "other" },
+      cycle: mockCycle,
+    },
+    { label: "mismatched cycle", recovery: { ...mockRecovery, cycle_id: 999 }, cycle: mockCycle },
+    {
+      label: "stale cycle",
+      recovery: mockRecovery,
+      cycle: { ...mockCycle, start: "2026-03-13T06:00:00Z" },
+    },
+  ])("suppresses recovery for $label", async ({ recovery, cycle }) => {
+    const result = await getToday(
+      createMockClient({
+        "/v2/recovery": { records: [recovery] },
+        "/v2/cycle": { records: [cycle] },
+        "/v2/activity/sleep": { records: [mockSleep] },
+        "/v2/activity/workout": { records: [] },
+      })
+    );
+    expect(result.recovery).toBeNull();
+  });
+
+  it("skips a latest nap and exposes separate sleep durations and evidence", async () => {
+    const result = await getToday(
+      createMockClient({
+        "/v2/recovery": { records: [mockRecovery] },
+        "/v2/cycle": { records: [mockCycle] },
+        "/v2/activity/sleep": {
+          records: [{ ...mockSleep, id: "nap", nap: true }, mockSleep],
+          next_token: "more",
+        },
+        "/v2/activity/workout": { records: [mockWorkout] },
+      })
+    );
+    expect(result.sleep).toMatchObject({
+      total_hours: 7.5,
+      time_in_bed_hours: 7.5,
+      asleep_hours: 6.5,
+    });
+    expect(result.data_quality.sources.sleep).toMatchObject({
+      truncated: true,
+      fetched_at: null,
+      cache_status: "unknown",
+    });
+    expect(result.strain?.last_workout).toMatchObject({ occurred_at: mockWorkout.start });
+  });
+
+  it("uses the recorded offset near local midnight", async () => {
+    vi.setSystemTime(new Date("2026-03-16T01:00:00Z"));
+    const result = await getToday(
+      createMockClient({
+        "/v2/recovery": { records: [mockRecovery] },
+        "/v2/cycle": { records: [mockCycle] },
+        "/v2/activity/sleep": { records: [mockSleep] },
+        "/v2/activity/workout": { records: [] },
+      })
+    );
+    expect(result.recovery?.score).toBe(72);
+  });
+
+  it("reports absent optional values as null and excludes invalid scores", async () => {
+    const result = await getToday(
+      createMockClient({
+        "/v2/recovery": {
+          records: [{ ...mockRecovery, score: { ...mockRecovery.score, hrv_rmssd_milli: NaN } }],
+        },
+        "/v2/cycle": { records: [mockCycle] },
+        "/v2/activity/sleep": {
+          records: [
+            {
+              ...mockSleep,
+              score: { ...mockSleep.score, sleep_performance_percentage: undefined },
+            },
+          ],
+        },
+        "/v2/activity/workout": { records: [] },
+      })
+    );
+    expect(result.sleep?.performance_pct).toBeNull();
+    expect(result.recovery).toBeNull();
+    expect(result.data_quality.sources.recovery?.exclusions.invalid).toBe(1);
+  });
+
+  it("does not expose recovery while the matching primary sleep is pending", async () => {
+    const client = createMockClient({
+      "/v2/recovery": { records: [mockRecovery] },
+      "/v2/activity/sleep": { records: [{ ...mockSleep, score_state: "PENDING_SCORE" }] },
+      "/v2/cycle": { records: [mockCycle] },
+      "/v2/activity/workout": { records: [] },
+    });
+    const result = await getToday(client);
+    expect(result.recovery).toBeNull();
+    expect(result.sleep).toBeNull();
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(FIXED_NOW);
@@ -190,7 +328,7 @@ describe("getToday", () => {
     const result = await getToday(client);
 
     expect(result.summary).toContain("72%");
-    expect(result.summary).toContain("7.5h sleep");
+    expect(result.summary).toContain("6.5h sleep");
     expect(result.summary).toContain("8.4");
   });
 
@@ -219,7 +357,7 @@ describe("getToday", () => {
 
     const result = await getToday(client);
 
-    expect(result.recovery).not.toBeNull();
+    expect(result.recovery).toBeNull();
     expect(result.sleep).toBeNull();
     expect(result.strain).not.toBeNull();
   });
@@ -234,7 +372,7 @@ describe("getToday", () => {
 
     const result = await getToday(client);
 
-    expect(result.recovery).not.toBeNull();
+    expect(result.recovery).toBeNull();
     expect(result.sleep).not.toBeNull();
     expect(result.strain).toBeNull();
   });
@@ -247,7 +385,7 @@ describe("getToday", () => {
       "/v2/activity/workout": new Error("fail 4"),
     });
 
-    await expect(getToday(client)).rejects.toThrow(/all.*failed/i);
+    await expect(getToday(client)).rejects.toBeInstanceOf(WhoopNetworkError);
   });
 
   it("throws when all 3 primary endpoints fail (even if workout succeeds)", async () => {
@@ -258,7 +396,7 @@ describe("getToday", () => {
       "/v2/activity/workout": { records: [mockWorkout], next_token: undefined },
     });
 
-    await expect(getToday(client)).rejects.toThrow(/all.*failed/i);
+    await expect(getToday(client)).rejects.toBeInstanceOf(WhoopNetworkError);
   });
 
   it("returns null recovery when no recovery records exist", async () => {
@@ -371,7 +509,7 @@ describe("getToday", () => {
     expect(result.strain).toBeNull();
   });
 
-  it("generates summary with partial data (recovery only)", async () => {
+  it("does not summarize unverifiable recovery without sleep and cycle context", async () => {
     const client = createMockClient({
       "/v2/recovery": { records: [mockRecovery], next_token: undefined },
       "/v2/activity/sleep": new Error("fail"),
@@ -381,9 +519,8 @@ describe("getToday", () => {
 
     const result = await getToday(client);
 
-    expect(result.summary).toContain("72%");
-    expect(result.summary).not.toContain("sleep");
-    expect(result.summary).not.toContain("strain");
+    expect(result.recovery).toBeNull();
+    expect(result.summary).not.toContain("72%");
   });
 
   it("generates summary with sleep missing spo2 and skin_temp", async () => {

@@ -16,11 +16,19 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 
 ## Features
 
-- 🏋️ **14 health data tools** — recovery, sleep, workouts, cycles, body measurements, profile, weekly summaries, trend analysis, period comparisons, individual record lookups, today's snapshot, and calendar grid
+> **Upcoming 0.7.0:** This branch includes the features below. The published npm
+> package remains **0.6.1** until the [release checklist](docs/plans/task-17-v070-trustworthy-personal-analytics.md)
+> is completed. Existing npm/npx quickstarts install the published release, not this preview.
+
+- 🏋️ **16 health data tools** — recovery, sleep, workouts, cycles, body measurements, profile, summaries, trends, comparisons, record lookups, today's snapshot, calendar, personal baselines, and sleep debt
 - 📊 **4 MCP Resources** — ambient health context (latest recovery, sleep, cycle, profile) available without explicit tool calls
 - 💬 **5 MCP Prompts** — guided conversation starters for common health queries
 - 📅 **Rich natural date expressions** — use "last 7 days", "this week", "last 2 weeks", "last 3 months", "this quarter", "last year", "2026-05", and more
 - 📈 **Built-in analytics** — weekly summaries, trend detection (linear regression), and period comparisons computed server-side
+- **Personal analytics (0.7.0)** — personal baseline distributions and sleep deficits with sample counts, missing-data safeguards and bounded output
+- **Structured results (0.7.0)** — output schemas and matching JSON-text results for all tools
+- **Aggregate privacy (0.7.0)** — five allowlisted tools, no raw resources/prompts, and no caller override of the process policy
+- **Local diagnostics (0.7.0)** — `doctor` checks configuration and token-file metadata without network or OAuth activity
 - 🔐 **Secure OAuth2** — browser-based authentication with automatic token refresh
 - 🔄 **Resilient** — automatic retry on rate limits, token refresh on expiry, auto-pagination, clear error messages
 - 💾 **Secure token storage** — tokens stored at `~/.whoop-mcp/tokens.json` with `0600` permissions
@@ -55,7 +63,7 @@ this is an ecosystem comparison, not a source-code security audit._
   This project provides the first two and supports both local stdio and
   authenticated Streamable HTTP; it does not claim to be a security audit.
 
-**Why this package stands out**
+**Published 0.6.1 strengths**
 
 - 14 domain and analytical tools, 4 ambient resources, and 5 prompts in one
   standalone package.
@@ -63,6 +71,10 @@ this is an ecosystem comparison, not a source-code security audit._
   and Zod are required.
 - Published to npm and the official MCP Registry, with documented OAuth,
   token refresh, retries, caching, HTTP hardening, and Inspector verification.
+
+The table above describes published artifacts, so its 14-tool count is intentional.
+The upcoming 0.7.0 adds two tools; its scope and evidence are in the
+[September feature scan](docs/ideas/sota-feature-scan-2026-09-10.md).
 
 **Evidence and reproducibility:** package names, versions, publish dates,
 dependency counts, descriptions, and `mcpName` values come from the npm Registry
@@ -458,7 +470,46 @@ Get today's complete health snapshot — recovery score, last night's sleep, cur
 
 **Returns:** Recovery score with zone, sleep breakdown (hours, stages, performance), current strain, last workout (sport + strain), and a human-readable summary.
 
+Recovery is returned only when it matches the current local cycle and primary sleep.
+Pending or invalid primary sleep never falls back to an older recovery. Missing optional
+sleep percentages are `null`, not zero. `data_quality` distinguishes missing, pending,
+stale, unscored, calibrating, invalid and failed sources; cache status and fetch time
+remain unknown when the client cannot establish them.
+
+For compatibility, `sleep.total_hours` remains time in bed. Use `time_in_bed_hours`
+or `asleep_hours` explicitly; summaries now use scored asleep stages. The latest
+workout includes `occurred_at` and recording percentage and may be historical.
+
 ---
+
+### `get_baselines`
+
+Returns personal distributions for HRV, resting heart rate, respiratory rate,
+asleep hours and recovery score. `baseline_days` is an integer from 14 to 180
+(default 30). Each band includes mean, median, standard deviation, percentiles,
+sample size and the latest observation's midrank percentile.
+
+The latest observation and current local day are excluded from each baseline.
+Calibrating, unscored, invalid and unjoinable observations are excluded. A metric
+needs 14 historical points after exclusions; otherwise its band is null with an
+insufficient-data status. Constant distributions are labeled explicitly.
+
+### `get_sleep_debt`
+
+Analyzes scored main sleeps using `days` (3-90, default 14) and optional `start`
+(ISO or a supported relative expression). With `start`, the window extends forward
+for `days` calendar days, clamped to evaluation time. Resolved bounds are returned.
+
+`total_debt_hours` sums observed nightly deficits. Need excludes WHOOP's accumulated
+debt component and preserves the signed nap adjustment; achieved sleep is light +
+slow-wave + REM. `standing_debt_hours` is the latest WHOOP debt value, separately
+dated, not the deficit sum. Missing nights are not zero-sleep nights; fewer than
+three usable nights returns null aggregates. Circular local-clock statistics describe
+consistency and heuristic social jetlag, not clinical diagnoses or recovery forecasts.
+
+Analytics paginate up to 500 records per source and report upstream truncation.
+Sleep-debt calculations use all selected records but echo at most 30 nights, with
+a separate `output_capped` flag. Both tools include a statistical/medical disclaimer.
 
 ### `get_calendar`
 
@@ -472,6 +523,52 @@ Get a day-by-day grid of recovery, sleep, and strain for a date range. Perfect f
 | `start` | string | No | Start date — ISO 8601 or relative expression ("last 14 days", "this month"). Defaults to N days ago. |
 
 **Returns:** Per-day grid with recovery score + zone (green/yellow/red), sleep hours, sleep performance, and strain. Includes period averages.
+
+---
+
+## Structured Results And Privacy
+
+All tools advertise `outputSchema` and return validated `structuredContent` alongside
+equivalent JSON text for older clients. Provider bodies and internal error details
+are not returned in tool or resource errors.
+
+Set `WHOOP_MCP_PRIVACY_MODE=aggregate` in the server process environment to expose
+only `get_weekly_summary`, `compare_periods`, `get_trend`, `get_baselines`, and
+`get_sleep_debt`. Per-record arrays, latest observations, standing debt, identity
+fields and exact activity timestamps are omitted. Period bounds are date-only.
+Raw resources and all five existing prompts are unavailable in this mode because
+their workflows require raw tools/resources. Tool arguments cannot override the policy.
+
+The default is `standard`, retaining all 16 tools, four resources and five prompts.
+The standard-mode resource and prompt lists later in this README do not apply to
+aggregate mode. To enable aggregation in a client configuration, add
+`"WHOOP_MCP_PRIVACY_MODE": "aggregate"` to the server's existing `env` object.
+Restart and reconnect after changing the process policy. Aggregate mode minimizes
+disclosure; it is not anonymization, does not erase previously shared data, and
+still sends health aggregates to the assistant provider.
+
+`get_today` and the two new analytics tools use recorded offsets for local-day
+attribution. Existing calendar and weekly-summary grouping remains UTC for compatibility.
+An offset is not a timezone database and cannot reconstruct within-sleep DST changes.
+
+## Local Diagnostics
+
+For a local build of this unreleased branch:
+
+```sh
+npm ci --ignore-scripts
+npm run build
+node dist/index.js doctor --json
+```
+
+After 0.7.0 is published and installed, use `whoop-ai-mcp doctor` or
+`whoop-ai-mcp doctor --json` directly. The command is not present in published 0.6.1.
+
+Checks runtime, configuration presence, privacy/transport settings and token-file
+metadata without reading token contents, calling WHOOP, launching OAuth or writing
+files. Exit codes: 0 = locally ready, 1 = remediation needed, 2 = invalid arguments.
+Token validity and granted scopes remain unknown; `setup --verify` is the explicit
+live check. POSIX private permissions are checked; Windows ACL privacy is not verified.
 
 ---
 

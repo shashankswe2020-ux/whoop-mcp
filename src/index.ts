@@ -28,6 +28,7 @@ import { createLogger, type LogLevel, type Logger } from "./logging/logger.js";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { realpathSync } from "node:fs";
+import { privacyModeSchema } from "./privacy.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,6 +101,7 @@ function parseAllowedOrigins(): string[] {
 // ---------------------------------------------------------------------------
 
 export async function main(): Promise<void> {
+  const privacyMode = privacyModeSchema.parse(process.env.WHOOP_MCP_PRIVACY_MODE ?? "standard");
   // 1. Parse transport + logging configuration
   const transportMode = parseTransport();
   const logger: Logger = createLogger({
@@ -145,7 +147,7 @@ export async function main(): Promise<void> {
 
   // 5. Create the MCP server with all WHOOP tools and resources
   const disableResources = process.env.WHOOP_MCP_DISABLE_RESOURCES === "1";
-  const { server } = createWhoopServer(client, { disableResources });
+  const { server } = createWhoopServer(client, { disableResources, privacyMode });
 
   // 6. Connect transports based on MCP_TRANSPORT mode
   const httpResults: HttpServerResult[] = [];
@@ -288,7 +290,16 @@ function isMainModule(): boolean {
 if (isMainModule()) {
   const subcommand = process.argv[2];
 
-  if (subcommand === "setup") {
+  if (subcommand === "doctor") {
+    void import("./cli/doctor.js")
+      .then(async ({ runDoctor }) => {
+        process.exitCode = await runDoctor(process.argv.slice(3));
+      })
+      .catch(() => {
+        console.error("Local diagnostics failed.");
+        process.exitCode = 1;
+      });
+  } else if (subcommand === "setup") {
     // Lazy-load so the setup CLI's deps aren't pulled into the hot stdio path.
     void (async (): Promise<void> => {
       try {

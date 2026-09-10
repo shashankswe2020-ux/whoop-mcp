@@ -109,6 +109,7 @@ describe("main() entry point", () => {
     delete process.env.MCP_HOST;
     delete process.env.MCP_ALLOWED_ORIGINS;
     delete process.env.LOG_FORMAT;
+    delete process.env.WHOOP_MCP_PRIVACY_MODE;
   });
 
   afterEach(() => {
@@ -122,6 +123,25 @@ describe("main() entry point", () => {
   // -------------------------------------------------------------------------
 
   describe("environment variable validation", () => {
+    it("validates privacy before authentication", async () => {
+      process.env.WHOOP_MCP_PRIVACY_MODE = "raw";
+      setupHappyPath();
+      const { main } = await importMain();
+      await expect(main()).rejects.toThrow();
+      expect(mockAuthenticate).not.toHaveBeenCalled();
+    });
+
+    it("passes aggregate privacy to the server", async () => {
+      process.env.WHOOP_MCP_PRIVACY_MODE = "aggregate";
+      setupHappyPath();
+      const { main } = await importMain();
+      await main();
+      expect(mockCreateWhoopServer).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ privacyMode: "aggregate" })
+      );
+    });
+
     it("throws when WHOOP_CLIENT_ID is missing", async () => {
       delete process.env.WHOOP_CLIENT_ID;
       setupHappyPath();
@@ -343,7 +363,10 @@ describe("main() entry point", () => {
       await main();
 
       expect(mockCreateWhoopServer).toHaveBeenCalledOnce();
-      expect(mockCreateWhoopServer).toHaveBeenCalledWith(mockClient, { disableResources: false });
+      expect(mockCreateWhoopServer).toHaveBeenCalledWith(mockClient, {
+        disableResources: false,
+        privacyMode: "standard",
+      });
     });
 
     it("creates a StdioServerTransport", async () => {
