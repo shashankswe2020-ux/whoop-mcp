@@ -59,7 +59,7 @@ export interface Recovery {
   created_at: string;
   updated_at: string;
   score_state: ScoreState;
-  score?: RecoveryScore;
+  score?: RecoveryScore | null;
 }
 
 /** GET /v2/recovery — paginated */
@@ -112,7 +112,7 @@ export interface Sleep {
   nap: boolean;
   score_state: ScoreState;
   v1_id?: number;
-  score?: SleepScore;
+  score?: SleepScore | null;
 }
 
 /** GET /v2/activity/sleep — paginated */
@@ -137,10 +137,10 @@ export interface Cycle {
   created_at: string;
   updated_at: string;
   start: string;
-  end?: string;
+  end?: string | null;
   timezone_offset: string;
   score_state: ScoreState;
-  score?: CycleScore;
+  score?: CycleScore | null;
 }
 
 /** GET /v2/cycle — paginated */
@@ -185,7 +185,7 @@ export interface Workout {
   sport_name: string;
   score_state: ScoreState;
   v1_id?: number;
-  score?: WorkoutScore;
+  score?: WorkoutScore | null;
   sport_id?: number;
 }
 

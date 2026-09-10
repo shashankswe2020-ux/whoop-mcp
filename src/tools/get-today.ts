@@ -20,6 +20,23 @@ import {
   ENDPOINT_CYCLE,
 } from "../api/endpoints.js";
 import { DYNAMIC_TTL_MS, CYCLE_TTL_MS } from "../resources/index.js";
+import { WhoopNetworkError } from "../api/client.js";
+import {
+  cycleRecordSchema,
+  recoveryRecordSchema,
+  sleepRecordSchema,
+  workoutRecordSchema,
+} from "../api/record-schemas.js";
+import {
+  asleepHours,
+  DAY_MS,
+  localDay,
+  observedPeriod,
+  parseRecords,
+  sourceQuality,
+  type DataQuality,
+  type SourceQuality,
+} from "./analytics-utils.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,18 +52,22 @@ export interface TodayRecovery {
 
 export interface TodaySleep {
   total_hours: number;
+  time_in_bed_hours: number;
+  asleep_hours: number;
   rem_hours: number;
   deep_hours: number;
   light_hours: number;
   awake_hours: number;
-  performance_pct: number;
-  efficiency_pct: number;
+  performance_pct: number | null;
+  efficiency_pct: number | null;
   respiratory_rate: number | null;
 }
 
 export interface TodayLastWorkout {
   sport_name: string;
   strain: number;
+  occurred_at: string;
+  percent_recorded: number;
 }
 
 export interface TodayStrain {
@@ -61,6 +82,7 @@ export interface TodaySnapshot {
   sleep: TodaySleep | null;
   strain: TodayStrain | null;
   summary: string;
+  data_quality: DataQuality;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +109,7 @@ function buildSummary(snapshot: {
   }
 
   if (snapshot.sleep) {
-    parts.push(`${snapshot.sleep.total_hours}h sleep`);
+    parts.push(`${snapshot.sleep.asleep_hours}h sleep`);
   }
 
   if (snapshot.strain) {
@@ -116,18 +138,21 @@ function buildSummary(snapshot: {
  * @returns Today's snapshot with recovery, sleep, strain, and summary
  * @throws Error if all API calls fail
  */
-export async function getToday(client: WhoopClient): Promise<TodaySnapshot> {
+export async function getToday(
+  client: WhoopClient,
+  now: Date = new Date()
+): Promise<TodaySnapshot> {
   const [recoveryResult, sleepResult, cycleResult, workoutResult] = await Promise.allSettled([
-    client.get<RecoveryCollection>(`${ENDPOINT_RECOVERY}?limit=1`, {
+    client.get<RecoveryCollection>(`${ENDPOINT_RECOVERY}?limit=25`, {
       cache: true,
       ttlMs: DYNAMIC_TTL_MS,
     }),
-    client.get<SleepCollection>(`${ENDPOINT_SLEEP}?limit=1`, {
+    client.get<SleepCollection>(`${ENDPOINT_SLEEP}?limit=25`, {
       cache: true,
       ttlMs: DYNAMIC_TTL_MS,
     }),
-    client.get<CycleCollection>(`${ENDPOINT_CYCLE}?limit=1`, { cache: true, ttlMs: CYCLE_TTL_MS }),
-    client.get<WorkoutCollection>(`${ENDPOINT_WORKOUT}?limit=1`, {
+    client.get<CycleCollection>(`${ENDPOINT_CYCLE}?limit=25`, { cache: true, ttlMs: CYCLE_TTL_MS }),
+    client.get<WorkoutCollection>(`${ENDPOINT_WORKOUT}?limit=25`, {
       cache: true,
       ttlMs: DYNAMIC_TTL_MS,
     }),
@@ -138,13 +163,122 @@ export async function getToday(client: WhoopClient): Promise<TodaySnapshot> {
   const allPrimaryFailed = primaryResults.every((r) => r.status === "rejected");
 
   if (allPrimaryFailed) {
-    throw new Error("All API calls failed. Unable to retrieve today's health snapshot.");
+    throw new WhoopNetworkError(
+      "All API calls failed. Unable to retrieve today's health snapshot."
+    );
   }
+
+  function unpack<T>(result: PromiseSettledResult<{ records: T[]; next_token?: string }>): {
+    records: T[];
+    quality: SourceQuality;
+  } {
+    if (result.status === "rejected")
+      return { records: [], quality: { ...sourceQuality(), status: "fetch_failed" } };
+    if (!Array.isArray(result.value?.records))
+      return { records: [], quality: { ...sourceQuality(), status: "invalid" } };
+    return {
+      records: result.value.records.slice(0, 25),
+      quality: sourceQuality(
+        result.value.records.length,
+        Boolean(result.value.next_token) || result.value.records.length > 25
+      ),
+    };
+  }
+  const recoveryData = unpack(recoveryResult);
+  const sleepData = unpack(sleepResult);
+  const cycleData = unpack(cycleResult);
+  const workoutData = unpack(workoutResult);
+  const cycles = parseRecords(
+    cycleData.records,
+    cycleRecordSchema.omit({ score: true }),
+    cycleData.quality
+  )
+    .filter((record) => Date.parse(record.start) <= now.getTime())
+    .sort((left, right) => Date.parse(right.start) - Date.parse(left.start));
+  const cycleCandidate = cycles.find(
+    (record) =>
+      localDay(record.start, record.timezone_offset) ===
+      localDay(now.toISOString(), record.timezone_offset)
+  );
+  const cycle = parseRecords(
+    cycleCandidate ? [cycleCandidate] : [],
+    cycleRecordSchema,
+    cycleData.quality
+  )[0];
+  if (!cycleCandidate && cycles.length) cycleData.quality.status = "stale";
+  const sleeps = parseRecords(
+    sleepData.records,
+    sleepRecordSchema.omit({ score: true }),
+    sleepData.quality
+  )
+    .filter(
+      (record) =>
+        !record.nap &&
+        Date.parse(record.end) <= now.getTime() &&
+        Date.parse(record.end) > Date.parse(record.start)
+    )
+    .sort((left, right) => Date.parse(right.end) - Date.parse(left.end));
+  const primarySleep = sleeps[0];
+  const sleepCandidate =
+    primarySleep &&
+    localDay(primarySleep.end, primarySleep.timezone_offset) ===
+      localDay(now.toISOString(), primarySleep.timezone_offset)
+      ? primarySleep
+      : undefined;
+  const currentSleep = parseRecords(
+    sleepCandidate ? [sleepCandidate] : [],
+    sleepRecordSchema,
+    sleepData.quality
+  )[0];
+  if (primarySleep && !sleepCandidate) sleepData.quality.status = "stale";
+  const recoveries = parseRecords(recoveryData.records, recoveryRecordSchema, recoveryData.quality);
+  const recoveryRecord =
+    cycle && currentSleep && currentSleep.cycle_id === cycle.id
+      ? recoveries.find(
+          (record) =>
+            record.cycle_id === cycle.id &&
+            record.sleep_id === currentSleep.id &&
+            record.user_id === cycle.user_id &&
+            record.user_id === currentSleep.user_id
+        )
+      : undefined;
+  const workouts = parseRecords(workoutData.records, workoutRecordSchema, workoutData.quality)
+    .filter(
+      (record) =>
+        Date.parse(record.end) <= now.getTime() && Date.parse(record.end) > Date.parse(record.start)
+    )
+    .sort((left, right) => Date.parse(right.start) - Date.parse(left.start));
+  function mark(
+    record: { score_state: string; score?: unknown; updated_at: string } | undefined,
+    quality: SourceQuality
+  ): boolean {
+    if (!record) return false;
+    quality.source_updated_at = record.updated_at;
+    quality.status =
+      record.score_state === "PENDING_SCORE"
+        ? "pending"
+        : record.score_state !== "SCORED"
+          ? "unscored"
+          : record.score
+            ? "available"
+            : "invalid";
+    quality.records_used = quality.status === "available" ? 1 : 0;
+    return quality.status === "available";
+  }
+  const sleepAvailable = mark(currentSleep, sleepData.quality);
+  const cycleAvailable = mark(cycle, cycleData.quality);
+  const recoveryAvailable = mark(recoveryRecord, recoveryData.quality);
+  if (!sleepAvailable && recoveryAvailable) {
+    recoveryData.quality.status = sleepData.quality.status;
+    recoveryData.quality.records_used = 0;
+  }
+  if (recoveryRecord?.score?.user_calibrating) recoveryData.quality.status = "calibrating";
+  const workoutAvailable = mark(workouts[0], workoutData.quality);
 
   // Parse recovery
   let recovery: TodayRecovery | null = null;
-  if (recoveryResult.status === "fulfilled") {
-    const record = recoveryResult.value.records[0];
+  if (recoveryAvailable && sleepAvailable) {
+    const record = recoveryRecord;
     if (record?.score) {
       recovery = {
         score: record.score.recovery_score,
@@ -158,18 +292,20 @@ export async function getToday(client: WhoopClient): Promise<TodaySnapshot> {
 
   // Parse sleep
   let sleep: TodaySleep | null = null;
-  if (sleepResult.status === "fulfilled") {
-    const record = sleepResult.value.records[0];
-    if (record?.score) {
+  if (sleepAvailable) {
+    const record = currentSleep;
+    if (record?.score_state === "SCORED" && record.score) {
       const stages = record.score.stage_summary;
       sleep = {
         total_hours: milliToHours(stages.total_in_bed_time_milli),
+        time_in_bed_hours: milliToHours(stages.total_in_bed_time_milli),
+        asleep_hours: Math.round(asleepHours(record) * 10) / 10,
         rem_hours: milliToHours(stages.total_rem_sleep_time_milli),
         deep_hours: milliToHours(stages.total_slow_wave_sleep_time_milli),
         light_hours: milliToHours(stages.total_light_sleep_time_milli),
         awake_hours: milliToHours(stages.total_awake_time_milli),
-        performance_pct: record.score.sleep_performance_percentage ?? 0,
-        efficiency_pct: record.score.sleep_efficiency_percentage ?? 0,
+        performance_pct: record.score.sleep_performance_percentage ?? null,
+        efficiency_pct: record.score.sleep_efficiency_percentage ?? null,
         respiratory_rate: record.score.respiratory_rate ?? null,
       };
     }
@@ -177,17 +313,19 @@ export async function getToday(client: WhoopClient): Promise<TodaySnapshot> {
 
   // Parse strain (cycle)
   let strain: TodayStrain | null = null;
-  if (cycleResult.status === "fulfilled") {
-    const record = cycleResult.value.records[0];
+  if (cycleAvailable) {
+    const record = cycle;
     if (record?.score) {
       // Parse last workout
       let lastWorkout: TodayLastWorkout | null = null;
-      if (workoutResult.status === "fulfilled") {
-        const workout = workoutResult.value.records[0];
+      if (workoutAvailable) {
+        const workout = workouts[0];
         if (workout?.score) {
           lastWorkout = {
             sport_name: workout.sport_name,
             strain: workout.score.strain,
+            occurred_at: workout.start,
+            percent_recorded: workout.score.percent_recorded,
           };
         }
       }
@@ -201,12 +339,39 @@ export async function getToday(client: WhoopClient): Promise<TodaySnapshot> {
   }
 
   const snapshot: TodaySnapshot = {
-    timestamp: new Date().toISOString(),
+    timestamp: now.toISOString(),
     recovery,
     sleep,
     strain,
     summary: buildSummary({ recovery, sleep, strain }),
+    data_quality: {
+      evaluated_at: now.toISOString(),
+      requested_period: {
+        start: new Date(now.getTime() - DAY_MS).toISOString(),
+        end: now.toISOString(),
+      },
+      observed_period: observedPeriod([
+        ...(sleep ? [currentSleep!.end] : []),
+        ...(strain ? [cycle!.start] : []),
+      ]),
+      sources: {
+        recovery: recoveryData.quality,
+        sleep: sleepData.quality,
+        cycle: cycleData.quality,
+        workout: workoutData.quality,
+      },
+      method_version: "today-2",
+      limitations: [
+        "Recorded offsets define local days; latest workout may be historical.",
+        "Fetch time and cache status are not available from the client.",
+      ],
+    },
   };
+
+  const unavailable = Object.entries(snapshot.data_quality.sources)
+    .filter(([, quality]) => quality.status !== "available")
+    .map(([name, quality]) => `${name}: ${quality.status}`);
+  if (unavailable.length) snapshot.summary += `. ${unavailable.join(", ")}`;
 
   return snapshot;
 }

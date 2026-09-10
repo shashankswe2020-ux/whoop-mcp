@@ -238,7 +238,7 @@ describe("createWhoopServer", () => {
     it("returns all registered tools", async () => {
       const result = await client.listTools();
 
-      expect(result.tools).toHaveLength(14);
+      expect(result.tools).toHaveLength(16);
     });
 
     it("returns tools with the correct names", async () => {
@@ -247,6 +247,7 @@ describe("createWhoopServer", () => {
 
       expect(names).toEqual([
         "compare_periods",
+        "get_baselines",
         "get_body_measurement",
         "get_calendar",
         "get_cycle_by_id",
@@ -255,6 +256,7 @@ describe("createWhoopServer", () => {
         "get_recovery_collection",
         "get_sleep_by_id",
         "get_sleep_collection",
+        "get_sleep_debt",
         "get_today",
         "get_trend",
         "get_weekly_summary",
@@ -634,7 +636,7 @@ describe("createWhoopServer (error handling)", () => {
       expect(result.isError).toBe(true);
       const content = result.content as Array<{ type: string; text: string }>;
       expect(content[0].text).toContain("403");
-      expect(content[0].text).toContain("Forbidden");
+      expect(content[0].text).not.toContain("No access");
       expect(content[0].text).toContain("WHOOP API returned");
     } finally {
       await cleanup();
@@ -665,7 +667,7 @@ describe("createWhoopServer (error handling)", () => {
 
       expect(result.isError).toBe(true);
       const content = result.content as Array<{ type: string; text: string }>;
-      expect(content[0].text).toContain("Authentication error");
+      expect(content[0].text).toContain("authentication failed");
     } finally {
       await cleanup();
     }
@@ -680,8 +682,8 @@ describe("createWhoopServer (error handling)", () => {
 
       expect(result.isError).toBe(true);
       const content = result.content as Array<{ type: string; text: string }>;
-      expect(content[0].text).toContain("Unexpected error");
-      expect(content[0].text).toContain("Something went wrong");
+      expect(content[0].text).toContain("unexpected error");
+      expect(content[0].text).not.toContain("Something went wrong");
     } finally {
       await cleanup();
     }
@@ -715,8 +717,8 @@ describe("createWhoopServer (error handling)", () => {
       expect(result.isError).toBe(true);
       const content = result.content as Array<{ type: string; text: string }>;
       expect(content[0].text).toContain("503");
-      expect(content[0].text).toContain("Service Unavailable");
-      expect(content[0].text).toContain("plain text error body");
+      expect(content[0].text).toContain("Retry later");
+      expect(content[0].text).not.toContain("plain text error body");
     } finally {
       await cleanup();
     }
@@ -739,7 +741,7 @@ describe("createWhoopServer (error handling)", () => {
 
       expect(result.isError).toBe(true);
       const content = result.content as Array<{ type: string; text: string }>;
-      expect(content[0].text).toBe("An unexpected error occurred");
+      expect(content[0].text).toBe("An unexpected error occurred. Check configuration and retry.");
     } finally {
       await mcpClient.close();
       await server.close();

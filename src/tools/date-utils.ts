@@ -128,7 +128,7 @@ function lastDayOfMonthUTC(year: number, month: number): Date {
  *
  * @throws InvalidDateExpression for unrecognized or invalid expressions
  */
-export function resolveDateExpression(expression: string): DateRange {
+export function resolveDateExpression(expression: string, now: Date = new Date()): DateRange {
   const trimmed = expression.trim();
 
   if (trimmed.length === 0) {
@@ -141,7 +141,6 @@ export function resolveDateExpression(expression: string): DateRange {
   }
 
   const lower = trimmed.toLowerCase();
-  const now = new Date();
 
   // "today"
   if (lower === "today") {

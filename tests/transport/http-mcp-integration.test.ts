@@ -13,6 +13,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { createHttpServer } from "../../src/transport/http.js";
 import { createWhoopServer } from "../../src/server.js";
 import type { WhoopClient } from "../../src/api/client.js";
+import { analyticsClient } from "../helpers/analytics-fixtures.js";
 
 function makeMockWhoopClient(): WhoopClient {
   return {
@@ -27,6 +28,34 @@ function makeMockWhoopClient(): WhoopClient {
 }
 
 describe("HTTP transport — MCP integration", () => {
+  it("enforces aggregate privacy and structured results over HTTP", async () => {
+    const { server } = createWhoopServer(analyticsClient(), { privacyMode: "aggregate" });
+    const http = await createHttpServer({ authToken: "privacy-test-token", port: 0 });
+    await server.connect(http.transport);
+    const address = http.server.address();
+    if (!address || typeof address === "string") throw new Error("Missing port");
+    const client = new Client({ name: "privacy-test", version: "1" });
+    try {
+      await client.connect(
+        new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${address.port}/mcp`), {
+          requestInit: { headers: { Authorization: "Bearer privacy-test-token" } },
+        })
+      );
+      expect((await client.listTools()).tools).toHaveLength(5);
+      const result = await client.callTool({ name: "get_sleep_debt", arguments: {} });
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toBeDefined();
+      expect(JSON.stringify(result)).not.toContain('"nights"');
+      expect((await client.callTool({ name: "get_today", arguments: {} })).isError).toBe(true);
+      await expect(client.readResource({ uri: "whoop://v2/user/profile" })).rejects.toThrow();
+      await expect(client.getPrompt({ name: "health_check" })).rejects.toThrow();
+    } finally {
+      await client.close();
+      await server.close();
+      await http.close();
+    }
+  });
+
   let cleanup: (() => Promise<void>) | null = null;
 
   afterEach(async () => {

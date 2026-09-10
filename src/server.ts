@@ -27,6 +27,16 @@ import { registerResources } from "./resources/index.js";
 import { registerPrompts } from "./prompts/index.js";
 import { ISO_8601_REGEX } from "./tools/date-utils.js";
 import { readFileSync } from "node:fs";
+import type { CallToolResult, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import { getBaselines, baselinesInputSchema } from "./tools/get-baselines.js";
+import { getSleepDebt, sleepDebtInputSchema } from "./tools/get-sleep-debt.js";
+import {
+  outputSchemas,
+  aggregateOutputSchemas,
+  privacyModeSchema,
+  projectAggregateDates,
+  type PrivacyMode,
+} from "./tools/output-contracts.js";
 
 // ---------------------------------------------------------------------------
 // Package version
@@ -97,11 +107,11 @@ const collectionInputSchema = z.object({
 // JSON response helper
 // ---------------------------------------------------------------------------
 
-function jsonContent(data: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-} {
+function jsonContent(data: unknown): CallToolResult {
+  const text = JSON.stringify(data, null, 2);
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    content: [{ type: "text" as const, text }],
+    structuredContent: JSON.parse(text) as Record<string, unknown>,
   };
 }
 
@@ -117,16 +127,15 @@ function errorResponse(error: unknown): {
   let message: string;
 
   if (error instanceof WhoopApiError) {
-    const bodyStr = typeof error.body === "string" ? error.body : JSON.stringify(error.body);
-    message = `WHOOP API returned ${error.statusCode} ${error.statusText}: ${bodyStr}`;
+    message = `WHOOP API returned ${error.statusCode}. Retry later or verify authorization.`;
   } else if (error instanceof WhoopAuthError) {
-    message = error.message;
+    message = "WHOOP authentication failed. Run setup --verify to reconnect.";
   } else if (error instanceof WhoopNetworkError) {
-    message = error.message;
-  } else if (error instanceof Error) {
-    message = `Unexpected error: ${error.message}`;
+    message = "Network error: Unable to reach the WHOOP API. Check your internet connection.";
+  } else if (error instanceof z.ZodError || error instanceof RangeError) {
+    message = "Invalid input or data. Check the requested parameters and date range.";
   } else {
-    message = "An unexpected error occurred";
+    message = "An unexpected error occurred. Check configuration and retry.";
   }
 
   return {
@@ -136,12 +145,7 @@ function errorResponse(error: unknown): {
 }
 
 /** Wrap a tool handler with error-to-MCP-error conversion */
-async function safeTool<T>(
-  fn: () => Promise<T>
-): Promise<
-  | { content: Array<{ type: "text"; text: string }> }
-  | { isError: true; content: Array<{ type: "text"; text: string }> }
-> {
+async function safeTool<T>(fn: () => Promise<T>): Promise<CallToolResult> {
   try {
     return jsonContent(await fn());
   } catch (error: unknown) {
@@ -155,6 +159,7 @@ async function safeTool<T>(
 
 /** Options for createWhoopServer */
 export interface CreateServerOptions {
+  privacyMode?: PrivacyMode;
   /** Disable MCP resource registration (set via WHOOP_MCP_DISABLE_RESOURCES=1) */
   disableResources?: boolean;
 }
@@ -175,15 +180,47 @@ export interface WhoopServer {
  * @param options - Optional configuration (e.g., disable resources)
  */
 export function createWhoopServer(client: WhoopClient, options?: CreateServerOptions): WhoopServer {
+  const privacyMode = privacyModeSchema.parse(options?.privacyMode ?? "standard");
   const server = new McpServer({
     name: "whoop-mcp",
     version: getPackageVersion(),
   });
 
+  function registerTool<Shape extends z.ZodRawShape>(
+    name: string,
+    config: { description: string; inputSchema?: z.ZodObject<Shape>; annotations: ToolAnnotations },
+    handler: (args: z.infer<z.ZodObject<Shape>>) => Promise<CallToolResult>
+  ): void {
+    const schema = (privacyMode === "aggregate" ? aggregateOutputSchemas : outputSchemas)[name];
+    if (!schema) {
+      if (privacyMode === "aggregate") return;
+      throw new Error("Missing tool output contract.");
+    }
+    server.registerTool(
+      name,
+      { ...config, inputSchema: config.inputSchema ?? z.object({}), outputSchema: schema },
+      async (args) => {
+        const result = await handler(args as z.infer<z.ZodObject<Shape>>);
+        if (result.isError) return result;
+        const validated = schema.safeParse(result.structuredContent);
+        if (!validated.success)
+          return {
+            isError: true,
+            content: [
+              { type: "text", text: "WHOOP data did not match the expected output contract." },
+            ],
+          };
+        return jsonContent(
+          privacyMode === "aggregate" ? projectAggregateDates(validated.data) : validated.data
+        );
+      }
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Tool 1: get_profile
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_profile",
     {
       description: "Get the authenticated user's basic profile — name and email.",
@@ -195,7 +232,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 2: get_body_measurement
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_body_measurement",
     {
       description: "Get the user's body measurements — height, weight, and max heart rate.",
@@ -207,7 +244,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 3: get_recovery_collection
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_recovery_collection",
     {
       description:
@@ -222,7 +259,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 4: get_sleep_collection
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_sleep_collection",
     {
       description:
@@ -237,7 +274,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 5: get_workout_collection
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_workout_collection",
     {
       description:
@@ -252,7 +289,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 6: get_cycle_collection
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_cycle_collection",
     {
       description:
@@ -267,7 +304,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 7: get_sleep_by_id
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_sleep_by_id",
     {
       description:
@@ -281,7 +318,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 8: get_workout_by_id
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_workout_by_id",
     {
       description:
@@ -295,7 +332,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 9: get_cycle_by_id
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_cycle_by_id",
     {
       description:
@@ -309,7 +346,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 10: get_weekly_summary
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_weekly_summary",
     {
       description:
@@ -330,7 +367,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 11: compare_periods
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "compare_periods",
     {
       description:
@@ -354,7 +391,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 12: get_trend
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_trend",
     {
       description:
@@ -382,7 +419,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 13: get_today
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_today",
     {
       description:
@@ -395,7 +432,7 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // Tool 14: get_calendar
   // -------------------------------------------------------------------------
-  server.registerTool(
+  registerTool(
     "get_calendar",
     {
       description:
@@ -423,14 +460,35 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
   // -------------------------------------------------------------------------
   // MCP Resources
   // -------------------------------------------------------------------------
-  if (!options?.disableResources) {
+  registerTool(
+    "get_baselines",
+    {
+      description:
+        "Personal rolling distributions for HRV, RHR, sleep and recovery. Excludes latest observations from baselines; not medical advice.",
+      inputSchema: baselinesInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => safeTool(() => getBaselines(client, args))
+  );
+  registerTool(
+    "get_sleep_debt",
+    {
+      description:
+        "Observed nightly sleep deficits, standing debt and local clock consistency. Deficit sum is not outstanding debt or a recovery prediction.",
+      inputSchema: sleepDebtInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => safeTool(() => getSleepDebt(client, args))
+  );
+
+  if (!options?.disableResources && privacyMode === "standard") {
     registerResources(server, client);
   }
 
   // -------------------------------------------------------------------------
   // MCP Prompts
   // -------------------------------------------------------------------------
-  registerPrompts(server);
+  if (privacyMode === "standard") registerPrompts(server);
 
   return { server };
 }
