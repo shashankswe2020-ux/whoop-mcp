@@ -44,7 +44,10 @@ Contract: [release spec](../specs/v070-trustworthy-personal-analytics.md).
       confirmation, not a claim of an additional agent-run desktop UI test.
 - [x] Human release review and publishing authorization received; package, lockfile
       and MCP registry descriptor versions synchronized to 0.7.0.
-- [ ] Publication verified against the npm registry after the release workflow.
+- [x] Published on 2026-09-10: npm reports `whoop-ai-mcp@0.7.0` and `latest=0.7.0`.
+      [npm publication workflow](https://github.com/shashankswe2020-ux/whoop-mcp/actions/runs/34514286065)
+      and [GitHub release](https://github.com/shashankswe2020-ux/whoop-mcp/releases/tag/v0.7.0)
+      completed successfully from release commit `bc589ce`.
 
 The automated transport checks are not a claim that a desktop client's UI was
 manually exercised. No WHOOP health API calls were made in automated tests.
