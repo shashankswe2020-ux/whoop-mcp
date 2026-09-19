@@ -11,8 +11,9 @@ import { startCallbackServer } from "./callback-server.js";
 import {
   WHOOP_AUTH_URL,
   WHOOP_TOKEN_URL,
-  WHOOP_REDIRECT_URI,
-  WHOOP_REQUIRED_SCOPES,
+  resolveRedirectUri,
+  resolveScopes,
+  redirectPort,
 } from "../api/endpoints.js";
 import { WhoopNetworkError } from "../api/client.js";
 import { spawn } from "node:child_process";
@@ -32,6 +33,13 @@ export interface OAuthConfig {
   tokenDir?: string;
   /** Callback server port. Default: 3000 */
   port?: number;
+  /**
+   * Refuse to fall back to the browser-based OAuth flow. Set for headless
+   * deployments (containers, remote hosts) where no browser can ever complete
+   * the handshake — better to fail loudly than hang on a callback that will
+   * never arrive.
+   */
+  nonInteractive?: boolean;
 }
 
 /** Raw token response from the WHOOP token endpoint */
@@ -67,8 +75,8 @@ export function buildAuthorizationUrl(
 
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", config.clientId);
-  url.searchParams.set("redirect_uri", config.redirectUri ?? WHOOP_REDIRECT_URI);
-  url.searchParams.set("scope", WHOOP_REQUIRED_SCOPES);
+  url.searchParams.set("redirect_uri", config.redirectUri ?? resolveRedirectUri());
+  url.searchParams.set("scope", resolveScopes());
   url.searchParams.set("state", state);
   if (codeChallenge) {
     url.searchParams.set("code_challenge", codeChallenge);
@@ -98,7 +106,7 @@ export async function exchangeCodeForTokens(
     code,
     client_id: config.clientId,
     client_secret: config.clientSecret,
-    redirect_uri: config.redirectUri ?? WHOOP_REDIRECT_URI,
+    redirect_uri: config.redirectUri ?? resolveRedirectUri(),
   });
   if (codeVerifier) {
     body.set("code_verifier", codeVerifier);
@@ -140,6 +148,11 @@ export async function refreshAccessToken(
     refresh_token: refreshToken,
     client_id: config.clientId,
     client_secret: config.clientSecret,
+    // WHOOP requires `scope` on a refresh, which is unusual -- most providers
+    // ignore it here. Omitting it is answered with invalid_request ("missing a
+    // required parameter ... or is otherwise malformed"), which reads like a
+    // bad refresh token and sends you looking in the wrong place.
+    scope: "offline",
   });
 
   let response: Response;
@@ -278,13 +291,26 @@ export async function authenticate(config: OAuthConfig): Promise<string> {
       }
       // Log the refresh failure so it's diagnosable, then fall through to full OAuth flow
       const message = error instanceof Error ? error.message : "unknown error";
-      console.error(`Token refresh failed, starting full OAuth flow: ${message}`);
+      console.error(
+        config.nonInteractive
+          ? `Token refresh failed: ${message}`
+          : `Token refresh failed, starting full OAuth flow: ${message}`
+      );
     }
   } else {
     console.error("No cached tokens found, starting OAuth flow...");
   }
 
-  // 3. Full OAuth flow
+  // 3. Full OAuth flow — unavailable when running headless
+  if (config.nonInteractive) {
+    throw new Error(
+      "Cannot authenticate with WHOOP: no usable cached tokens and the browser " +
+        "OAuth flow is disabled (nonInteractive). Supply a valid WHOOP_REFRESH_TOKEN, " +
+        "or mount a ~/.whoop-mcp/tokens.json produced by running this server " +
+        "interactively once."
+    );
+  }
+
   return performOAuthFlow(config);
 }
 
@@ -295,7 +321,7 @@ export async function authenticate(config: OAuthConfig): Promise<string> {
 async function performOAuthFlow(config: OAuthConfig): Promise<string> {
   const state = randomBytes(16).toString("hex");
   const pkce = generatePkcePair();
-  const port = config.port ?? 3000;
+  const port = config.port ?? redirectPort(config.redirectUri ?? resolveRedirectUri());
 
   // Start the callback server before opening the browser
   const callbackHandle = startCallbackServer({

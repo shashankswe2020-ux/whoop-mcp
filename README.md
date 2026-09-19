@@ -831,6 +831,33 @@ The image is a stock OCI artifact and runs anywhere Docker does — Render, Clou
 Run, Kubernetes, Hetzner, etc. The only platform-specific knob is
 `MCP_TRUST_PROXY=1` whenever you sit behind a TLS-terminating proxy.
 
+### Headless deployment (no browser on the host)
+
+On first run the server opens a browser to complete the WHOOP handshake. A
+container has no browser, so give it a refresh token instead:
+
+```bash
+WHOOP_REFRESH_TOKEN=<a refresh token from a prior interactive run>
+```
+
+When set — and only when no token file is already present — the server seeds its
+token store with that refresh token marked as expired, which sends it straight
+down the normal refresh path on boot. The refreshed pair is then persisted as
+usual. A mounted `~/.whoop-mcp/tokens.json` always wins over the env var.
+
+To obtain the token, run the server once on a machine that has a browser, then
+read `refresh_token` out of `~/.whoop-mcp/tokens.json`.
+
+Related: `WHOOP_NON_INTERACTIVE=1` refuses the browser fallback outright, so
+authentication failures exit non-zero with a clear message instead of blocking
+forever on a callback that can never arrive. This is implied automatically when
+`MCP_TRANSPORT=http` or when `WHOOP_REFRESH_TOKEN` is set — a remote host should
+crash-loop visibly rather than hang.
+
+> WHOOP refresh tokens rotate on use. Store the value as a platform secret, and
+> expect to re-seed it if the deployment is destroyed without preserving its
+> token file.
+
 ### Connecting from claude.ai (OAuth 2.1 connector)
 
 Claude Desktop and Claude Code can use the static `MCP_AUTH_TOKEN` bearer

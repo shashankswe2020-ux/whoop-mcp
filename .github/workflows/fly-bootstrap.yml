@@ -1,0 +1,74 @@
+# One-time Fly setup, run from the Actions tab. Creates the app, creates the
+# token volume, and pushes the secrets — so nothing has to be installed on a
+# managed laptop.
+#
+# Before running, add these repository secrets under
+# Settings → Secrets and variables → Actions:
+#
+#   FLY_API_TOKEN           from fly.io/user/personal_access_tokens
+#   WHOOP_CLIENT_ID         developer.whoop.com
+#   WHOOP_CLIENT_SECRET     developer.whoop.com
+#   WHOOP_REFRESH_TOKEN     ~/.whoop-mcp/tokens.json — copy it fresh
+#   MCP_AUTH_TOKEN          any 32-byte hex string
+#   MCP_CONNECTOR_PASSWORD  what you type into the claude.ai connector dialog
+
+name: Fly bootstrap (one time)
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "Fly app name — must match `app` in fly.toml"
+        required: true
+      region:
+        description: "Fly region — must match primary_region in fly.toml"
+        required: true
+        default: ams
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Create the app if it does not exist
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if flyctl apps list | grep -qw "${{ inputs.app_name }}"; then
+            echo "App already exists — leaving it alone."
+          else
+            flyctl apps create "${{ inputs.app_name }}"
+          fi
+
+      - name: Create the token volume if it does not exist
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if flyctl volumes list -a "${{ inputs.app_name }}" | grep -qw whoop_tokens; then
+            echo "Volume already exists — leaving it alone."
+          else
+            flyctl volumes create whoop_tokens \
+              --size 1 --region "${{ inputs.region }}" \
+              -a "${{ inputs.app_name }}" --yes
+          fi
+
+      # Values arrive as env vars rather than inline, so they are never part of
+      # a command line. GitHub masks registered secrets in logs regardless.
+      - name: Push secrets to Fly
+        env:
+          FLY_API_TOKEN:          ${{ secrets.FLY_API_TOKEN }}
+          WHOOP_CLIENT_ID:        ${{ secrets.WHOOP_CLIENT_ID }}
+          WHOOP_CLIENT_SECRET:    ${{ secrets.WHOOP_CLIENT_SECRET }}
+          WHOOP_REFRESH_TOKEN:    ${{ secrets.WHOOP_REFRESH_TOKEN }}
+          MCP_AUTH_TOKEN:         ${{ secrets.MCP_AUTH_TOKEN }}
+          MCP_CONNECTOR_PASSWORD: ${{ secrets.MCP_CONNECTOR_PASSWORD }}
+        run: |
+          flyctl secrets set --stage -a "${{ inputs.app_name }}" \
+            WHOOP_CLIENT_ID="$WHOOP_CLIENT_ID" \
+            WHOOP_CLIENT_SECRET="$WHOOP_CLIENT_SECRET" \
+            WHOOP_REFRESH_TOKEN="$WHOOP_REFRESH_TOKEN" \
+            MCP_AUTH_TOKEN="$MCP_AUTH_TOKEN" \
+            MCP_CONNECTOR_PASSWORD="$MCP_CONNECTOR_PASSWORD"
+          echo "Secrets staged. Run the deploy workflow to apply them."

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import type {
   ScoreState,
   PaginatedResponse,
@@ -19,6 +19,9 @@ import {
   WHOOP_TOKEN_URL,
   WHOOP_REQUIRED_SCOPES,
   WHOOP_REDIRECT_URI,
+  resolveRedirectUri,
+  resolveScopes,
+  redirectPort,
   ENDPOINT_USER_PROFILE,
   ENDPOINT_BODY_MEASUREMENT,
   ENDPOINT_RECOVERY,
@@ -405,6 +408,49 @@ describe("endpoint constants", () => {
 
   it("defines the default redirect URI", () => {
     expect(WHOOP_REDIRECT_URI).toBe("http://localhost:3000/callback");
+  });
+});
+
+describe("environment overrides", () => {
+  // The redirect URI and scopes must match whatever is registered on the WHOOP
+  // app. Being able to change them from .env is what turns a mismatch into an
+  // edit rather than a code change and another release.
+  const saved = { uri: process.env.WHOOP_REDIRECT_URI, scopes: process.env.WHOOP_SCOPES };
+  afterEach(() => {
+    if (saved.uri === undefined) delete process.env.WHOOP_REDIRECT_URI;
+    else process.env.WHOOP_REDIRECT_URI = saved.uri;
+    if (saved.scopes === undefined) delete process.env.WHOOP_SCOPES;
+    else process.env.WHOOP_SCOPES = saved.scopes;
+  });
+
+  it("falls back to the constants when nothing is set", () => {
+    delete process.env.WHOOP_REDIRECT_URI;
+    delete process.env.WHOOP_SCOPES;
+    expect(resolveRedirectUri()).toBe(WHOOP_REDIRECT_URI);
+    expect(resolveScopes()).toBe(WHOOP_REQUIRED_SCOPES);
+  });
+
+  it("honours WHOOP_REDIRECT_URI and WHOOP_SCOPES", () => {
+    process.env.WHOOP_REDIRECT_URI = "http://127.0.0.1:842/cb";
+    process.env.WHOOP_SCOPES = "read:recovery read:sleep";
+    expect(resolveRedirectUri()).toBe("http://127.0.0.1:842/cb");
+    expect(resolveScopes()).toBe("read:recovery read:sleep");
+  });
+
+  it("ignores an empty or whitespace-only override", () => {
+    process.env.WHOOP_REDIRECT_URI = "   ";
+    process.env.WHOOP_SCOPES = "";
+    expect(resolveRedirectUri()).toBe(WHOOP_REDIRECT_URI);
+    expect(resolveScopes()).toBe(WHOOP_REQUIRED_SCOPES);
+  });
+
+  it("derives the callback port from the redirect URI", () => {
+    // A configurable redirect is useless if the callback server still sits on 3000.
+    expect(redirectPort("http://localhost:3000/callback")).toBe(3000);
+    expect(redirectPort("http://127.0.0.1:842/cb")).toBe(842);
+    expect(redirectPort("https://example.com/cb")).toBe(443);
+    expect(redirectPort("http://example.com/cb")).toBe(80);
+    expect(redirectPort("not a url")).toBe(3000);
   });
 
   it("defines all 6 endpoint paths as v2 routes", () => {

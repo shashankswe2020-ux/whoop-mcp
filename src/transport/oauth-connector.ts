@@ -427,14 +427,38 @@ function renderPasswordPage(params: Record<string, string>, error?: string): str
 </html>`;
 }
 
+/**
+ * Origins that a successful password submission may end up at, for the CSP's
+ * `form-action`.
+ *
+ * Browsers apply `form-action` to every hop of a form submission, redirects
+ * included. A correct authorization ends in a 302 to the OAuth client's
+ * redirect URI, so `'self'` alone makes the flow impossible to complete in
+ * Chrome: the POST is blocked outright and reported against the form action.
+ * Each allowed redirect URI's origin therefore has to be listed too.
+ */
+function formActionSources(allowedRedirectUris: readonly string[]): string {
+  const origins = new Set<string>();
+  for (const uri of allowedRedirectUris) {
+    try {
+      origins.add(new URL(uri).origin);
+    } catch {
+      // Not parseable — createOAuthApp already validates these, so skip it
+      // rather than widening the policy on a malformed entry.
+    }
+  }
+  return ["'self'", ...origins].join(" ");
+}
+
 /** Apply anti-clickjacking + tight CSP headers to the password-prompt response. */
-function applyAuthorizePageHeaders(res: Response): void {
+function applyAuthorizePageHeaders(res: Response, formAction: string): void {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+    `default-src 'none'; style-src 'unsafe-inline'; form-action ${formAction}; ` +
+      "frame-ancestors 'none'; base-uri 'none'"
   );
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -497,6 +521,8 @@ export function createOAuthApp(options: CreateOAuthAppOptions): CreateOAuthAppRe
       scopes: options.scopes,
     });
 
+  const formAction = formActionSources(options.allowedRedirectUris);
+
   const app = express();
   app.disable("x-powered-by");
   if (options.trustProxy !== undefined) {
@@ -506,10 +532,30 @@ export function createOAuthApp(options: CreateOAuthAppOptions): CreateOAuthAppRe
   // Body parser for the password form (also used downstream by SDK)
   const formParser = express.urlencoded({ extended: false });
 
-  // Per-endpoint rate limits (override the SDK's built-in rate limiting)
-  const authorizeLimiter = rateLimit({
+  // Per-endpoint rate limits (override the SDK's built-in rate limiting).
+  //
+  // GET and POST /authorize are limited separately. A single honest
+  // authorization costs one GET (render the password prompt) and one POST
+  // (submit it), so a shared budget small enough to stop password guessing is
+  // also small enough to break the normal flow on the user's second attempt —
+  // the client reports that 429 as a failed authorization, with nothing to
+  // suggest the request was merely throttled.
+  //
+  // Rendering the prompt discloses nothing and changes no state, so it gets a
+  // generous budget. The password check is the only thing worth throttling,
+  // and `skipSuccessfulRequests` charges the budget solely for attempts that
+  // did not succeed: guessing is capped tightly while a legitimate user is
+  // never locked out by their own successful logins.
+  const authorizePageLimiter = rateLimit({
     windowMs: 60_000,
-    limit: 3,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const passwordAttemptLimiter = rateLimit({
+    windowMs: 15 * 60_000,
+    limit: 10,
+    skipSuccessfulRequests: true,
     standardHeaders: true,
     legacyHeaders: false,
   });
@@ -521,20 +567,20 @@ export function createOAuthApp(options: CreateOAuthAppOptions): CreateOAuthAppRe
   });
 
   // GET /authorize — render password prompt with OAuth params as hidden fields
-  app.get("/authorize", authorizeLimiter, (req: Request, res: Response) => {
+  app.get("/authorize", authorizePageLimiter, (req: Request, res: Response) => {
     const params: Record<string, string> = {};
     for (const k of AUTHORIZE_PARAMS) {
       const v = req.query[k];
       if (typeof v === "string") params[k] = v;
     }
-    applyAuthorizePageHeaders(res);
+    applyAuthorizePageHeaders(res, formAction);
     res.status(200).send(renderPasswordPage(params));
   });
 
   // POST /authorize — verify password, then forward to SDK authorize handler
   app.post(
     "/authorize",
-    authorizeLimiter,
+    passwordAttemptLimiter,
     formParser,
     (req: Request, res: Response, next: NextFunction) => {
       const body = req.body as Record<string, unknown>;
@@ -546,7 +592,7 @@ export function createOAuthApp(options: CreateOAuthAppOptions): CreateOAuthAppRe
           const v = body[k];
           if (typeof v === "string") params[k] = v;
         }
-        applyAuthorizePageHeaders(res);
+        applyAuthorizePageHeaders(res, formAction);
         res.status(401).send(renderPasswordPage(params, "Incorrect password. Try again."));
         return;
       }

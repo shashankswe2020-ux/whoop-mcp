@@ -1,0 +1,63 @@
+# fly.toml — whoop-ai-mcp on Fly.io
+#
+# Personal, single-user deployment. See docs/DEPLOY-FLY.md for the full
+# sequence; the short version is:
+#
+#   fly launch --no-deploy --copy-config
+#   fly volumes create whoop_tokens --size 1 --region ams
+#   fly secrets set WHOOP_CLIENT_ID=... WHOOP_CLIENT_SECRET=... \
+#                   WHOOP_REFRESH_TOKEN=... MCP_AUTH_TOKEN=... \
+#                   MCP_CONNECTOR_PASSWORD=...
+#   fly deploy
+#
+# Change `app` and PUBLIC_URL together — they must agree, or the OAuth
+# connector will advertise an issuer claude.ai cannot reach.
+
+app            = "whoop-mcp-enjofaes"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MCP_TRANSPORT         = "http"
+  MCP_PORT              = "3000"
+  MCP_HOST              = "0.0.0.0"
+  MCP_TRUST_PROXY       = "1"
+  LOG_FORMAT            = "json"
+  ALLOWED_REDIRECT_URIS = "https://claude.ai/api/mcp/auth_callback"
+  PUBLIC_URL            = "https://whoop-mcp-enjofaes.fly.dev"
+
+[http_service]
+  internal_port        = 3000
+  force_https          = true
+  auto_start_machines  = true
+  auto_stop_machines   = "stop"
+  # 0 keeps the cost near nothing and lets the machine sleep when idle; the
+  # first call after a sleep pays a cold start (boot + WHOOP token refresh,
+  # a handful of seconds). Set to 1 if you would rather pay to avoid that.
+  min_machines_running = 0
+  processes            = ["app"]
+
+  [[http_service.checks]]
+    interval     = "30s"
+    timeout      = "5s"
+    grace_period = "20s"
+    method       = "GET"
+    path         = "/health"
+
+# WHOOP rotates the refresh token on every use, and the server writes the new
+# pair back to ~/.whoop-mcp/tokens.json. The container runs as the unprivileged
+# `node` user, so that resolves to /home/node/.whoop-mcp.
+#
+# Without this volume the file dies with the machine. On the next boot the app
+# re-seeds from WHOOP_REFRESH_TOKEN — a token WHOOP has already consumed and
+# rotated away — which fails with 403 and exits. This mount is not an
+# optimisation; the deployment does not survive a restart without it.
+[mounts]
+  source      = "whoop_tokens"
+  destination = "/home/node/.whoop-mcp"
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "512mb"

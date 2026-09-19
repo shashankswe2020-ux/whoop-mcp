@@ -112,7 +112,38 @@ export async function main(): Promise<void> {
   // 2. Read WHOOP OAuth credentials (always required)
   const clientId = getRequiredEnv("WHOOP_CLIENT_ID");
   const clientSecret = getRequiredEnv("WHOOP_CLIENT_SECRET");
-  const oauthConfig: OAuthConfig = { clientId, clientSecret };
+  // A browser flow can never complete on a remote host, and WHOOP_REFRESH_TOKEN
+  // signals an unattended deployment. In either case fail fast rather than
+  // block forever on a callback nobody can answer.
+  const nonInteractive =
+    process.env.WHOOP_NON_INTERACTIVE === "1" ||
+    Boolean(process.env.WHOOP_REFRESH_TOKEN) ||
+    transportMode === "http";
+  const oauthConfig: OAuthConfig = { clientId, clientSecret, nonInteractive };
+
+  // 2b. Headless bootstrap. A container has no browser to run the interactive
+  // OAuth flow, so seed the token store from WHOOP_REFRESH_TOKEN when nothing
+  // is cached yet. The seed is written as already-expired, which sends
+  // authenticate() down its refresh path instead of opening a browser; the
+  // refreshed pair is then persisted normally. Ignored when tokens already
+  // exist, so a mounted volume always wins over the env var.
+  const seedRefreshToken = process.env.WHOOP_REFRESH_TOKEN;
+  if (seedRefreshToken) {
+    if (await loadTokens()) {
+      logger.info("WHOOP_REFRESH_TOKEN ignored — stored tokens already present");
+    } else {
+      await saveTokens({
+        // Placeholder: the store rejects an empty access_token, and expires_at
+        // of 0 means this value is never sent anywhere — it is replaced by the
+        // refresh before the first API call.
+        access_token: "seeded-pending-refresh",
+        refresh_token: seedRefreshToken,
+        expires_at: 0,
+        token_type: "Bearer",
+      });
+      logger.info("seeded token store from WHOOP_REFRESH_TOKEN");
+    }
+  }
 
   // 3. Authenticate with WHOOP — uses cached tokens, refreshes, or runs full flow
   console.error("Authenticating with WHOOP...");
@@ -183,6 +214,9 @@ export async function main(): Promise<void> {
           res: import("node:http").ServerResponse
         ) => void)
       | undefined;
+    // Lets /mcp accept the connector's own OAuth access tokens, not just the
+    // static MCP_AUTH_TOKEN. Stays undefined when the connector is not mounted.
+    let validateBearerToken: ((token: string) => Promise<boolean>) | undefined;
     const connectorPassword = process.env.MCP_CONNECTOR_PASSWORD;
     const publicUrl = process.env.PUBLIC_URL;
     const allowedRedirectUris = process.env.ALLOWED_REDIRECT_URIS;
@@ -191,6 +225,7 @@ export async function main(): Promise<void> {
       const { createOAuthApp } = await import("./transport/oauth-connector.js");
       const { deriveJwtSecret, parseAllowedRedirectUris } =
         await import("./transport/oauth-helpers.js");
+      const { verifyToken } = await import("./transport/oauth-jwt.js");
       const jwtSecretEnv = process.env.MCP_JWT_SECRET;
       const jwtSecret = jwtSecretEnv
         ? Buffer.from(jwtSecretEnv, "utf-8")
@@ -213,6 +248,20 @@ export async function main(): Promise<void> {
         res: import("node:http").ServerResponse
       ) => void;
       oauthCloseFn = oauthApp.close;
+
+      // The connector issues its own access tokens; /mcp has to honour them,
+      // or a client finishes authorization and is then refused by the very
+      // endpoint it authorized for — which surfaces as "no tools available"
+      // rather than as an authentication failure.
+      validateBearerToken = async (token: string): Promise<boolean> => {
+        try {
+          const claims = await verifyToken(token, jwtSecret);
+          return claims.type === "access";
+        } catch {
+          return false;
+        }
+      };
+
       logger.info("oauth connector mounted", { publicUrl });
     }
 
@@ -224,6 +273,7 @@ export async function main(): Promise<void> {
       trustProxy,
       healthCheck,
       oauthHandler,
+      validateBearerToken,
     });
     await server.connect(httpResult.transport);
     httpResults.push(httpResult);

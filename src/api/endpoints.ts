@@ -22,6 +22,50 @@ export const WHOOP_REQUIRED_SCOPES =
 export const WHOOP_REDIRECT_URI = "http://localhost:3000/callback";
 
 // ---------------------------------------------------------------------------
+// Environment overrides
+//
+// The redirect URI and the scope string both have to match what is registered
+// on the WHOOP app in the developer dashboard, and there is no way to read that
+// from here. Baking them in as constants means every mismatch costs a code
+// change, a release and a round trip with whoever is holding the account.
+// These resolvers let the same mismatch be settled by editing .env.
+//
+// The constants above remain the defaults and are still the single source of
+// truth for what this client asks for when nothing is set.
+// ---------------------------------------------------------------------------
+
+/** Redirect URI to use, honouring WHOOP_REDIRECT_URI from the environment. */
+export function resolveRedirectUri(): string {
+  const override = process.env.WHOOP_REDIRECT_URI?.trim();
+  return override && override.length > 0 ? override : WHOOP_REDIRECT_URI;
+}
+
+/**
+ * Scope string to request, honouring WHOOP_SCOPES from the environment.
+ *
+ * Worth knowing when overriding: dropping `offline` means WHOOP issues no
+ * refresh token, so every run needs the browser again.
+ */
+export function resolveScopes(): string {
+  const override = process.env.WHOOP_SCOPES?.trim();
+  return override && override.length > 0 ? override : WHOOP_REQUIRED_SCOPES;
+}
+
+/**
+ * Port the local callback server must listen on for a given redirect URI.
+ * A configurable redirect is useless if the server keeps listening on 3000.
+ */
+export function redirectPort(redirectUri: string): number {
+  try {
+    const parsed = new URL(redirectUri);
+    if (parsed.port) return Number(parsed.port);
+    return parsed.protocol === "https:" ? 443 : 80;
+  } catch {
+    return 3000;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Endpoint paths (relative to WHOOP_API_BASE_URL)
 // ---------------------------------------------------------------------------
 

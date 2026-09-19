@@ -211,6 +211,93 @@ describe("HTTP Server", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Additional bearer validator (how the OAuth connector's tokens get in)
+  // ---------------------------------------------------------------------------
+
+  describe("validateBearerToken", () => {
+    it("accepts a token the validator approves, not just the static one", async () => {
+      // Without this, a client can complete the OAuth flow and still be
+      // refused by /mcp — which clients report as an empty tool list rather
+      // than as an authentication failure.
+      const result = await createHttpServer({
+        ...defaultOptions,
+        validateBearerToken: (t) => Promise.resolve(t === "an-oauth-access-token"),
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const res = await request(server, "/mcp", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer an-oauth-access-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 }),
+      });
+      expect(res.status).not.toBe(401);
+    });
+
+    it("still accepts the static token when a validator is set", async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        validateBearerToken: () => Promise.resolve(false),
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const res = await request(server, "/mcp", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer test-token-abc123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 }),
+      });
+      expect(res.status).not.toBe(401);
+    });
+
+    it("rejects a token the validator refuses", async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        validateBearerToken: (t) => Promise.resolve(t === "an-oauth-access-token"),
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const res = await request(server, "/mcp", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer some-other-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects the token when the validator throws", async () => {
+      const result = await createHttpServer({
+        ...defaultOptions,
+        validateBearerToken: () => {
+          throw new Error("verification blew up");
+        },
+      });
+      server = result.server;
+      cleanup = result.close;
+
+      const res = await request(server, "/mcp", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer whatever",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 }),
+      });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Connection limiting
   // ---------------------------------------------------------------------------
 

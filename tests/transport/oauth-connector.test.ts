@@ -471,6 +471,121 @@ async function startApp(opts?: { connectorPassword?: string; redirectUri?: strin
 }
 
 describe("createOAuthApp (integration)", () => {
+  it("lists every allowed redirect origin in form-action, deduplicated", async () => {
+    const redirectUris = [
+      "https://claude.ai/api/mcp/auth_callback",
+      "https://claude.ai/other/callback",
+      "https://example.test/cb",
+    ];
+    const { app, close: closeProvider } = createOAuthApp({
+      connectorPassword: "test-connector-pwd-123",
+      publicUrl: "https://mcp.example.com",
+      allowedRedirectUris: redirectUris,
+      jwtSecret: new Uint8Array(randomBytes(32)),
+      scopes: ["read:profile"],
+      client: {
+        clientId: "claude-ai-connector",
+        redirectUris,
+        clientName: "Claude AI Connector",
+      },
+    });
+    const server: Server = createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const addr = server.address();
+    if (typeof addr === "string" || addr === null) throw new Error("bad address");
+
+    try {
+      const url = new URL(`http://127.0.0.1:${addr.port}/authorize`);
+      url.searchParams.set("client_id", "claude-ai-connector");
+      url.searchParams.set("response_type", "code");
+      url.searchParams.set("redirect_uri", redirectUris[0]);
+      url.searchParams.set("code_challenge", pkcePair().challenge);
+      url.searchParams.set("code_challenge_method", "S256");
+      const res = await fetch(url, { redirect: "manual" });
+      const csp = res.headers.get("content-security-policy") ?? "";
+      const directive =
+        csp
+          .split(";")
+          .map((d) => d.trim())
+          .find((d) => d.startsWith("form-action")) ?? "";
+      expect(directive).toBe("form-action 'self' https://claude.ai https://example.test");
+    } finally {
+      closeProvider();
+      await new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      });
+    }
+  });
+
+  it("does not throttle repeated honest authorizations", async () => {
+    // One authorization costs a GET (render the prompt) plus a POST (submit
+    // it). A shared 3-per-minute budget therefore rejected the user's second
+    // attempt, which clients report as a failed authorization.
+    const ctx = await startApp();
+    try {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const { challenge } = pkcePair();
+        const params = {
+          client_id: ctx.clientId,
+          response_type: "code",
+          redirect_uri: ctx.redirectUri,
+          code_challenge: challenge,
+          code_challenge_method: "S256",
+          state: `state-${attempt}`,
+        };
+
+        const url = new URL(`${ctx.baseUrl}/authorize`);
+        for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+        const page = await fetch(url, { redirect: "manual" });
+        expect(page.status, `GET on attempt ${attempt}`).toBe(200);
+
+        const post = await fetch(`${ctx.baseUrl}/authorize`, {
+          method: "POST",
+          redirect: "manual",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ ...params, connector_password: ctx.password }),
+        });
+        expect(post.status, `POST on attempt ${attempt}`).toBe(302);
+        expect(post.headers.get("location")).toContain("code=");
+      }
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  it("still throttles repeated wrong passwords", async () => {
+    const ctx = await startApp();
+    try {
+      const { challenge } = pkcePair();
+      const body = (): URLSearchParams =>
+        new URLSearchParams({
+          client_id: ctx.clientId,
+          response_type: "code",
+          redirect_uri: ctx.redirectUri,
+          code_challenge: challenge,
+          code_challenge_method: "S256",
+          state: "st",
+          connector_password: "definitely-the-wrong-password",
+        });
+
+      const statuses: number[] = [];
+      for (let i = 0; i < 12; i++) {
+        const res = await fetch(`${ctx.baseUrl}/authorize`, {
+          method: "POST",
+          redirect: "manual",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: body(),
+        });
+        statuses.push(res.status);
+      }
+
+      expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
+      expect(statuses.at(-1)).toBe(429);
+    } finally {
+      await ctx.close();
+    }
+  });
+
   it("rejects too-short connector password at startup", () => {
     expect(() =>
       createOAuthApp({
@@ -723,6 +838,10 @@ describe("createOAuthApp (integration)", () => {
       const csp = res.headers.get("content-security-policy") ?? "";
       expect(csp).toContain("frame-ancestors 'none'");
       expect(csp).toContain("default-src 'none'");
+      // form-action applies to every hop of a submission, redirects included.
+      // A correct authorization ends in a 302 to the client's redirect URI, so
+      // that origin has to be listed or Chrome blocks the POST outright.
+      expect(csp).toContain("form-action 'self' https://claude.ai");
       expect(res.headers.get("referrer-policy")).toBe("no-referrer");
       expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     } finally {

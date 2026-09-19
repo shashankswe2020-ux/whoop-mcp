@@ -54,11 +54,15 @@ export interface HttpServerOptions {
    */
   sseReauthIntervalMs?: number;
   /**
-   * Optional bearer-token validator used by the SSE re-auth sweep. Defaults
-   * to a static comparison against `authToken` (never expires). Override to
+   * Optional ADDITIONAL bearer-token validator, checked when the token is not
+   * the static `authToken`. This is how the OAuth connector's own access
+   * tokens are accepted on /mcp: without it the connector can complete its
+   * authorization and still be refused by the endpoint it authorized for,
+   * which clients report as an empty tool list rather than an auth error.
+   * May be async, since verifying a JWT is. Override to
    * plug in OAuth JWT expiry checks.
    */
-  validateBearerToken?: (token: string) => boolean;
+  validateBearerToken?: (token: string) => boolean | Promise<boolean>;
 }
 
 export interface HttpServerResult {
@@ -235,18 +239,34 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
     return req.socket.remoteAddress ?? "unknown";
   }
 
+  /**
+   * The single place a bearer token is accepted. The static token always
+   * works; anything else is offered to the optional validator, which is how
+   * an OAuth access token issued by this server's own /token endpoint gets in.
+   */
+  const acceptToken = async (token: string): Promise<boolean> => {
+    if (safeTokenCompare(token, authToken)) return true;
+    if (!validateBearerToken) return false;
+    try {
+      return await validateBearerToken(token);
+    } catch {
+      return false;
+    }
+  };
+
   // Track live SSE responses so we can re-validate the bearer token periodically.
   const sseConnections = new Set<{ res: ServerResponse; token: string }>();
   let sseTimer: NodeJS.Timeout | null = null;
   if (sseReauthIntervalMs > 0) {
     sseTimer = setInterval(() => {
-      const validate =
-        validateBearerToken ?? ((t: string): boolean => safeTokenCompare(t, authToken));
       for (const c of sseConnections) {
-        if (!validate(c.token)) {
-          c.res.end();
-          sseConnections.delete(c);
-        }
+        // An OAuth token that has since expired fails here and the stream ends.
+        void acceptToken(c.token).then((ok) => {
+          if (!ok) {
+            c.res.end();
+            sseConnections.delete(c);
+          }
+        });
       }
     }, sseReauthIntervalMs);
     sseTimer.unref();
@@ -270,7 +290,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
     // Route: /health
     if (pathname === "/health") {
       const token = extractBearerToken(req);
-      const isAuthed = token !== null && safeTokenCompare(token, authToken);
+      const isAuthed = token !== null && (await acceptToken(token));
 
       const health: HealthResponse = { status: "ok" };
       if (isAuthed) {
@@ -305,7 +325,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
     if (pathname === "/mcp") {
       // Auth check
       const token = extractBearerToken(req);
-      if (!token || !safeTokenCompare(token, authToken)) {
+      if (!token || !(await acceptToken(token))) {
         sendJson(res, 401, { error: "Unauthorized" });
         return;
       }

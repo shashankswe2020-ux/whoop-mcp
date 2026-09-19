@@ -1,0 +1,37 @@
+# Deploys to Fly. Run it from the Actions tab after the bootstrap workflow,
+# and again whenever you want to ship a change.
+
+name: Fly deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+concurrency:
+  group: fly-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        # --remote-only builds on Fly's builders, so no Docker is needed here.
+        run: flyctl deploy --remote-only
+
+      - name: Report health
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl status
+          echo "--- recent logs ---"
+          timeout 20 flyctl logs || true
