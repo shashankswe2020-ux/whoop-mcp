@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface EvidenceInputs {
   records_used: number;
   records_excluded: number;
@@ -16,3 +18,19 @@ export interface EvidencedMetric {
   status: "available" | "insufficient_data" | "unconfirmed" | "fetch_failed";
   limitations: string[];
 }
+
+export const evidencedMetricSchema = z.object({
+  value: z.number().nullable(),
+  unit: z.string(),
+  method: z.string(),
+  method_version: z.string(),
+  window: z.object({ start: z.string(), end: z.string() }).nullable(),
+  inputs: z.object({
+    records_used: z.number().int(),
+    records_excluded: z.number().int(),
+    excluded_reasons: z.record(z.string(), z.number()),
+  }),
+  source: z.enum(["whoop", "manual", "mixed"]),
+  status: z.enum(["available", "insufficient_data", "unconfirmed", "fetch_failed"]),
+  limitations: z.array(z.string()),
+}) satisfies z.ZodType<EvidencedMetric>;

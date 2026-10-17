@@ -80,7 +80,7 @@ Parallelisable: T1, T2, T3 and T4 are independent.
   - Files: `src/performance/schemas.ts`, test
   - Depends on: T4 (shares the stored types)
 
-- [ ] **T7: Read tools** — `get_hyrox_performance`, `get_hyrox_session_report`, `get_triathlon_performance`, `get_race_readiness`
+- [x] **T7: Read tools** — `get_hyrox_performance`, `get_hyrox_session_report`, `get_triathlon_performance`, `get_race_readiness`
   - Acceptance: tool outputs match the spec. `hyrox_candidate` is excluded until confirmed and counted in
     `unconfirmed_candidates`. Personal weakest station needs ≥ 2 races. The session report reproduces the
     Reddit-report fixture: segment table, transition %, the 4 insights with their rules, and caveats. Outputs are
