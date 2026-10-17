@@ -21,7 +21,14 @@ import {
   savePerformanceState,
   updatePerformanceState,
 } from "../../src/performance/store.js";
-import { appendAuditEntry, AUDIT_FILENAME, readAuditLog } from "../../src/performance/audit-log.js";
+import {
+  appendAuditEntry,
+  AUDIT_FILENAME,
+  MAX_AUDIT_LINE_BYTES,
+  MAX_AUDIT_SCAN_BYTES,
+  MAX_AUDIT_SCAN_LINES,
+  readAuditLog,
+} from "../../src/performance/audit-log.js";
 import { emptyPerformanceState } from "../../src/performance/schemas.js";
 
 let root: string;
@@ -256,6 +263,48 @@ describe("audit log", () => {
     expect(log.invalid_lines).toBe(2);
     expect(log.entries.map((item) => item.workout_id)).toEqual(["w3", "w2"]);
     expect(log.truncated).toBe(true);
+  });
+
+  it("reads only the newest lines needed for the limit", async () => {
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, AUDIT_FILENAME), "bad\n".repeat(500_000));
+    for (const id of ["w1", "w2", "w3"]) await appendAuditEntry({ ...entry, workout_id: id }, dir);
+    const log = await readAuditLog(dir, { limit: 2 });
+    expect(log.entries.map((item) => item.workout_id)).toEqual(["w3", "w2"]);
+    expect(log).toMatchObject({ invalid_lines: 0, truncated: true });
+  });
+
+  it.each([
+    ["byte", `${"x".repeat(1023)}\n`, Math.ceil(MAX_AUDIT_SCAN_BYTES / 1024) + 10],
+    ["line", "{}\n", MAX_AUDIT_SCAN_LINES + 10],
+  ])("stops after the %s budget and reports truncation", async (_budget, junk, count) => {
+    await appendAuditEntry(entry, dir);
+    await writeFile(join(dir, AUDIT_FILENAME), junk.repeat(count), { flag: "a" });
+    const log = await readAuditLog(dir, { limit: 5 });
+    expect(log.entries).toEqual([]);
+    expect(log.truncated).toBe(true);
+    expect(log.invalid_lines).toBeGreaterThan(0);
+    expect(log.invalid_lines).toBeLessThanOrEqual(MAX_AUDIT_SCAN_LINES);
+  });
+
+  it("counts an oversized line as one invalid line and keeps reading", async () => {
+    await appendAuditEntry(entry, dir);
+    await writeFile(join(dir, AUDIT_FILENAME), `${"x".repeat(MAX_AUDIT_LINE_BYTES * 3)}\n`, {
+      flag: "a",
+    });
+    await appendAuditEntry({ ...entry, workout_id: "w2" }, dir);
+    const log = await readAuditLog(dir);
+    expect(log.entries.map((item) => item.workout_id)).toEqual(["w2", "w1"]);
+    expect(log).toMatchObject({ invalid_lines: 1, truncated: false });
+  });
+
+  it("decodes multi-byte characters split across read chunks", async () => {
+    const note = "🏃é".repeat(20_000);
+    await appendAuditEntry({ ...entry, after: { note } }, dir);
+    await appendAuditEntry({ ...entry, workout_id: "w2", after: { note } }, dir);
+    const log = await readAuditLog(dir);
+    expect(log.entries.map((item) => (item.after as { note: string }).note)).toEqual([note, note]);
+    expect(log.invalid_lines).toBe(0);
   });
 
   it("returns an empty log when the file is missing", async () => {

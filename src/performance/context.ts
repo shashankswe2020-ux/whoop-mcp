@@ -18,7 +18,7 @@ import {
 import { emptyPerformanceState, type PerformanceState } from "./schemas.js";
 import type { TrainingSession } from "./session-grouping.js";
 import { resolveDiscipline, type ResolvedDiscipline } from "./sport-classifier.js";
-import type { AuditEntry } from "./schemas.js";
+import type { AuditLogPage } from "./audit-log.js";
 import { PerformanceStoreError } from "./store.js";
 
 export const KJ_PER_KCAL = 4.184;
@@ -30,11 +30,7 @@ export interface PerformanceDeps {
   readAudit?: (limit: number) => Promise<AuditLogPage>;
 }
 
-export interface AuditLogPage {
-  entries: AuditEntry[];
-  invalid_lines: number;
-  truncated: boolean;
-}
+export type { AuditLogPage };
 
 /** Local write context. `directory` defaults to ~/.whoop-mcp. */
 export interface PerformanceWriteDeps {
