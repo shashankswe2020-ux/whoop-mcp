@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - "site/**"
+      - "scripts/update-site-stats.ts"
       - ".github/workflows/pages.yml"
+  schedule:
+    - cron: "17 6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -28,6 +31,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify statistics generator
+        run: npm test -- tests/site-stats.test.ts
+
+      - name: Refresh public project statistics
+        run: npm run site:stats
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
