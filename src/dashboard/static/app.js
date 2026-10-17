@@ -3,7 +3,7 @@
 // fragment is stripped immediately. Data is rendered only via text nodes and SVG attributes;
 // no HTML string is ever parsed.
 
-const VIEWS = ["session", "hyrox", "triathlon", "readiness", "audit"];
+const VIEWS = ["today", "session", "hyrox", "triathlon", "readiness", "audit"];
 const HYROX_STATIONS = [
   "skierg",
   "sled_push",
@@ -1900,7 +1900,122 @@ function reviewSave(path, body, message, rows, trigger) {
 // Render loop
 // ---------------------------------------------------------------------------
 
+async function renderToday() {
+  const data = await api("/api/today");
+  const quality = data.data_quality;
+  const recovery = quality.sources.recovery.status === "available" ? data.recovery : null;
+  const sleep = data.sleep;
+  const strain = data.strain;
+  const workout = strain?.last_workout;
+  const item = (title, value, sourceName, detail) => {
+    const source = quality.sources[sourceName];
+    return el(
+      "div",
+      { class: "today-row" },
+      el(
+        "div",
+        {},
+        el("h3", {}, title),
+        el("p", { class: "today-value" }, value ?? sentence(source.status))
+      ),
+      el(
+        "div",
+        {},
+        el("p", {}, detail),
+        el(
+          "details",
+          { class: "why" },
+          el("summary", {}, "Evidence"),
+          el(
+            "dl",
+            {},
+            el("dt", {}, "Source status"),
+            el("dd", {}, sentence(source.status)),
+            el("dt", {}, "Source record updated"),
+            el("dd", {}, time(source.source_updated_at)),
+            el("dt", {}, "Records used / fetched"),
+            el("dd", {}, `${source.records_used} / ${source.records_fetched}`),
+            el("dt", {}, "Excluded records"),
+            el("dd", {}, json(source.exclusions)),
+            el("dt", {}, "Method"),
+            el("dd", {}, el("code", {}, quality.method_version)),
+            el("dt", {}, "Requested window"),
+            el(
+              "dd",
+              {},
+              `${time(quality.requested_period.start)} to ${time(quality.requested_period.end)}`
+            ),
+            el("dt", {}, "Cache status"),
+            el("dd", {}, sentence(source.cache_status))
+          ),
+          source.truncated ? el("p", { class: "notice" }, "Source results are truncated.") : null
+        )
+      )
+    );
+  };
+  return [
+    section(
+      "Daily overview",
+      el(
+        "p",
+        { class: "lede" },
+        `Snapshot evaluated ${time(data.timestamp)}. WHOOP recovery is not a race-readiness verdict.`
+      ),
+      item(
+        "WHOOP recovery",
+        recovery ? num(recovery.score, 0, "%") : null,
+        "recovery",
+        recovery
+          ? `HRV ${num(recovery.hrv_rmssd_milli, 1, " ms")} · Resting HR ${num(recovery.resting_heart_rate, 0, " bpm")}`
+          : "No usable recovery score for the current cycle and primary sleep."
+      ),
+      item(
+        "Primary sleep",
+        sleep ? num(sleep.asleep_hours, 1, " h asleep") : null,
+        "sleep",
+        sleep
+          ? `${num(sleep.time_in_bed_hours, 1)} h in bed · Performance ${num(sleep.performance_pct, 0, "%")}`
+          : "No scored primary sleep for today. Older sleep is not substituted."
+      ),
+      item(
+        "Cycle strain",
+        strain ? num(strain.day_strain, 1) : null,
+        "cycle",
+        strain
+          ? `${num(strain.energy_burned_kj, 0, " kJ")} recorded for the current cycle.`
+          : "No scored current cycle."
+      ),
+      item(
+        "Latest workout",
+        workout ? sentence(workout.sport_name) : "Not available in this snapshot",
+        "workout",
+        workout
+          ? `Occurred ${time(workout.occurred_at)} · Strain ${num(workout.strain, 1)} · ${num(workout.percent_recorded, 0, "%")} recorded. This workout may be from an earlier day.`
+          : "A scored current cycle and workout are needed for this snapshot's workout summary."
+      ),
+      el(
+        "div",
+        { class: "actions" },
+        el("button", { type: "button", onclick: () => selectTab("session") }, "Session report"),
+        el("button", { type: "button", onclick: () => selectTab("readiness") }, "Race readiness"),
+        el("button", { type: "button", onclick: () => selectTab("audit") }, "Audit data")
+      ),
+      el(
+        "p",
+        { class: "notice" },
+        "This overview uses WHOOP records, not local workout corrections. Race views apply those corrections."
+      ),
+      el(
+        "ul",
+        {},
+        quality.limitations.map((text) => el("li", {}, text))
+      )
+    ),
+  ];
+}
+
 const RENDERERS = {
+  today: renderToday,
   session: renderSession,
   hyrox: renderHyrox,
   triathlon: renderTriathlon,

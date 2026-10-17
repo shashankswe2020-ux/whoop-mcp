@@ -375,14 +375,21 @@ Corrects how a WHOOP workout is counted. Your WHOOP account is never changed.
 ### `open_performance_dashboard` (local only)
 
 Starts (or reuses) a dashboard on `127.0.0.1` and opens it in your browser. Views:
-Session, HYROX, Triathlon, Readiness (with a "Why?" evidence drill-down for each
+Today, Session, HYROX, Triathlon, Readiness (with an "Evidence" drill-down for each
 component) and Audit (relabel/exclude/restore, suspects, audit log and a "Check a
 claim" form). Dashboard corrections and race results first show a review dialog
 with Edit, Cancel and Confirm save actions. Nothing is written until you confirm;
-failed saves keep your entries for retry. Corrections made in the dashboard go through the same validation and
-audit log as the MCP tools.
+failed saves keep your entries for retry. Corrections made in the dashboard go
+through the same validation and audit log as the MCP tools.
 
-**Parameters:** `view` (optional): `session`, `hyrox`, `triathlon`, `readiness` or `audit`.
+Today reuses `get_today`: current recovery, primary sleep, cycle strain and the
+latest workout, with source status, record-update times and method details.
+It uses WHOOP records without local corrections; race views apply corrections.
+Missing and pending readings are not shown as zero. The latest workout may be
+historical and is dated explicitly. WHOOP recovery is not a race-readiness verdict.
+
+**Parameters:** `view` (optional): `today`, `session`, `hyrox`, `triathlon`, `readiness` or `audit`.
+The default remains `session`.
 
 **Returns:** `url`, `view`, `reused`, `browser_opened`, `expires_after_idle_minutes`
 (30) and a `note`. The URL carries a one-time access token in its fragment; each

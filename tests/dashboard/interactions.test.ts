@@ -3,7 +3,12 @@ import { createContext, runInContext } from "node:vm";
 import { Window } from "happy-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDashboardApi } from "../../src/dashboard/api.js";
-import { performanceClient, redditHyroxDay } from "../helpers/performance-fixtures.js";
+import {
+  cycle,
+  night,
+  performanceClient,
+  redditHyroxDay,
+} from "../helpers/performance-fixtures.js";
 
 let window: Window;
 let fetchMock: ReturnType<typeof vi.fn<typeof fetch>>;
@@ -15,10 +20,16 @@ async function idle(): Promise<void> {
   );
 }
 
-async function open(view: string): Promise<void> {
+async function open(
+  view: string,
+  sources: Parameters<typeof performanceClient>[0] = {}
+): Promise<void> {
   window = new Window({ url: `http://localhost/?view=${view}#token=test-only` });
   window.document.write(await readFile(new URL("index.html", files), "utf8"));
-  const backend = createDashboardApi({ client: performanceClient({ workouts: redditHyroxDay() }) });
+  const backend = createDashboardApi({
+    client: performanceClient({ workouts: redditHyroxDay(), ...sources }),
+    now: () => new Date("2026-10-20T12:00:00Z"),
+  });
   fetchMock = vi.fn(async (input, init) => {
     const url = new URL(String(input), window.location.href);
     if (init?.method === "POST") return Response.json({ saved: true });
@@ -85,6 +96,47 @@ describe("dashboard reviewed saves", () => {
     click("Review correction");
     click("Cancel");
     expect(posts()).toHaveLength(0);
+  });
+
+  describe("daily overview", () => {
+    it("preserves zero scores and dates a historical latest workout", async () => {
+      const { sleep, recovery } = night({ day: "2026-10-20", recovery: 0 });
+      await open("today", {
+        sleep: [sleep],
+        recovery: [recovery],
+        cycles: [{ ...cycle("2026-10-20", 0), end: null }],
+      });
+      const rows = window.document.querySelectorAll(".today-row");
+      expect(rows[0]?.textContent).toContain("0%");
+      expect(rows[1]?.textContent).toContain("7.5 h asleep");
+      expect(rows[2]?.textContent).toContain("0.0");
+      expect(rows[3]?.textContent).toContain("earlier day");
+      expect(rows[3]?.textContent).toContain("15");
+    });
+
+    it("labels pending sleep and does not substitute an older scored sleep", async () => {
+      const current = night({ day: "2026-10-20", recovery: 70 });
+      const older = night({ day: "2026-10-19", recovery: 70 });
+      await open("today", {
+        sleep: [{ ...current.sleep, score_state: "PENDING_SCORE", score: null }, older.sleep],
+        cycles: [{ ...cycle("2026-10-20", 5), end: null }],
+      });
+      const row = window.document.querySelectorAll(".today-row")[1];
+      expect(row?.textContent).toContain("Pending");
+      expect(row?.textContent).not.toContain("7.5 h asleep");
+    });
+    it("shows missing data and source evidence instead of zero scores", async () => {
+      await open("today");
+      expect(window.document.querySelector("#main")?.textContent).toContain("Daily overview");
+      expect(window.document.querySelector("#main")?.textContent).toContain("Missing");
+      expect(window.document.querySelector("#main")?.textContent).not.toContain("0% recovery");
+      expect(window.document.querySelector("#main")?.textContent).toContain("today-2");
+      click("Race readiness");
+      await idle();
+      expect(
+        window.document.querySelector('[data-view="readiness"]')?.getAttribute("aria-selected")
+      ).toBe("true");
+    });
   });
 
   it("sends one write while pending and preserves values on error", async () => {

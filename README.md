@@ -104,7 +104,7 @@ Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two w
 - Track weekly running and HYROX load, swim/bike/run balance and bricks, plus logged races with station and leg splits and PRs.
 - Give a **readiness** band from recovery, training form, specificity, sleep debt and taper. Every component shows its evidence; there's no opaque score.
 - Let you **audit** the numbers: suspect workouts are flagged, you can relabel or exclude workouts, every change is logged, and `verify_claim` recomputes a number your assistant told you.
-- Open a **local dashboard** (`open_performance_dashboard`) on `127.0.0.1` with session, HYROX, triathlon, readiness and audit views.
+- Open a **local dashboard** (`open_performance_dashboard`) on `127.0.0.1` with daily overview, session, HYROX, triathlon, readiness and audit views. Review corrections and race results before confirming a local save.
 
 <p align="center">
 	<img src="images/readme/dashboard-session.png" width="880" alt="Dashboard Session view: a HYROX sim rebuilt from nine WHOOP workouts, with span, tracked time, transition time, peak heart rate, energy and a segment timeline showing average and peak heart rate for each run and erg, with transition gaps shaded">

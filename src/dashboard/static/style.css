@@ -897,3 +897,19 @@ dialog.save-review::backdrop {
 .save-review dd {
   overflow-wrap: anywhere;
 }
+.today-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--s4);
+  border-top: 1px solid var(--line);
+  padding-block: var(--s4);
+}
+.today-value {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 40rem) {
+  .today-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

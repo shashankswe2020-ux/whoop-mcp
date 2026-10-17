@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { createDashboardApi, type DashboardApi } from "../../src/dashboard/api.js";
 import { WhoopAuthError, WhoopNetworkError } from "../../src/api/client.js";
 import { nights, performanceClient, redditHyroxDay } from "../helpers/performance-fixtures.js";
+import { getToday } from "../../src/tools/get-today.js";
 
 const NOW = new Date("2026-10-20T12:00:00Z");
 let root: string;
@@ -37,6 +38,21 @@ function api(sources: Parameters<typeof performanceClient>[0] = {}): DashboardAp
 const q = (init: Record<string, string> = {}): URLSearchParams => new URLSearchParams(init);
 
 describe("createDashboardApi", () => {
+  it("serves the exact get_today snapshot, including partial-source quality", async () => {
+    const client = performanceClient({
+      workouts: redditHyroxDay(),
+      recovery: new WhoopNetworkError("unavailable"),
+    });
+    const dashboard = createDashboardApi({ client, directory: dir, now: () => NOW });
+    const response = await dashboard("GET", "/api/today", q(), undefined);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(await getToday(client, NOW));
+    expect(response.body).toMatchObject({
+      recovery: null,
+      data_quality: { sources: { recovery: { status: "fetch_failed" } } },
+    });
+    expect((await dashboard("POST", "/api/today", q(), {})).status).toBe(405);
+  });
   it("serves each read view through the tool and its output contract", async () => {
     const call = api();
     for (const [path, query] of [

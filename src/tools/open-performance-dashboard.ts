@@ -9,7 +9,14 @@ import {
   type DashboardServerOptions,
 } from "../dashboard/server.js";
 
-export const DASHBOARD_VIEWS = ["session", "hyrox", "triathlon", "readiness", "audit"] as const;
+export const DASHBOARD_VIEWS = [
+  "today",
+  "session",
+  "hyrox",
+  "triathlon",
+  "readiness",
+  "audit",
+] as const;
 export type DashboardView = (typeof DASHBOARD_VIEWS)[number];
 
 export const openPerformanceDashboardInputSchema = z.object({

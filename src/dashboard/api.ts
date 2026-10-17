@@ -48,6 +48,7 @@ import {
   verifyClaimInputSchema,
   verifyClaimOutputSchema,
 } from "../tools/verify-claim.js";
+import { getToday, todayOutputSchema } from "../tools/get-today.js";
 
 export interface DashboardApiOptions {
   client: WhoopClient;
@@ -135,6 +136,9 @@ export function createDashboardApi(options: DashboardApiOptions): DashboardApi {
     actor: "dashboard",
   });
   const routes: Readonly<Record<string, Route>> = {
+    "/api/today": route("GET", z.object({}), todayOutputSchema, (_input, deps) =>
+      getToday(client, deps.now)
+    ),
     "/api/session-report": route(
       "GET",
       hyroxSessionReportInputSchema,

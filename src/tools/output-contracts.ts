@@ -17,6 +17,7 @@ import { verifyClaimOutputSchema } from "./verify-claim.js";
 import { logRaceResultOutputSchema } from "./log-race-result.js";
 import { annotateWorkoutOutputSchema } from "./annotate-workout.js";
 import { openPerformanceDashboardOutputSchema } from "./open-performance-dashboard.js";
+import { todayOutputSchema } from "./get-today.js";
 
 export { privacyModeSchema, type PrivacyMode } from "../privacy.js";
 const JSON_SCHEMA_2020_12_URI = "https://json-schema.org/draft/2020-12/schema";
@@ -94,48 +95,6 @@ const trend = z.object({
   trend: z.object({ direction, slope: number, confidence: z.enum(["high", "medium", "low"]) }),
   anomalies: z.array(z.object({ date: z.string(), value: number, deviation_from_mean: number })),
 });
-const today = z.object({
-  timestamp: z.string(),
-  recovery: z
-    .object({
-      score: number,
-      hrv_rmssd_milli: number,
-      resting_heart_rate: number,
-      spo2_pct: nullable,
-      skin_temp_celsius: nullable,
-    })
-    .nullable(),
-  sleep: z
-    .object({
-      total_hours: number,
-      time_in_bed_hours: number,
-      asleep_hours: number,
-      rem_hours: number,
-      deep_hours: number,
-      light_hours: number,
-      awake_hours: number,
-      performance_pct: nullable,
-      efficiency_pct: nullable,
-      respiratory_rate: nullable,
-    })
-    .nullable(),
-  strain: z
-    .object({
-      day_strain: number,
-      energy_burned_kj: number,
-      last_workout: z
-        .object({
-          sport_name: z.string(),
-          strain: number,
-          occurred_at: z.string(),
-          percent_recorded: number,
-        })
-        .nullable(),
-    })
-    .nullable(),
-  summary: z.string(),
-  data_quality: dataQualitySchema,
-});
 const calendar = z.object({
   period,
   days: z.array(
@@ -168,7 +127,7 @@ export const outputSchemas: Record<string, z.ZodObject> = withOutputSchemaDialec
   get_weekly_summary: weekly,
   compare_periods: comparison,
   get_trend: trend,
-  get_today: today,
+  get_today: todayOutputSchema,
   get_calendar: calendar,
   get_baselines: baselinesOutputSchema,
   get_sleep_debt: sleepDebtOutputSchema,

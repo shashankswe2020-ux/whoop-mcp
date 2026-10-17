@@ -7,6 +7,7 @@
  */
 
 import type { WhoopClient } from "../api/client.js";
+import { z } from "zod";
 import type {
   RecoveryCollection,
   SleepCollection,
@@ -30,6 +31,7 @@ import {
 import {
   asleepHours,
   DAY_MS,
+  dataQualitySchema,
   localDay,
   observedPeriod,
   parseRecords,
@@ -37,6 +39,51 @@ import {
   type DataQuality,
   type SourceQuality,
 } from "./analytics-utils.js";
+
+const number = z.number().finite();
+const nullable = number.nullable();
+export const todayOutputSchema = z.object({
+  timestamp: z.string(),
+  recovery: z
+    .object({
+      score: number,
+      hrv_rmssd_milli: number,
+      resting_heart_rate: number,
+      spo2_pct: nullable,
+      skin_temp_celsius: nullable,
+    })
+    .nullable(),
+  sleep: z
+    .object({
+      total_hours: number,
+      time_in_bed_hours: number,
+      asleep_hours: number,
+      rem_hours: number,
+      deep_hours: number,
+      light_hours: number,
+      awake_hours: number,
+      performance_pct: nullable,
+      efficiency_pct: nullable,
+      respiratory_rate: nullable,
+    })
+    .nullable(),
+  strain: z
+    .object({
+      day_strain: number,
+      energy_burned_kj: number,
+      last_workout: z
+        .object({
+          sport_name: z.string(),
+          strain: number,
+          occurred_at: z.string(),
+          percent_recorded: number,
+        })
+        .nullable(),
+    })
+    .nullable(),
+  summary: z.string(),
+  data_quality: dataQualitySchema,
+});
 
 // ---------------------------------------------------------------------------
 // Types

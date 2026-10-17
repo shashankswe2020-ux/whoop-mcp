@@ -44,6 +44,7 @@ describe("dashboard static assets", () => {
       "/api/race-result",
       "/api/readiness",
       "/api/session-report",
+      "/api/today",
       "/api/triathlon",
       "/api/verify-claim",
     ]);
