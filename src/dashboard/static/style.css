@@ -333,6 +333,7 @@ figcaption {
   border-top: 4px solid var(--grey);
   border-radius: 8px;
   padding: 0.75rem;
+  min-width: 0;
 }
 .component.band-green {
   border-top-color: var(--green);
@@ -352,7 +353,7 @@ details summary {
 .trust dl,
 .claim-result dl {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: 0.2rem 0.75rem;
   font-size: 0.85rem;
 }
@@ -361,6 +362,8 @@ dt {
 }
 dd {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .figure {
