@@ -68,6 +68,7 @@
     "@typescript-eslint/parser": "^8.32.0",
     "@vitest/coverage-v8": "^5.0.2",
     "eslint": "^10.2.1",
+    "happy-dom": "^21.0.3",
     "prettier": "^3.5.3",
     "tsx": "^4.19.4",
     "typescript": "~5.8.3",

@@ -1568,10 +1568,18 @@ function annotationForm() {
         };
         if (action.value === "relabel") body.discipline = discipline.value;
         if (note.value.trim()) body.note = note.value.trim();
-        await submit(
+        reviewSave(
           "/api/annotate",
           body,
-          `Saved: ${body.action} ${body.workout_id}. Logged in the audit log.`
+          `Saved: ${body.action} ${body.workout_id}. Logged in the audit log.`,
+          [
+            ["Workout", body.workout_id],
+            ["Change", action.selectedOptions[0].textContent],
+            ...(body.discipline ? [["Discipline", sentence(body.discipline)]] : []),
+            ["Reason", sentence(body.reason)],
+            ["Note", body.note ?? "None"],
+          ],
+          event.submitter
         );
       },
     },
@@ -1580,7 +1588,7 @@ function annotationForm() {
     disciplineField,
     field("Reason", reason),
     field("Note", note, "Optional"),
-    el("button", { type: "submit" }, "Save correction")
+    el("button", { type: "submit" }, "Review correction")
   );
   return {
     node,
@@ -1777,12 +1785,26 @@ function raceForm(sport) {
             );
           }
         }
-        const saved = await submit(
+        reviewSave(
           "/api/race-result",
           body,
-          `Saved ${name.value.trim()}. Logged in the audit log.`
+          `Saved ${name.value.trim()}. Logged in the audit log.`,
+          [
+            ["Sport", sentence(sport)],
+            ["Race", body.name],
+            ["Race day", body.date],
+            ["Category", sentence(body.category)],
+            ["Official time", total.value],
+            ["Workout", body.workout_id ?? "Not linked"],
+            ...[...splitInputs.entries()]
+              .filter(([, control]) => control.value.trim())
+              .map(([, control]) => [
+                control.closest("label").querySelector("span").textContent,
+                control.value,
+              ]),
+          ],
+          event.submitter
         );
-        if (saved?.warnings?.length) setStatus(`Saved with notes: ${saved.warnings.join(" ")}`);
       },
     },
     field("Race day", date),
@@ -1791,7 +1813,7 @@ function raceForm(sport) {
     field("Official time", total, "h:mm:ss"),
     field("WHOOP workout id", workout, "Optional"),
     splits,
-    el("button", { type: "submit" }, "Log result")
+    el("button", { type: "submit" }, "Review result")
   );
   return el(
     "details",
@@ -1801,17 +1823,77 @@ function raceForm(sport) {
   );
 }
 
-async function submit(path, body, message) {
-  try {
-    setStatus("Saving…");
-    const result = await api(path, { method: "POST", body });
-    setStatus(message, "success");
-    await render({ keepStatus: true });
-    return result;
-  } catch (error) {
-    setStatus(error.message, "error");
-    return undefined;
-  }
+function reviewSave(path, body, message, rows, trigger) {
+  if (document.querySelector("dialog")) return;
+  let saving = false;
+  const close = () => {
+    dialog.close();
+    dialog.remove();
+    trigger?.focus();
+  };
+  const errorLine = el("p", { role: "alert", class: "notice notice-error", hidden: true });
+  const edit = el("button", { type: "button", onclick: close }, "Edit");
+  const cancel = el("button", { type: "button", onclick: close }, "Cancel");
+  const confirm = el(
+    "button",
+    {
+      type: "button",
+      onclick: async () => {
+        if (saving) return;
+        saving = true;
+        for (const button of [confirm, edit, cancel]) button.disabled = true;
+        dialog.setAttribute("aria-busy", "true");
+        errorLine.hidden = true;
+        setStatus("Saving…");
+        try {
+          const result = await api(path, { method: "POST", body });
+          close();
+          setStatus(
+            result.warnings?.length ? `${message} Notes: ${result.warnings.join(" ")}` : message,
+            "success"
+          );
+          await render({ keepStatus: true });
+          main.focus();
+        } catch (error) {
+          errorLine.textContent = error.message;
+          errorLine.hidden = false;
+          setStatus(error.message, "error");
+        } finally {
+          saving = false;
+          for (const button of [confirm, edit, cancel]) button.disabled = false;
+          dialog.removeAttribute("aria-busy");
+        }
+      },
+    },
+    "Confirm save"
+  );
+  const dialog = el(
+    "dialog",
+    {
+      class: "save-review",
+      "aria-labelledby": "save-review-title",
+      oncancel: (event) => {
+        event.preventDefault();
+        if (!saving) close();
+      },
+    },
+    el("h2", { id: "save-review-title" }, "Review before saving"),
+    el(
+      "p",
+      {},
+      "This changes local records and calculations only, never your WHOOP account. The change will be recorded in your audit log."
+    ),
+    el(
+      "dl",
+      {},
+      rows.flatMap(([label, value]) => [el("dt", {}, label), el("dd", {}, value)])
+    ),
+    errorLine,
+    el("div", { class: "actions" }, edit, cancel, confirm)
+  );
+  document.body.append(dialog);
+  dialog.showModal();
+  edit.focus();
 }
 
 // ---------------------------------------------------------------------------

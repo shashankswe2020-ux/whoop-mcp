@@ -877,3 +877,23 @@ figcaption {
     transition: none !important;
   }
 }
+dialog.save-review {
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  padding: var(--s5);
+  max-width: min(38rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  overflow: auto;
+}
+dialog.save-review::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+.save-review p,
+.save-review dl {
+  margin-block: var(--s4);
+}
+.save-review dd {
+  overflow-wrap: anywhere;
+}

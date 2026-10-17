@@ -377,7 +377,9 @@ Corrects how a WHOOP workout is counted. Your WHOOP account is never changed.
 Starts (or reuses) a dashboard on `127.0.0.1` and opens it in your browser. Views:
 Session, HYROX, Triathlon, Readiness (with a "Why?" evidence drill-down for each
 component) and Audit (relabel/exclude/restore, suspects, audit log and a "Check a
-claim" form). Corrections made in the dashboard go through the same validation and
+claim" form). Dashboard corrections and race results first show a review dialog
+with Edit, Cancel and Confirm save actions. Nothing is written until you confirm;
+failed saves keep your entries for retry. Corrections made in the dashboard go through the same validation and
 audit log as the MCP tools.
 
 **Parameters:** `view` (optional): `session`, `hyrox`, `triathlon`, `readiness` or `audit`.
