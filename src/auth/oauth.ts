@@ -258,6 +258,12 @@ export function openBrowser(url: string): void {
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new Error(`Refusing to open browser for non-HTTP(S) URL scheme: ${parsed.protocol}`);
   }
+  // Fragments can carry credentials (the dashboard token), so they never reach logs.
+  const hashIndex = url.indexOf("#");
+  const manualHint =
+    hashIndex === -1
+      ? `Please open this URL manually:\n${url}`
+      : `Open the full link returned by the tool (its access part is not logged):\n${url.slice(0, hashIndex)}`;
   try {
     const commands: Record<string, [string, string[]]> = {
       darwin: ["open", [url]],
@@ -272,16 +278,12 @@ export function openBrowser(url: string): void {
     // (e.g. running in a headless container with no xdg-open). Without a
     // handler, Node treats this as an unhandled error and crashes the process.
     child.on("error", () => {
-      console.error(
-        `\nCould not open browser automatically. Please open this URL manually:\n${url}\n`
-      );
+      console.error(`\nCould not open browser automatically. ${manualHint}\n`);
     });
     child.unref();
   } catch {
     // Best-effort — log the URL for manual copy/paste
-    console.error(
-      `\nCould not open browser automatically. Please open this URL manually:\n${url}\n`
-    );
+    console.error(`\nCould not open browser automatically. ${manualHint}\n`);
   }
 }
 

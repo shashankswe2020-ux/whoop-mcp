@@ -552,6 +552,50 @@ describe("openBrowser", () => {
     expect(() => openBrowser("https://example.com/auth")).not.toThrow();
   });
 
+  it("never logs a URL fragment when spawn throws synchronously", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockSpawn.mockImplementation(() => {
+      throw new Error("Command not found");
+    });
+
+    openBrowser("http://127.0.0.1:4000/?view=audit#token=secret-token-value");
+
+    const logged = errorSpy.mock.calls.flat().join(" ");
+    expect(logged).not.toContain("secret-token-value");
+    expect(logged).not.toContain("#token");
+    expect(logged).toContain("http://127.0.0.1:4000/?view=audit");
+  });
+
+  it("never logs a URL fragment when spawn fails asynchronously", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let onError: (() => void) | undefined;
+    mockSpawn.mockReturnValue({
+      on: vi.fn((event: string, handler: () => void) => {
+        if (event === "error") onError = handler;
+      }),
+      unref: vi.fn(),
+    });
+
+    openBrowser("http://127.0.0.1:4000/?view=audit#token=secret-token-value");
+    onError?.();
+
+    expect(onError).toBeDefined();
+    const logged = errorSpy.mock.calls.flat().join(" ");
+    expect(logged).not.toContain("secret-token-value");
+    expect(logged).toContain("http://127.0.0.1:4000/?view=audit");
+  });
+
+  it("still logs the full URL when there is no fragment", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockSpawn.mockImplementation(() => {
+      throw new Error("Command not found");
+    });
+
+    openBrowser("https://example.com/auth?state=abc");
+
+    expect(errorSpy.mock.calls.flat().join(" ")).toContain("https://example.com/auth?state=abc");
+  });
+
   it("does not use shell interpolation (no injection risk)", () => {
     // Shell metacharacters live in the path/query so the URL still parses
     // as https: — the point is that spawn receives them as a single argv
