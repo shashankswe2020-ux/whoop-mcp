@@ -1,9 +1,8 @@
-import { appendFile, open } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { resolveTokenDirectory } from "../auth/token-store.js";
 import { auditEntrySchema, type AuditEntry } from "./schemas.js";
-import { ensurePerformanceDirectory, PerformanceStoreError } from "./store.js";
+import { ensurePerformanceDirectory, openPrivateFile, PerformanceStoreError } from "./store.js";
 
 export const AUDIT_FILENAME = "performance-audit.jsonl";
 export const DEFAULT_AUDIT_LIMIT = 50;
@@ -25,11 +24,14 @@ export async function appendAuditEntry(
     throw new PerformanceStoreError("io", `Audit entry is too large for ${AUDIT_FILENAME}.`);
   const resolved = await ensurePerformanceDirectory(directory);
   try {
-    await appendFile(join(resolved, AUDIT_FILENAME), line, {
-      encoding: "utf-8",
-      mode: 0o600,
-    });
-  } catch {
+    const handle = await openPrivateFile(join(resolved, AUDIT_FILENAME), "append", AUDIT_FILENAME);
+    try {
+      await handle.appendFile(line, "utf-8");
+    } finally {
+      await handle.close();
+    }
+  } catch (error: unknown) {
+    if (error instanceof PerformanceStoreError) throw error;
     throw new PerformanceStoreError("io", `Could not append to ${AUDIT_FILENAME}.`);
   }
   return complete;
@@ -69,8 +71,13 @@ export async function readAuditLog(
   const limit = options.limit ?? DEFAULT_AUDIT_LIMIT;
   let handle;
   try {
-    handle = await open(join(resolveTokenDirectory(directory), AUDIT_FILENAME), "r");
+    handle = await openPrivateFile(
+      join(resolveTokenDirectory(directory), AUDIT_FILENAME),
+      "read",
+      AUDIT_FILENAME
+    );
   } catch (error: unknown) {
+    if (error instanceof PerformanceStoreError) throw error;
     if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT")
       return { entries: [], invalid_lines: 0, truncated: false };
     throw new PerformanceStoreError("io", `Could not read ${AUDIT_FILENAME}.`);

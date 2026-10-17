@@ -1,4 +1,16 @@
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import {
+  chmod,
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+  type FileHandle,
+} from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { resolveTokenDirectory } from "../auth/token-store.js";
@@ -26,10 +38,88 @@ function isMissing(error: unknown): boolean {
   );
 }
 
+const PRIVATE_BITS = 0o077;
+
+/** Undefined on Windows, where POSIX ownership and modes do not apply. */
+function currentUid(): number | undefined {
+  return typeof process.getuid === "function" ? process.getuid() : undefined;
+}
+
+/**
+ * Creates the data directory (0700) or validates an existing one: it must be a directory owned
+ * by the current user, and group/other permission bits are removed.
+ */
 export async function ensurePerformanceDirectory(directory?: string): Promise<string> {
   const resolved = resolveTokenDirectory(directory);
-  await mkdir(resolved, { recursive: true, mode: 0o700 });
+  try {
+    await mkdir(resolved, { recursive: true, mode: 0o700 });
+    const info = await stat(resolved);
+    if (!info.isDirectory())
+      throw new PerformanceStoreError("io", "The whoop-mcp data path is not a directory.");
+    const uid = currentUid();
+    if (uid === undefined) return resolved;
+    if (info.uid !== uid)
+      throw new PerformanceStoreError(
+        "io",
+        "The whoop-mcp data directory is owned by another user; refusing to use it."
+      );
+    if ((info.mode & PRIVATE_BITS) !== 0) await chmod(resolved, 0o700);
+  } catch (error: unknown) {
+    if (error instanceof PerformanceStoreError) throw error;
+    throw new PerformanceStoreError("io", "Could not prepare the whoop-mcp data directory.");
+  }
   return resolved;
+}
+
+/**
+ * Opens a store file without following symlinks, then checks the handle: it must be a regular
+ * file owned by the current user, and group/other permission bits are removed. Open errors other
+ * than a symlink (e.g. ENOENT) are rethrown unchanged for the caller to classify.
+ */
+export async function openPrivateFile(
+  path: string,
+  mode: "append" | "read",
+  name: string
+): Promise<FileHandle> {
+  const noFollow = constants.O_NOFOLLOW ?? 0;
+  const symlinkError = new PerformanceStoreError(
+    "io",
+    `${name} is a symbolic link; refusing to follow it.`
+  );
+  if (noFollow === 0) {
+    const existing = await lstat(path).catch(() => null);
+    if (existing?.isSymbolicLink()) throw symlinkError;
+  }
+  const flags =
+    mode === "append"
+      ? constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | noFollow
+      : constants.O_RDONLY | noFollow;
+  let handle: FileHandle;
+  try {
+    handle = await open(path, flags, 0o600);
+  } catch (error: unknown) {
+    if (errorCode(error) === "ELOOP") throw symlinkError;
+    throw error;
+  }
+  try {
+    const info = await handle.stat();
+    if (!info.isFile())
+      throw new PerformanceStoreError("io", `${name} is not a regular file; refusing to use it.`);
+    const uid = currentUid();
+    if (uid !== undefined) {
+      if (info.uid !== uid)
+        throw new PerformanceStoreError(
+          "io",
+          `${name} is owned by another user; refusing to use it.`
+        );
+      if ((info.mode & PRIVATE_BITS) !== 0) await handle.chmod(0o600);
+    }
+    return handle;
+  } catch (error: unknown) {
+    await handle.close();
+    if (error instanceof PerformanceStoreError) throw error;
+    throw new PerformanceStoreError("io", `Could not open ${name}.`);
+  }
 }
 
 export async function loadPerformanceState(directory?: string): Promise<PerformanceState> {

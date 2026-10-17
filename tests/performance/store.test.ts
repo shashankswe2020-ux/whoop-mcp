@@ -7,6 +7,7 @@ import {
   readFile,
   rm,
   stat,
+  symlink,
   utimes,
   writeFile,
 } from "node:fs/promises";
@@ -309,5 +310,58 @@ describe("audit log", () => {
 
   it("returns an empty log when the file is missing", async () => {
     expect(await readAuditLog(dir)).toEqual({ entries: [], invalid_lines: 0, truncated: false });
+  });
+});
+
+describe.skipIf(process.platform === "win32")("existing path hardening", () => {
+  const entry = {
+    actor: "mcp_tool" as const,
+    action: "annotate_workout" as const,
+    workout_id: "w1",
+    before: null,
+    after: { action: "exclude" },
+  };
+
+  it("tightens a pre-existing permissive directory and audit file", async () => {
+    await mkdir(dir, { mode: 0o755 });
+    await chmod(dir, 0o755);
+    await writeFile(join(dir, AUDIT_FILENAME), "", { mode: 0o644 });
+    await chmod(join(dir, AUDIT_FILENAME), 0o644);
+    await appendAuditEntry(entry, dir);
+    expect(await mode(dir)).toBe(0o700);
+    expect(await mode(join(dir, AUDIT_FILENAME))).toBe(0o600);
+  });
+
+  it("replaces a permissive performance.json with a 0600 file", async () => {
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, PERFORMANCE_FILENAME), JSON.stringify(emptyPerformanceState()));
+    await chmod(join(dir, PERFORMANCE_FILENAME), 0o644);
+    await updatePerformanceState((state) => ({ state, result: null }), dir);
+    expect(await mode(join(dir, PERFORMANCE_FILENAME))).toBe(0o600);
+  });
+
+  it("refuses to append to or read an audit log that is a symlink", async () => {
+    await mkdir(dir, { recursive: true });
+    const outside = join(root, "elsewhere.jsonl");
+    await writeFile(outside, "");
+    await symlink(outside, join(dir, AUDIT_FILENAME));
+    await expect(appendAuditEntry(entry, dir)).rejects.toMatchObject({
+      name: "PerformanceStoreError",
+      code: "io",
+    });
+    await expect(readAuditLog(dir)).rejects.toMatchObject({ code: "io" });
+    expect(await readFile(outside, "utf-8")).toBe("");
+  });
+
+  it("refuses a data directory owned by another user", async () => {
+    await mkdir(dir, { recursive: true });
+    const uid = process.getuid?.() ?? 0;
+    vi.spyOn(process, "getuid").mockReturnValue(uid + 1);
+    await expect(savePerformanceState(emptyPerformanceState(), dir)).rejects.toMatchObject({
+      name: "PerformanceStoreError",
+      code: "io",
+    });
+    vi.restoreAllMocks();
+    expect(await readdir(dir)).toEqual([]);
   });
 });
