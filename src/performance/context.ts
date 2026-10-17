@@ -16,15 +16,84 @@ import {
   type SourceQuality,
 } from "../tools/analytics-utils.js";
 import { emptyPerformanceState, type PerformanceState } from "./schemas.js";
+import type { TrainingSession } from "./session-grouping.js";
 import { resolveDiscipline, type ResolvedDiscipline } from "./sport-classifier.js";
+import type { AuditEntry } from "./schemas.js";
 import { PerformanceStoreError } from "./store.js";
 
 export const KJ_PER_KCAL = 4.184;
 
-/** Injected by the server: stdio mode passes a loader, remote (HTTP) mode passes none. */
+/** Injected by the server: stdio mode passes loaders, remote (HTTP) mode passes none. */
 export interface PerformanceDeps {
   now?: Date;
   loadState?: () => Promise<PerformanceState>;
+  readAudit?: (limit: number) => Promise<AuditLogPage>;
+}
+
+export interface AuditLogPage {
+  entries: AuditEntry[];
+  invalid_lines: number;
+  truncated: boolean;
+}
+
+/** Local write context. `directory` defaults to ~/.whoop-mcp. */
+export interface PerformanceWriteDeps {
+  directory?: string;
+  now?: Date;
+  actor?: "mcp_tool" | "dashboard";
+}
+
+/** A validation failure whose message is safe and useful to show to the user verbatim. */
+export class PerformanceInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PerformanceInputError";
+  }
+}
+
+export function inputErrorFrom(error: z.ZodError): PerformanceInputError {
+  return new PerformanceInputError(
+    error.issues
+      .map((issue) => `${issue.path.length ? `${issue.path.join(".")}: ` : ""}${issue.message}`)
+      .join("; ")
+  );
+}
+
+export const candidateSchema = z.object({
+  start: z.string(),
+  kind: z.enum(["session", "workout"]),
+  reason: z.string(),
+  workout_ids: z.array(z.string()),
+});
+export type Candidate = z.infer<typeof candidateSchema>;
+
+/** Confirmed = any segment resolves to "hyrox" (user relabel or rule). Never auto-confirmed. */
+export function classifySessions(
+  sessions: TrainingSession[],
+  disciplineOf: (workout: Workout) => ResolvedDiscipline
+): { confirmed: TrainingSession[]; candidates: Candidate[] } {
+  const confirmed: TrainingSession[] = [];
+  const candidates: Candidate[] = [];
+  for (const session of sessions) {
+    const disciplines = session.segments.map((segment) => disciplineOf(segment.workout));
+    const ids = session.segments.map((segment) => segment.workout.id);
+    if (disciplines.includes("hyrox")) confirmed.push(session);
+    else if (session.kind === "hyrox_candidate")
+      candidates.push({
+        start: session.start,
+        kind: "session",
+        reason: "Chain of ≥ 2 runs plus an erg or functional segment, not yet confirmed as HYROX.",
+        workout_ids: ids,
+      });
+    else if (disciplines.includes("hyrox_candidate"))
+      candidates.push({
+        start: session.start,
+        kind: "workout",
+        reason: "Functional Fitness / HIIT / OCR workout that may be HYROX training.",
+        workout_ids: ids.filter((_, index) => disciplines[index] === "hyrox_candidate"),
+      });
+  }
+  return { confirmed, candidates };
 }
 
 export const storeStatusSchema = z.object({

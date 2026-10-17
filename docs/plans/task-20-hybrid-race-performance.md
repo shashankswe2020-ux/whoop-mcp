@@ -89,7 +89,7 @@ Parallelisable: T1, T2, T3 and T4 are independent.
   - Files: 4 tool files + 4 tests
   - Depends on: T1, T2, T3, T5
 
-- [ ] **T8: Write + audit tools** — `log_race_result`, `annotate_workout`, `audit_performance_data`, `verify_claim`
+- [x] **T8: Write + audit tools** — `log_race_result`, `annotate_workout`, `audit_performance_data`, `verify_claim`
   - Acceptance: every mutation writes one audit entry with before/after. `restore` appends a new entry and never edits an old one.
     `verify_claim` returns confirmed/contradicted/unverifiable with tolerance and evidence. The 40 % vs 12 %
     fixture returns `contradicted`.

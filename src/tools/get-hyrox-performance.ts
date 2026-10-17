@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { WhoopClient } from "../api/client.js";
 import type { Workout } from "../api/types.js";
 import {
+  candidateSchema,
+  classifySessions,
   disciplineResolver,
   durationSeconds,
   loadWorkouts,
@@ -19,8 +21,7 @@ import {
   impliedRoxzoneSeconds,
   type StoredRaceResult,
 } from "../performance/schemas.js";
-import { groupSessions, type TrainingSession } from "../performance/session-grouping.js";
-import type { ResolvedDiscipline } from "../performance/sport-classifier.js";
+import { groupSessions } from "../performance/session-grouping.js";
 import { edwardsTrimp } from "../performance/training-load.js";
 import { dataQualitySchema, DISCLAIMER } from "./analytics-utils.js";
 
@@ -65,14 +66,7 @@ export const hyroxPerformanceOutputSchema = z.object({
   ),
   unconfirmed_candidates: z.object({
     count: z.number().int(),
-    items: z.array(
-      z.object({
-        start: z.string(),
-        kind: z.enum(["session", "workout"]),
-        reason: z.string(),
-        workout_ids: z.array(z.string()),
-      })
-    ),
+    items: z.array(candidateSchema),
   }),
   races: z.array(
     z.object({
@@ -210,37 +204,6 @@ function personalRecords(races: HyroxRace[]): HyroxPerformance["personal_records
     })),
     best_station: bestStation,
   };
-}
-
-function classifySessions(
-  sessions: TrainingSession[],
-  disciplineOf: (workout: Workout) => ResolvedDiscipline
-): {
-  confirmed: TrainingSession[];
-  candidates: HyroxPerformance["unconfirmed_candidates"]["items"];
-} {
-  const confirmed: TrainingSession[] = [];
-  const candidates: HyroxPerformance["unconfirmed_candidates"]["items"] = [];
-  for (const session of sessions) {
-    const disciplines = session.segments.map((segment) => disciplineOf(segment.workout));
-    const ids = session.segments.map((segment) => segment.workout.id);
-    if (disciplines.includes("hyrox")) confirmed.push(session);
-    else if (session.kind === "hyrox_candidate")
-      candidates.push({
-        start: session.start,
-        kind: "session",
-        reason: "Chain of ≥ 2 runs plus an erg or functional segment, not yet confirmed as HYROX.",
-        workout_ids: ids,
-      });
-    else if (disciplines.includes("hyrox_candidate"))
-      candidates.push({
-        start: session.start,
-        kind: "workout",
-        reason: "Functional Fitness / HIIT / OCR workout that may be HYROX training.",
-        workout_ids: ids.filter((_, index) => disciplines[index] === "hyrox_candidate"),
-      });
-  }
-  return { confirmed, candidates };
 }
 
 export async function getHyroxPerformance(
