@@ -98,10 +98,10 @@ In standard mode, the server provides **16 read-only tools, 4 resources and 5 pr
 
 ### HYROX and triathlon tracking
 
-Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two weeks?". The race tools:
+Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two weeks?" The race tools:
 
 - Rebuild a HYROX session from WHOOP's back-to-back workouts: segment timeline, transition time, time in zone and rule-based insights.
-- Track weekly run vs HYROX load and swim/bike/run balance, bricks, logged races, station and leg splits, and PRs.
+- Track weekly running and HYROX load, swim/bike/run balance and bricks, plus logged races with station and leg splits and PRs.
 - Give a **readiness** band from recovery, training form, specificity, sleep debt and taper. Every component shows its evidence; there's no opaque score.
 - Let you **audit** the numbers: suspect workouts are flagged, you can relabel or exclude workouts, every change is logged, and `verify_claim` recomputes a number your assistant told you.
 - Open a **local dashboard** (`open_performance_dashboard`) on `127.0.0.1` with session, HYROX, triathlon, readiness and audit views.
@@ -117,7 +117,7 @@ Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two w
 </table>
 <p align="center"><sub>Screenshots use synthetic sample data.</sub></p>
 
-Writing tools and the dashboard are available when the server runs locally (stdio). Details: [race performance tools](references/tools.md#race-performance-hyrox-and-triathlon) and [local data](references/privacy.md#race-performance-data-and-the-local-dashboard).
+The race log, workout corrections and dashboard are available only when the server runs locally (stdio). Details: [race performance tools](references/tools.md#race-performance-hyrox-and-triathlon) and [local data](references/privacy.md#race-performance-data-and-the-local-dashboard).
 
 <details>
 <summary><strong>See all tools and prompts</strong></summary>
