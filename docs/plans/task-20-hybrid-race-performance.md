@@ -105,7 +105,7 @@ Parallelisable: T1, T2, T3 and T4 are independent.
   - Files: `src/server.ts`, `src/telemetry/telemetry.ts`, `collector/src/collector.ts`, tests
   - Depends on: T7, T8
 
-- [ ] **T10: Dashboard server + `open_performance_dashboard`**
+- [x] **T10: Dashboard server + `open_performance_dashboard`**
   - Acceptance: binds 127.0.0.1 on an ephemeral port. Token in URL fragment. 401 without token, 403 on bad
     Host/Origin, CSP header present. JSON API reuses the tool functions and schemas. Idle shutdown
     after 30 min. A second call reuses the server. Browser opened via existing `openBrowser` (mocked

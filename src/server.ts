@@ -49,6 +49,10 @@ import { verifyClaim, verifyClaimInputSchema } from "./tools/verify-claim.js";
 import { logRaceResult, logRaceResultInputSchema } from "./tools/log-race-result.js";
 import { annotateWorkout, annotateWorkoutInputSchema } from "./tools/annotate-workout.js";
 import {
+  createDashboardController,
+  openPerformanceDashboardInputSchema,
+} from "./tools/open-performance-dashboard.js";
+import {
   PerformanceInputError,
   type PerformanceDeps,
   type PerformanceWriteDeps,
@@ -228,7 +232,13 @@ export interface CreateServerOptions {
    * Local (stdio) mode only: enables the on-disk race log, annotations and audit log plus the
    * write tools. Omit for remote transports, where the analytics tools run on WHOOP data alone.
    */
-  localPerformance?: { directory?: string };
+  localPerformance?: {
+    directory?: string;
+    /** Test seam; defaults to the system browser. */
+    openBrowser?: (url: string) => void;
+    /** Test seam; defaults to the bundled dashboard assets. */
+    dashboardStaticDir?: string;
+  };
 }
 
 /** Return type for the configured MCP server. */
@@ -684,6 +694,22 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
       },
       async (args) => safeTool(() => annotateWorkout(args, writeDeps))
+    );
+    const dashboard = createDashboardController({
+      client,
+      ...(local.directory ? { directory: local.directory } : {}),
+      ...(local.openBrowser ? { openBrowser: local.openBrowser } : {}),
+      ...(local.dashboardStaticDir ? { staticDir: local.dashboardStaticDir } : {}),
+    });
+    registerTool(
+      "open_performance_dashboard",
+      {
+        description:
+          "Opens the local HYROX/triathlon dashboard (127.0.0.1 only) in the browser: session report, trends, readiness with evidence, and an audit tab to relabel/exclude workouts and check claims. Returns the URL; the server stops after 30 idle minutes.",
+        inputSchema: openPerformanceDashboardInputSchema,
+        annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      },
+      async (args) => safeTool(() => dashboard.open(args))
     );
   }
 

@@ -16,7 +16,7 @@ const READ_TOOLS = [
   "get_triathlon_performance",
   "verify_claim",
 ];
-const WRITE_TOOLS = ["annotate_workout", "log_race_result"];
+const WRITE_TOOLS = ["annotate_workout", "log_race_result", "open_performance_dashboard"];
 
 let root: string;
 let dir: string;
@@ -186,6 +186,35 @@ describe("hybrid race performance tools over MCP", () => {
       const read = await client.callTool({ name: "get_hyrox_performance", arguments: {} });
       expect(read.isError).not.toBe(true);
       expect(read.structuredContent).toMatchObject({ store: { status: "error" } });
+    } finally {
+      await close();
+    }
+  });
+
+  it("opens the dashboard over MCP without a real browser and serves the same data", async () => {
+    const staticDir = join(root, "static");
+    await mkdir(staticDir, { recursive: true });
+    await writeFile(join(staticDir, "index.html"), "<!doctype html>");
+    const openBrowser = vi.fn();
+    const { client, close } = await connect({
+      localPerformance: { directory: dir, openBrowser, dashboardStaticDir: staticDir },
+    });
+    try {
+      const opened = await client.callTool({
+        name: "open_performance_dashboard",
+        arguments: { view: "audit" },
+      });
+      expect(opened.isError, text(opened)).not.toBe(true);
+      const { url } = opened.structuredContent as { url: string };
+      expect(openBrowser).toHaveBeenCalledWith(url);
+
+      const token = new URL(url).hash.replace(/^#token=/, "");
+      const response = await fetch(new URL("/api/audit", url), {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(response.status).toBe(200);
+      const viaMcp = await client.callTool({ name: "audit_performance_data", arguments: {} });
+      expect(await response.json()).toEqual(viaMcp.structuredContent);
     } finally {
       await close();
     }

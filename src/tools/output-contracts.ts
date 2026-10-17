@@ -16,6 +16,7 @@ import { auditPerformanceDataOutputSchema } from "./audit-performance-data.js";
 import { verifyClaimOutputSchema } from "./verify-claim.js";
 import { logRaceResultOutputSchema } from "./log-race-result.js";
 import { annotateWorkoutOutputSchema } from "./annotate-workout.js";
+import { openPerformanceDashboardOutputSchema } from "./open-performance-dashboard.js";
 
 export { privacyModeSchema, type PrivacyMode } from "../privacy.js";
 const JSON_SCHEMA_2020_12_URI = "https://json-schema.org/draft/2020-12/schema";
@@ -179,6 +180,7 @@ export const outputSchemas: Record<string, z.ZodObject> = withOutputSchemaDialec
   verify_claim: verifyClaimOutputSchema,
   log_race_result: logRaceResultOutputSchema,
   annotate_workout: annotateWorkoutOutputSchema,
+  open_performance_dashboard: openPerformanceDashboardOutputSchema,
 });
 
 const aggregateBand = z.object({
