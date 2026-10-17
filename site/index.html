@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
 <title>WHOOP MCP Server for Claude, Codex &amp; GitHub Copilot</title>
-<meta name="description" content="Connect WHOOP recovery, sleep, HRV, strain and workout data to Claude, Codex or GitHub Copilot with a read-only Model Context Protocol server." />
+<meta name="description" content="Connect WHOOP recovery, sleep, HRV, strain and workout data to Claude, Codex or GitHub Copilot with a read-only Model Context Protocol server. Now with HYROX and triathlon tracking and a local dashboard." />
 <meta name="robots" content="index, follow, max-image-preview:large" />
 <link rel="canonical" href="https://whoopconnector.com/" />
 <meta property="og:title" content="WHOOP MCP Server for Claude, Codex &amp; GitHub Copilot" />
 <meta property="og:site_name" content="WHOOP MCP" />
-<meta property="og:description" content="Explore WHOOP recovery, sleep, HRV, strain and workouts through 16 read-only MCP tools and personal analytics." />
+<meta property="og:description" content="Explore WHOOP recovery, sleep, HRV, strain and workouts through 16 read-only MCP tools and personal analytics, plus HYROX and triathlon tracking with a local dashboard." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://whoopconnector.com/" />
 <meta property="og:image" content="https://whoopconnector.com/social-preview.png" />
@@ -40,7 +40,7 @@
     "https://www.npmjs.com/package/whoop-ai-mcp"
   ],
   "downloadUrl": "https://www.npmjs.com/package/whoop-ai-mcp",
-  "softwareVersion": "0.9.1",
+  "softwareVersion": "1.0.0",
   "applicationCategory": "HealthApplication",
   "operatingSystem": "Windows, macOS, Linux",
   "softwareRequirements": "Node.js 20+, an active WHOOP membership and a WHOOP Developer App",
@@ -229,6 +229,10 @@ code,.mono{font-family:var(--mono);letter-spacing:0}
 .card p{color:var(--ink-2);font-size:17px}
 .card p b{color:var(--ink);font-weight:600}
 @media (max-width:760px){.cards{grid-template-columns:1fr}.section{padding-block:80px}}
+.race-shot{margin:0 0 40px;text-align:center}
+.race-shot img{display:block;width:100%;height:auto;border-radius:16px;box-shadow:0 0 0 1px var(--hair)}
+.race-shot figcaption{font-size:12px;color:var(--ink-2);margin-top:10px}
+.new-link{font-size:14px;font-weight:600}
 .aside{margin-top:28px;font-size:14px;color:var(--ink-2);text-align:center}
 .aside code{font-size:13px;color:var(--ink)}
 
@@ -322,6 +326,7 @@ html:not(.animated-story) .swatches{display:none}
     <ul>
       <li class="opt"><a href="#tools">Tools</a></li>
       <li class="opt"><a href="#analytics">Analytics</a></li>
+      <li class="opt2"><a href="#race">HYROX</a></li>
       <li class="opt2"><a href="#privacy">Privacy</a></li>
       <li><a href="#setup">Setup</a></li>
       <li class="opt"><a href="https://github.com/shashankswe2020-ux/whoop-mcp#readme">Docs</a></li>
@@ -360,6 +365,7 @@ html:not(.animated-story) .swatches{display:none}
         <a class="more" href="https://www.npmjs.com/package/whoop-ai-mcp">View on npm</a>
       </div>
       <p class="counts">Open-source software for your existing WHOOP. Not a device.</p>
+      <p><a class="new-link more" href="#race">New in 1.0: HYROX and triathlon dashboard</a></p>
     </div>
     <svg id="band-fallback" viewBox="0 0 420 320" role="img" aria-label="Illustrative WHOOP band">
       <defs>
@@ -396,7 +402,7 @@ html:not(.animated-story) .swatches{display:none}
 
     <div class="cap cap-top" data-in="0.52" data-out="0.64">
       <h2>Read-only. By design.</h2>
-      <p><b>16 tools that read and never write.</b> OAuth with PKCE. Tokens stay on the server host with 0600 permissions.</p>
+      <p><b>16 tools that read and never write.</b> Nothing is written back to WHOOP. OAuth with PKCE. Tokens stay on the server host with 0600 permissions.</p>
       <div class="legend"><span><i style="background:#30d158"></i>Read</span><span><i style="background:#c7c7cc"></i>Write · not available</span></div>
     </div>
 
@@ -415,7 +421,7 @@ html:not(.animated-story) .swatches{display:none}
       <div class="cmd"><code id="quick-command">npx -y whoop-ai-mcp@latest setup</code><button class="copy" id="quick-copy" type="button" data-copy="npx -y whoop-ai-mcp@latest setup" aria-label="Copy Node.js quickstart command">Copy</button></div>
       <p class="counts" id="quick-note">Node.js 20+ with npm. No global installation needed.</p>
       <a class="more" href="#setup">Client setup</a>
-      <p class="counts">16 tools · 4 resources · 5 prompts in standard mode</p>
+      <p class="counts">16 read-only tools · 9 race tools · 4 resources · 5 prompts in standard mode</p>
       <div class="swatches" role="group" aria-label="Illustration color">
         <button type="button" style="--c:#1c1c1e" data-band="#1c1c1e" data-name="Onyx" aria-pressed="true" aria-label="Onyx"></button>
         <button type="button" style="--c:#d6d9de" data-band="#d6d9de" data-name="Arctic" aria-pressed="false" aria-label="Arctic"></button>
@@ -513,6 +519,41 @@ html:not(.animated-story) .swatches{display:none}
     </article>
   </div>
   <p class="aside">Check your configuration offline with <code>whoop-ai-mcp doctor --json</code>. · <a href="https://github.com/shashankswe2020-ux/whoop-mcp/blob/main/CHANGELOG.md">Changelog</a></p>
+</section>
+
+<section class="section" id="race">
+  <div class="section-head">
+    <p class="eb">New in 1.0 · HYROX and triathlon</p>
+    <h2>Race training, with the evidence.</h2>
+    <p>Nine race tools rebuild HYROX sims from back-to-back WHOOP workouts, track triathlon balance and open a local dashboard. Every number shows where it came from.</p>
+  </div>
+  <figure class="race-shot">
+    <img src="images/dashboard-session.png" width="1108" height="724" loading="lazy" decoding="async" alt="Local dashboard Session view: a HYROX sim rebuilt from nine WHOOP workouts, with span, tracked time, transitions, peak heart rate, energy and a segment timeline of average and peak heart rate per run and erg">
+    <figcaption>Local dashboard, Session view · synthetic sample data</figcaption>
+  </figure>
+  <div class="cards">
+    <article class="card">
+      <p class="tag">get_hyrox_session_report</p>
+      <h3>A HYROX sim, rebuilt.</h3>
+      <p>Stitches runs and ergs into one session with transitions, time in zone and rule-based insights. <b>A possible sim stays unconfirmed until you confirm it.</b></p>
+    </article>
+    <article class="card">
+      <p class="tag">get_race_readiness</p>
+      <h3>Readiness you can check.</h3>
+      <p>Recovery, training form, specificity, sleep debt and taper, each with its value, method, window and records used. <b>No opaque score.</b></p>
+    </article>
+    <article class="card">
+      <p class="tag">audit_performance_data · verify_claim</p>
+      <h3>Audit it for falseness.</h3>
+      <p>Implausible paces, overlaps and indoor distances are flagged, never excluded automatically. <b>verify_claim recomputes a number your assistant told you.</b></p>
+    </article>
+    <article class="card">
+      <p class="tag">open_performance_dashboard</p>
+      <h3>A dashboard on your machine.</h3>
+      <p>Session, HYROX, triathlon, readiness and audit views on <code>127.0.0.1</code>. <b>Token-protected, no third-party assets,</b> and it stops after 30 idle minutes.</p>
+    </article>
+  </div>
+  <p class="aside">Race results and workout corrections are saved to local files with an audit log, never to WHOOP. Available when the server runs locally. · <a href="https://github.com/shashankswe2020-ux/whoop-mcp/blob/main/references/tools.md#race-performance-hyrox-and-triathlon">Race tools</a></p>
 </section>
 
 <section class="privacy" id="privacy">
