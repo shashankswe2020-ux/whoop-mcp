@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-18
+
+### Added
+- HYROX and triathlon performance tracking: `get_hyrox_session_report`,
+  `get_hyrox_performance`, `get_triathlon_performance`, `get_race_readiness`,
+  `audit_performance_data` and `verify_claim`.
+- Local-only tools: `log_race_result` (validated HYROX station and triathlon leg
+  splits), `annotate_workout` (relabel, exclude or restore a workout) and
+  `open_performance_dashboard`.
+- Readiness band from recovery, training form (Edwards TRIMP CTL/ATL/TSB),
+  specificity, sleep debt and taper. Each component carries its evidence and the
+  band rule is returned verbatim.
+- Audit features: every metric reports its method, window and records used or
+  excluded; automatic suspect-record rules; caveats on every result; an
+  append-only audit log; and claim verification.
+- Local dashboard on `127.0.0.1` with Session, HYROX, Triathlon, Readiness and
+  Audit views. Token-protected, Host/Origin checked, strict CSP, no third-party
+  assets, stops after 30 idle minutes.
+- Local files `performance.json` and `performance-audit.jsonl` in `~/.whoop-mcp`
+  (0600).
+
 ### Changed
 - Dashboard redesign: warm light/dark theme, serif headings, and sections
   divided by rules instead of stacked cards. Readiness leads with a large
@@ -33,30 +54,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An existing data directory must be owned by you and is tightened to `0700`; the
   audit log is opened without following symlinks and tightened to `0600` (#294).
 
-## [1.0.0] - 2026-10-18
-
-### Added
-- HYROX and triathlon performance tracking: `get_hyrox_session_report`,
-  `get_hyrox_performance`, `get_triathlon_performance`, `get_race_readiness`,
-  `audit_performance_data` and `verify_claim`.
-- Local-only tools: `log_race_result` (validated HYROX station and triathlon leg
-  splits), `annotate_workout` (relabel, exclude or restore a workout) and
-  `open_performance_dashboard`.
-- Readiness band from recovery, training form (Edwards TRIMP CTL/ATL/TSB),
-  specificity, sleep debt and taper. Each component carries its evidence and the
-  band rule is returned verbatim.
-- Audit features: every metric reports its method, window and records used or
-  excluded; automatic suspect-record rules; caveats on every result; an
-  append-only audit log; and claim verification.
-- Local dashboard on `127.0.0.1` with Session, HYROX, Triathlon, Readiness and
-  Audit views. Token-protected, Host/Origin checked, strict CSP, no third-party
-  assets, stops after 30 idle minutes.
-- Local files `performance.json` and `performance-audit.jsonl` in `~/.whoop-mcp`
-  (0600).
-
 ### Notes
 - The race tools are not available in aggregate privacy mode. Remote HTTP mode
   exposes only the six read-only race tools.
+
+### Verification
+- 1175 tests across 71 files pass.
+- Lint, formatting, typecheck, build, `npm audit --omit=dev` (0 vulnerabilities)
+  and package dry-run (dashboard assets included) pass.
 
 ## [0.9.1] - 2026-10-09
 
@@ -426,7 +431,14 @@ No WHOOP API, OAuth, token-storage or telemetry-policy behavior changes.
 - **CLI entry point** — `npx whoop-mcp` with environment variable configuration
 - **202 tests** with full coverage of auth, API client, tools, and error handling
 
-[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.9.1...v1.0.0
+[0.9.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.8.4...v0.9.0
+[0.8.4]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.8.3...v0.8.4
+[0.8.3]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.8.2...v0.8.3
+[0.8.2]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.6.1...v0.7.0
