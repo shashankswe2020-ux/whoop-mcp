@@ -114,7 +114,7 @@ Parallelisable: T1, T2, T3 and T4 are independent.
   - Files: `src/dashboard/server.ts`, `src/dashboard/api.ts`, `src/tools/open-performance-dashboard.ts`, tests
   - Depends on: T9
 
-- [ ] **T11: Dashboard UI** — `src/dashboard/static/*` (+ build copy step)
+- [x] **T11: Dashboard UI** — `src/dashboard/static/*` (+ build copy step)
   - Acceptance: Session (segment timeline with avg/peak HR bars and transition gaps, segment table,
     insights, caveats), HYROX, Triathlon, Readiness (with "why?" evidence drill-down) and Audit views
     (relabel/exclude/restore, audit log, suspects, "check a claim"). Hand-rolled SVG charts.

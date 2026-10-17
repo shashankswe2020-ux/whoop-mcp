@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>WHOOP race performance</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="top">
+      <h1>Race performance <span class="sub">HYROX &amp; triathlon · local only</span></h1>
+      <nav role="tablist" aria-label="Dashboard views" id="tabs">
+        <button role="tab" id="tab-session" aria-controls="main" data-view="session">
+          Session
+        </button>
+        <button role="tab" id="tab-hyrox" aria-controls="main" data-view="hyrox">HYROX</button>
+        <button role="tab" id="tab-triathlon" aria-controls="main" data-view="triathlon">
+          Triathlon
+        </button>
+        <button role="tab" id="tab-readiness" aria-controls="main" data-view="readiness">
+          Readiness
+        </button>
+        <button role="tab" id="tab-audit" aria-controls="main" data-view="audit">Audit</button>
+      </nav>
+    </header>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <main id="main" role="tabpanel" tabindex="-1">
+      <noscript>This dashboard needs JavaScript.</noscript>
+    </main>
+    <footer class="foot">
+      Numbers are derived from WHOOP data plus your local corrections. Every panel shows its rule
+      and inputs. Use the Audit tab to correct or challenge them. Not medical advice.
+    </footer>
+  </body>
+</html>
