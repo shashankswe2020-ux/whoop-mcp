@@ -1,5 +1,9 @@
 import type { Workout } from "../api/types.js";
-import { classifyWorkout, normalizeSportName } from "./sport-classifier.js";
+import {
+  classifyWorkout,
+  normalizeSportName,
+  type ResolvedDiscipline,
+} from "./sport-classifier.js";
 
 export const SESSION_GAP_MINUTES = 10;
 
@@ -37,11 +41,15 @@ function seconds(from: string, to: string): number {
   return Math.round((Date.parse(to) - Date.parse(from)) / 1000);
 }
 
-function segmentRole(workout: Workout, inChain: boolean): SegmentRole {
-  const discipline = classifyWorkout(workout.sport_name);
+function segmentRole(
+  workout: Workout,
+  inChain: boolean,
+  discipline: ResolvedDiscipline
+): SegmentRole {
   if (discipline === "run") return "run";
-  if (discipline === "hyrox_candidate") return "functional";
-  if (inChain && ERG_LABELS[normalizeSportName(workout.sport_name)]) return "erg_station";
+  const erg = Boolean(ERG_LABELS[normalizeSportName(workout.sport_name)]);
+  if (inChain && erg && discipline !== "bike" && discipline !== "swim") return "erg_station";
+  if (discipline === "hyrox" || discipline === "hyrox_candidate") return "functional";
   return "other";
 }
 
@@ -52,8 +60,13 @@ function baseLabel(workout: Workout, role: SegmentRole): string {
   return titleCase(normalizeSportName(workout.sport_name));
 }
 
-function buildSession(chain: Workout[]): TrainingSession {
-  const roles = chain.map((workout) => segmentRole(workout, chain.length > 1));
+function buildSession(
+  chain: Workout[],
+  disciplineOf: (workout: Workout) => ResolvedDiscipline
+): TrainingSession {
+  const roles = chain.map((workout) =>
+    segmentRole(workout, chain.length > 1, disciplineOf(workout))
+  );
   const bases = chain.map((workout, index) => baseLabel(workout, roles[index]!));
   const totals = new Map<string, number>();
   for (const base of bases) totals.set(base, (totals.get(base) ?? 0) + 1);
@@ -91,14 +104,22 @@ function buildSession(chain: Workout[]): TrainingSession {
   };
 }
 
-/** Chains workouts that start ≤ SESSION_GAP_MINUTES after the previous one ends. */
-export function groupSessions(workouts: Workout[]): TrainingSession[] {
+/**
+ * Chains workouts that start ≤ SESSION_GAP_MINUTES after the previous one ends.
+ * Workouts resolved as "excluded" are dropped before grouping.
+ */
+export function groupSessions(
+  workouts: Workout[],
+  disciplineOf: (workout: Workout) => ResolvedDiscipline = (workout) =>
+    classifyWorkout(workout.sport_name)
+): TrainingSession[] {
   const valid = workouts
     .filter(
       (workout) =>
         Number.isFinite(Date.parse(workout.start)) &&
         Number.isFinite(Date.parse(workout.end)) &&
-        Date.parse(workout.end) >= Date.parse(workout.start)
+        Date.parse(workout.end) >= Date.parse(workout.start) &&
+        disciplineOf(workout) !== "excluded"
     )
     .sort((left, right) => Date.parse(left.start) - Date.parse(right.start));
   const sessions: TrainingSession[] = [];
@@ -106,12 +127,12 @@ export function groupSessions(workouts: Workout[]): TrainingSession[] {
   let chainEnd = 0;
   for (const workout of valid) {
     if (chain.length && Date.parse(workout.start) - chainEnd > SESSION_GAP_MINUTES * 60_000) {
-      sessions.push(buildSession(chain));
+      sessions.push(buildSession(chain, disciplineOf));
       chain = [];
     }
     chain.push(workout);
     chainEnd = Math.max(chain.length > 1 ? chainEnd : 0, Date.parse(workout.end));
   }
-  if (chain.length) sessions.push(buildSession(chain));
+  if (chain.length) sessions.push(buildSession(chain, disciplineOf));
   return sessions;
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { groupSessions, SESSION_GAP_MINUTES } from "../../src/performance/session-grouping.js";
+import { classifyWorkout } from "../../src/performance/sport-classifier.js";
 import { redditHyroxDay, workout } from "../helpers/performance-fixtures.js";
 
 describe("groupSessions", () => {
@@ -104,5 +105,26 @@ describe("groupSessions", () => {
     const broken = { ...redditHyroxDay()[0]!, id: "broken", start: "not-a-date" };
     const sessions = groupSessions([broken, ...redditHyroxDay()]);
     expect(sessions.flatMap((s) => s.segments).some((s) => s.workout.id === "broken")).toBe(false);
+  });
+
+  it("honours user relabels and exclusions", () => {
+    const sessions = groupSessions(redditHyroxDay(), (record) =>
+      record.id === "run-4"
+        ? "other"
+        : record.id === "run-6"
+          ? "excluded"
+          : classifyWorkout(record.sport_name)
+    );
+    const labels = sessions[0]!.segments.map((segment) => segment.label);
+    expect(labels).toContain("Running");
+    expect(labels.filter((label) => label.startsWith("Run "))).toHaveLength(4);
+    expect(sessions[0]!.segments.some((segment) => segment.workout.id === "run-6")).toBe(false);
+  });
+
+  it("keeps erg labels for ergs relabelled as HYROX", () => {
+    const sessions = groupSessions(redditHyroxDay(), (record) =>
+      record.sport_name === "rowing" ? "hyrox" : classifyWorkout(record.sport_name)
+    );
+    expect(sessions[0]!.segments[3]).toMatchObject({ role: "erg_station", label: "Row" });
   });
 });
