@@ -12,7 +12,7 @@ import {
   triathlonSplitsSchema,
   type StoredRaceResult,
 } from "../performance/schemas.js";
-import { updatePerformanceState } from "../performance/store.js";
+import { commitPerformanceChange } from "../performance/store.js";
 
 /** Flat MCP-facing shape; the sport-specific rules are enforced by `createRaceResultSchema`. */
 export const logRaceResultInputSchema = z.object({
@@ -56,20 +56,39 @@ export async function logRaceResult(
     created_at: now.toISOString(),
   });
 
-  const warnings = await updatePerformanceState((state) => {
-    const notes: string[] = [];
-    const duplicate = state.race_results.find(
-      (race) =>
-        race.sport === stored.sport &&
-        race.date === stored.date &&
-        race.name.toLowerCase() === stored.name.toLowerCase()
-    );
-    if (duplicate)
-      notes.push(
-        `A ${stored.sport} result named "${stored.name}" on ${stored.date} already exists (${duplicate.id}).`
+  // The audit append runs inside the store transaction: if it fails, the result is rolled back.
+  const { warnings, entry } = await commitPerformanceChange(
+    (state) => {
+      const notes: string[] = [];
+      const duplicate = state.race_results.find(
+        (race) =>
+          race.sport === stored.sport &&
+          race.date === stored.date &&
+          race.name.toLowerCase() === stored.name.toLowerCase()
       );
-    return { state: { ...state, race_results: [...state.race_results, stored] }, result: notes };
-  }, deps.directory);
+      if (duplicate)
+        notes.push(
+          `A ${stored.sport} result named "${stored.name}" on ${stored.date} already exists (${duplicate.id}).`
+        );
+      return { state: { ...state, race_results: [...state.race_results, stored] }, result: notes };
+    },
+    async (notes) => ({
+      warnings: notes,
+      entry: await appendAuditEntry(
+        {
+          actor: deps.actor ?? "mcp_tool",
+          action: "log_race_result",
+          race_id: stored.id,
+          before: null,
+          after: stored,
+          ...(stored.workout_id ? { workout_id: stored.workout_id } : {}),
+        },
+        deps.directory,
+        now
+      ),
+    }),
+    deps.directory
+  );
   if (!stored.splits)
     warnings.push(
       stored.sport === "hyrox"
@@ -79,18 +98,6 @@ export async function logRaceResult(
   if (stored.workout_id)
     warnings.push("workout_id is stored as given; it is not checked against WHOOP.");
 
-  const entry = await appendAuditEntry(
-    {
-      actor: deps.actor ?? "mcp_tool",
-      action: "log_race_result",
-      race_id: stored.id,
-      before: null,
-      after: stored,
-      ...(stored.workout_id ? { workout_id: stored.workout_id } : {}),
-    },
-    deps.directory,
-    now
-  );
   return {
     result: stored,
     implied_roxzone_seconds: impliedRoxzoneSeconds(stored),

@@ -1,14 +1,18 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { resolveTokenDirectory } from "../auth/token-store.js";
 import { emptyPerformanceState, performanceStateSchema, type PerformanceState } from "./schemas.js";
 
 export const PERFORMANCE_FILENAME = "performance.json";
+export const LOCK_FILENAME = "performance.lock";
+const DEFAULT_LOCK_TIMEOUT_MS = 5_000;
+/** Writes finish in milliseconds; a lock this old was left by a crashed process. */
+const STALE_LOCK_MS = 30_000;
 
 export class PerformanceStoreError extends Error {
   constructor(
-    readonly code: "corrupt" | "invalid_schema" | "io",
+    readonly code: "corrupt" | "invalid_schema" | "io" | "busy" | "partial_write",
     message: string
   ) {
     super(message);
@@ -65,36 +69,132 @@ export async function savePerformanceState(
       "invalid_schema",
       "Refusing to save an invalid performance state."
     );
-  const resolved = await ensurePerformanceDirectory(directory);
+  await writeStateFile(
+    await ensurePerformanceDirectory(directory),
+    JSON.stringify(result.data, null, 2)
+  );
+}
+
+async function writeStateFile(resolved: string, content: string): Promise<void> {
   const target = join(resolved, PERFORMANCE_FILENAME);
   const temporary = `${target}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
   try {
-    await writeFile(temporary, JSON.stringify(result.data, null, 2), {
-      encoding: "utf-8",
-      mode: 0o600,
-    });
+    await writeFile(temporary, content, { encoding: "utf-8", mode: 0o600 });
     await rename(temporary, target);
   } catch {
-    await rm(temporary, { force: true });
+    await rm(temporary, { force: true }).catch(() => undefined);
     throw new PerformanceStoreError("io", `Could not write ${PERFORMANCE_FILENAME}.`);
+  }
+}
+
+async function readStateBytes(resolved: string): Promise<string | null> {
+  try {
+    return await readFile(join(resolved, PERFORMANCE_FILENAME), "utf-8");
+  } catch (error: unknown) {
+    if (isMissing(error)) return null;
+    throw new PerformanceStoreError("io", `Could not read ${PERFORMANCE_FILENAME}.`);
+  }
+}
+
+function errorCode(error: unknown): string | undefined {
+  return error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Interprocess lock: an O_EXCL lockfile holding a random owner token. */
+async function acquireLock(resolved: string, timeoutMs: number): Promise<() => Promise<void>> {
+  const path = join(resolved, LOCK_FILENAME);
+  const owner = `${process.pid}:${randomBytes(8).toString("hex")}`;
+  const deadline = performance.now() + timeoutMs;
+  let delay = 5;
+  for (;;) {
+    try {
+      const handle = await open(path, "wx", 0o600);
+      try {
+        await handle.writeFile(owner, "utf-8");
+      } finally {
+        await handle.close();
+      }
+      return async () => {
+        const current = await readFile(path, "utf-8").catch(() => null);
+        if (current === owner) await rm(path, { force: true }).catch(() => undefined);
+      };
+    } catch (error: unknown) {
+      if (errorCode(error) !== "EEXIST")
+        throw new PerformanceStoreError("io", `Could not create ${LOCK_FILENAME}.`);
+    }
+    const age = await stat(path).then(
+      (info) => Date.now() - info.mtimeMs,
+      () => null
+    );
+    if (age === null) continue;
+    if (age > STALE_LOCK_MS) {
+      await rm(path, { force: true }).catch(() => undefined);
+      continue;
+    }
+    if (performance.now() >= deadline)
+      throw new PerformanceStoreError(
+        "busy",
+        "Another whoop-mcp process is updating local performance data. Try again shortly."
+      );
+    await sleep(delay);
+    delay = Math.min(delay * 2, 100);
   }
 }
 
 const queues = new Map<string, Promise<unknown>>();
 
-/** Serialises read-modify-write cycles per directory so concurrent writers never lose updates. */
-export async function updatePerformanceState<Result>(
-  mutate: (state: PerformanceState) => { state: PerformanceState; result: Result },
-  directory?: string
-): Promise<Result> {
+export interface PerformanceUpdateOptions {
+  lockTimeoutMs?: number;
+}
+
+type Mutator<Result> = (
+  state: PerformanceState
+) =>
+  | { state: PerformanceState; result: Result }
+  | Promise<{ state: PerformanceState; result: Result }>;
+
+/**
+ * Runs load → mutate → save → commit as one transaction. Writers are serialised in-process by a
+ * queue and across processes by a lockfile. If `commit` (e.g. the audit append) fails, the
+ * previous file contents are restored so callers can truthfully say nothing changed; if the
+ * restore also fails, a `partial_write` error says so.
+ */
+export async function commitPerformanceChange<Result, Committed>(
+  mutate: Mutator<Result>,
+  commit: (result: Result, state: PerformanceState) => Promise<Committed>,
+  directory?: string,
+  options: PerformanceUpdateOptions = {}
+): Promise<Committed> {
   const key = resolveTokenDirectory(directory);
   const previous = queues.get(key) ?? Promise.resolve();
   const next = previous
     .catch(() => undefined)
     .then(async () => {
-      const { state, result } = mutate(await loadPerformanceState(directory));
-      await savePerformanceState(state, directory);
-      return result;
+      const resolved = await ensurePerformanceDirectory(directory);
+      const release = await acquireLock(resolved, options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS);
+      try {
+        const original = await readStateBytes(resolved);
+        const { state, result } = await mutate(await loadPerformanceState(directory));
+        await savePerformanceState(state, directory);
+        try {
+          return await commit(result, state);
+        } catch (error: unknown) {
+          try {
+            if (original === null) await rm(join(resolved, PERFORMANCE_FILENAME));
+            else await writeStateFile(resolved, original);
+          } catch {
+            throw new PerformanceStoreError(
+              "partial_write",
+              `The change was saved to ${PERFORMANCE_FILENAME} but its audit entry could not be written, and the change could not be rolled back. Review ${PERFORMANCE_FILENAME} before retrying.`
+            );
+          }
+          throw error;
+        }
+      } finally {
+        await release();
+      }
     });
   queues.set(key, next);
   try {
@@ -102,4 +202,12 @@ export async function updatePerformanceState<Result>(
   } finally {
     if (queues.get(key) === next) queues.delete(key);
   }
+}
+
+export async function updatePerformanceState<Result>(
+  mutate: Mutator<Result>,
+  directory?: string,
+  options: PerformanceUpdateOptions = {}
+): Promise<Result> {
+  return commitPerformanceChange(mutate, async (result) => result, directory, options);
 }

@@ -164,7 +164,7 @@ function errorResponse(error: unknown): {
   } else if (error instanceof PerformanceInputError) {
     message = `Invalid input: ${error.message}`;
   } else if (error instanceof PerformanceStoreError) {
-    message = `Local performance data error: ${error.message} Nothing was changed.`;
+    message = `Local performance data error: ${error.message}${error.code === "partial_write" ? "" : " Nothing was changed."}`;
   } else if (error instanceof z.ZodError || error instanceof RangeError) {
     message = "Invalid input or data. Check the requested parameters and date range.";
   } else {

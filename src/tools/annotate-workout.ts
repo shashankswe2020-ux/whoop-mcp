@@ -12,7 +12,7 @@ import {
   storedAnnotationSchema,
   type StoredAnnotation,
 } from "../performance/schemas.js";
-import { updatePerformanceState } from "../performance/store.js";
+import { commitPerformanceChange } from "../performance/store.js";
 
 export const annotateWorkoutInputSchema = z.object({
   workout_id: z.string().describe("WHOOP workout id."),
@@ -48,27 +48,33 @@ export async function annotateWorkout(
   const { workout_id: workoutId, ...rest } = parsed.data;
   const after: StoredAnnotation = { ...rest, updated_at: now.toISOString() };
 
-  const before = await updatePerformanceState((state) => {
-    const previous = state.annotations[workoutId] ?? null;
-    if (after.action === "restore" && (!previous || previous.action === "restore"))
-      throw new PerformanceInputError(`Workout ${workoutId} has no override to restore.`);
-    return {
-      state: { ...state, annotations: { ...state.annotations, [workoutId]: after } },
-      result: previous,
-    };
-  }, deps.directory);
-
-  const entry = await appendAuditEntry(
-    {
-      actor: deps.actor ?? "mcp_tool",
-      action: "annotate_workout",
-      workout_id: workoutId,
-      before,
-      after,
-      reason: after.reason,
+  // The audit append runs inside the store transaction: if it fails, the override is rolled back.
+  const { before, entry } = await commitPerformanceChange(
+    (state) => {
+      const previous = state.annotations[workoutId] ?? null;
+      if (after.action === "restore" && (!previous || previous.action === "restore"))
+        throw new PerformanceInputError(`Workout ${workoutId} has no override to restore.`);
+      return {
+        state: { ...state, annotations: { ...state.annotations, [workoutId]: after } },
+        result: previous,
+      };
     },
-    deps.directory,
-    now
+    async (previous) => ({
+      before: previous,
+      entry: await appendAuditEntry(
+        {
+          actor: deps.actor ?? "mcp_tool",
+          action: "annotate_workout",
+          workout_id: workoutId,
+          before: previous,
+          after,
+          reason: after.reason,
+        },
+        deps.directory,
+        now
+      ),
+    }),
+    deps.directory
   );
   return { workout_id: workoutId, before, after, audit_entry_id: entry.id };
 }

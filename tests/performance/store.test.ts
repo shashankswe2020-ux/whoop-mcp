@@ -1,9 +1,21 @@
-import { afterEach, beforeEach, describe, it, expect } from "vitest";
-import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  commitPerformanceChange,
   loadPerformanceState,
+  LOCK_FILENAME,
   PERFORMANCE_FILENAME,
   PerformanceStoreError,
   savePerformanceState,
@@ -91,6 +103,115 @@ describe("performance store", () => {
       }, dir)
     ).rejects.toThrow("boom");
     expect(await loadPerformanceState(dir)).toEqual(emptyPerformanceState());
+  });
+});
+
+describe("cross-process locking", () => {
+  it("does not lose writes between independent module instances (separate processes)", async () => {
+    vi.resetModules();
+    const other = await import("../../src/performance/store.js");
+    expect(other.updatePerformanceState).not.toBe(updatePerformanceState);
+    const push = (update: typeof updatePerformanceState, name: string) => (): Promise<null> =>
+      update((state) => {
+        state.rules.push({ sport_name: name, discipline: "other" });
+        return { state, result: null };
+      }, dir);
+    await Promise.all(
+      Array.from({ length: 10 }, (_, index) => [
+        push(updatePerformanceState, `a-${index}`)(),
+        push(other.updatePerformanceState, `b-${index}`)(),
+      ]).flat()
+    );
+    expect((await loadPerformanceState(dir)).rules).toHaveLength(20);
+    expect(await readdir(dir)).not.toContain(LOCK_FILENAME);
+  });
+
+  it("holds a lockfile during the update and removes it afterwards", async () => {
+    let sawLock = false;
+    await updatePerformanceState(async (state) => {
+      sawLock = (await readdir(dir)).includes(LOCK_FILENAME);
+      return { state, result: null };
+    }, dir);
+    expect(sawLock).toBe(true);
+    expect(await readdir(dir)).not.toContain(LOCK_FILENAME);
+  });
+
+  it("reports busy without writing when another process holds a fresh lock", async () => {
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, LOCK_FILENAME), "other");
+    await expect(
+      updatePerformanceState((state) => ({ state, result: null }), dir, { lockTimeoutMs: 50 })
+    ).rejects.toMatchObject({ code: "busy" });
+    expect(await readdir(dir)).not.toContain(PERFORMANCE_FILENAME);
+    expect(await readFile(join(dir, LOCK_FILENAME), "utf-8")).toBe("other");
+  });
+
+  it("breaks a stale lock left by a crashed process", async () => {
+    await mkdir(dir, { recursive: true });
+    const lock = join(dir, LOCK_FILENAME);
+    await writeFile(lock, "crashed");
+    const old = new Date(Date.now() - 120_000);
+    await utimes(lock, old, old);
+    expect(
+      await updatePerformanceState((state) => ({ state, result: "ok" }), dir, {
+        lockTimeoutMs: 50,
+      })
+    ).toBe("ok");
+    expect(await readdir(dir)).not.toContain(LOCK_FILENAME);
+  });
+});
+
+describe("commitPerformanceChange", () => {
+  type State = ReturnType<typeof emptyPerformanceState>;
+  const addRule = (state: State): { state: State; result: string } => {
+    state.rules.push({ sport_name: "new", discipline: "hyrox" });
+    return { state, result: "mutated" };
+  };
+
+  it("returns the commit result after saving", async () => {
+    const committed = await commitPerformanceChange(
+      addRule,
+      async (result) => `${result}+audited`,
+      dir
+    );
+    expect(committed).toBe("mutated+audited");
+    expect((await loadPerformanceState(dir)).rules).toHaveLength(1);
+  });
+
+  it("restores the previous bytes when the commit step fails", async () => {
+    const original = emptyPerformanceState();
+    original.rules.push({ sport_name: "old", discipline: "other" });
+    await savePerformanceState(original, dir);
+    const before = await readFile(join(dir, PERFORMANCE_FILENAME), "utf-8");
+    const failure = new PerformanceStoreError("io", "audit failed");
+    await expect(commitPerformanceChange(addRule, () => Promise.reject(failure), dir)).rejects.toBe(
+      failure
+    );
+    expect(await readFile(join(dir, PERFORMANCE_FILENAME), "utf-8")).toBe(before);
+    expect(await readdir(dir)).toEqual([PERFORMANCE_FILENAME]);
+  });
+
+  it("removes a newly created state file when the first commit fails", async () => {
+    await expect(
+      commitPerformanceChange(addRule, () => Promise.reject(new Error("audit failed")), dir)
+    ).rejects.toThrow("audit failed");
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it("reports a partial write truthfully when the rollback also fails", async () => {
+    await savePerformanceState(emptyPerformanceState(), dir);
+    const error = await commitPerformanceChange(
+      addRule,
+      async () => {
+        await chmod(dir, 0o500);
+        throw new Error("audit failed");
+      },
+      dir
+    )
+      .catch((caught: unknown) => caught)
+      .finally(() => chmod(dir, 0o700));
+    expect(error).toMatchObject({ name: "PerformanceStoreError", code: "partial_write" });
+    expect((error as Error).message).toMatch(/saved.*audit/i);
   });
 });
 

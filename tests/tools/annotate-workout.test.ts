@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { annotateWorkout, annotateWorkoutOutputSchema } from "../../src/tools/annotate-workout.js";
@@ -23,6 +23,17 @@ afterEach(async () => {
 });
 
 describe("annotate_workout", () => {
+  it("leaves the store unchanged when the audit entry cannot be written", async () => {
+    await mkdir(join(dir, AUDIT_FILENAME), { recursive: true });
+    await expect(
+      annotateWorkout(
+        { workout_id: "ff-1", action: "exclude", reason: "bad_hr" },
+        { directory: dir, now: T1 }
+      )
+    ).rejects.toMatchObject({ name: "PerformanceStoreError", code: "io" });
+    expect((await loadPerformanceState(dir)).annotations).toEqual({});
+  });
+
   it("relabels a workout and records before/after in the audit log", async () => {
     const output = await annotateWorkout(
       { workout_id: "ff-1", action: "relabel", discipline: "hyrox", reason: "hyrox_sim" },

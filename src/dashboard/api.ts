@@ -108,7 +108,13 @@ function failure(error: unknown): ApiResponse {
   if (error instanceof PerformanceInputError || error instanceof RangeError)
     return { status: 400, body: { error: error.message } };
   if (error instanceof PerformanceStoreError)
-    return { status: 500, body: { error: `${error.message} Nothing was changed.` } };
+    return {
+      status: error.code === "busy" ? 503 : 500,
+      body: {
+        error:
+          error.code === "partial_write" ? error.message : `${error.message} Nothing was changed.`,
+      },
+    };
   if (error instanceof WhoopAuthError)
     return { status: 502, body: { error: "WHOOP authentication failed. Run setup --verify." } };
   if (error instanceof WhoopApiError || error instanceof WhoopNetworkError)

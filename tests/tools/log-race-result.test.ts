@@ -37,6 +37,15 @@ function hyrox(overrides: Record<string, unknown> = {}): Parameters<typeof logRa
 }
 
 describe("log_race_result", () => {
+  it("leaves the store unchanged when the audit entry cannot be written", async () => {
+    await mkdir(join(dir, "performance-audit.jsonl"), { recursive: true });
+    await expect(logRaceResult(hyrox(), { directory: dir, now: NOW })).rejects.toMatchObject({
+      name: "PerformanceStoreError",
+      code: "io",
+    });
+    expect((await loadPerformanceState(dir)).race_results).toEqual([]);
+  });
+
   it("stores the result, reports implied roxzone and writes one audit entry", async () => {
     const output = await logRaceResult(hyrox(), { directory: dir, now: NOW });
 
