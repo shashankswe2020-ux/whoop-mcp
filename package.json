@@ -18,12 +18,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src/ tests/ scripts/",
-    "lint:fix": "eslint src/ tests/ scripts/ --fix",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "typecheck": "tsc --noEmit",
-    "site:stats": "tsx scripts/update-site-stats.ts"
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "whoop",

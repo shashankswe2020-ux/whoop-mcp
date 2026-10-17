@@ -1,11 +1,14 @@
 name: Deploy Pages
 
+# whoopconnector.com is still served by this repository's GitHub Pages. The
+# site source lives in the private whoop-mcp-site repository; this workflow
+# checks it out with a read-only deploy key, verifies it, refreshes the public
+# download and star counts, and deploys the result.
+
 on:
   push:
     branches: [main]
     paths:
-      - "site/**"
-      - "scripts/update-site-stats.ts"
       - ".github/workflows/pages.yml"
   schedule:
     - cron: "17 6 * * *"
@@ -29,8 +32,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Checkout
+      - name: Check out site source
         uses: actions/checkout@v7
+        with:
+          repository: shashankswe2020-ux/whoop-mcp-site
+          ssh-key: ${{ secrets.SITE_DEPLOY_KEY }}
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v6
@@ -41,8 +48,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify statistics generator
-        run: npm test -- tests/site-stats.test.ts
+      - name: Verify site
+        run: |
+          npm run lint
+          npm run site:check
+          npm test
 
       - name: Refresh public project statistics
         run: npm run site:stats

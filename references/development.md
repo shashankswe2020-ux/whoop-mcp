@@ -49,13 +49,13 @@ Both collector builds are local dry runs; deployment requires separately configu
 Cloudflare infrastructure. See [operator documentation](../collector/README.md).
 The [public website](https://whoopconnector.com/) is maintained independently in
 the private [whoop-mcp-site repository](https://github.com/shashankswe2020-ux/whoop-mcp-site).
-Its source, tests and operating documentation are not part of either server
-checkout. Until the custom domain moves from GitHub Pages to Cloudflare Pages,
-the verified static output is mirrored in `site/` and deployed by
-`.github/workflows/pages.yml`. That workflow also runs daily at 06:17 UTC and
-refreshes the download and star counts with `npm run site:stats`
-(`scripts/update-site-stats.ts`) before deploying; a failed refresh blocks the
-deployment instead of publishing stale or partial numbers.
+Its source, tests, statistics generator and operating documentation live only
+there. Until the custom domain moves from GitHub Pages to Cloudflare Pages,
+`.github/workflows/pages.yml` in this repository checks out the site repository
+with a read-only deploy key (`SITE_DEPLOY_KEY`), runs its checks, refreshes the
+download and star counts, and deploys to GitHub Pages. It runs daily at 06:17 UTC
+and can be started manually after site changes:
+`gh workflow run pages.yml -R shashankswe2020-ux/whoop-mcp`.
 
 ### Project Structure
 
