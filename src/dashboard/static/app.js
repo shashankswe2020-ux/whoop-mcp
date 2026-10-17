@@ -232,7 +232,7 @@ function select(name, options, value, extra = {}) {
     "select",
     { name, ...extra },
     options.map((option) => {
-      const [optionValue, text] = Array.isArray(option) ? option : [option, label(option)];
+      const [optionValue, text] = Array.isArray(option) ? option : [option, sentence(option)];
       return el("option", { value: optionValue, selected: optionValue === value }, text);
     })
   );
@@ -248,6 +248,29 @@ function input(name, attrs = {}) {
 
 function label(value) {
   return String(value).replaceAll("_", " ");
+}
+
+/** Human copy for API enums: "not_ready" -> "Not ready", "hyrox" -> "HYROX". */
+function sentence(value) {
+  const text = label(value)
+    .replace(/\bhyrox\b/gi, "HYROX")
+    .replace(/\bhr\b/gi, "HR")
+    .replace(/ pct\b/g, " %");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Axis ticks at 1/2/2.5/5 × 10^n so labels read 0, 50, 100 instead of 0, 155. */
+function niceTicks(min, max, target = 4) {
+  const span = Math.max(1e-9, max - min);
+  const raw = span / target;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * power).find((m) => m >= raw) ?? 10 * power;
+  const lo = Math.floor(min / step) * step;
+  const hi = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let value = lo; value <= hi + step / 2; value += step)
+    ticks.push(Math.round(value * 1e6) / 1e6);
+  return { lo, hi, ticks };
 }
 
 function duration(seconds) {
@@ -362,7 +385,7 @@ function caveatsPanel(caveats) {
   return el(
     "section",
     { class: "card caveats" },
-    el("h2", {}, "Before you trust these numbers"),
+    el("h2", {}, "Known gaps in this data"),
     el(
       "ul",
       {},
@@ -377,7 +400,13 @@ function caveatsPanel(caveats) {
         )
       )
     ),
-    el("button", { type: "button", onclick: () => selectTab("audit") }, "Review in Audit")
+    currentView === "audit"
+      ? null
+      : el(
+          "button",
+          { type: "button", class: "link", onclick: () => selectTab("audit") },
+          "Review these in Audit"
+        )
   );
 }
 
@@ -396,7 +425,7 @@ function windowForm(state, onSubmit, extra = []) {
       },
     },
     field("From", start),
-    field("To (exclusive)", end, "Blank = default window"),
+    field("To (exclusive)", end),
     ...extra,
     el("button", { type: "submit" }, "Update")
   );
@@ -465,7 +494,7 @@ function sessionTimeline(session, segments) {
       const sx = x(segment.start);
       const width = Math.max(2, (segment.duration_seconds * 1000 * (W - left - 8)) / span);
       const nodes = [];
-      const summary = `${segment.label} (${label(segment.sport_name)}) ${duration(segment.duration_seconds)} · avg ${num(segment.avg_hr)} / max ${num(segment.max_hr)} bpm`;
+      const summary = `${segment.label} (${sentence(segment.sport_name)}) ${duration(segment.duration_seconds)} · avg ${num(segment.avg_hr)} / max ${num(segment.max_hr)} bpm`;
       if (Number.isFinite(segment.avg_hr))
         nodes.push(
           svg(
@@ -521,7 +550,7 @@ function stackedBars(title, weeks, series) {
   const left = 44;
   const bottom = 28;
   const totals = rows.map((row) => series.reduce((sum, item) => sum + (item.value(row) ?? 0), 0));
-  const max = Math.max(1, ...totals);
+  const { hi: max, ticks } = niceTicks(0, Math.max(1, ...totals));
   const band = (W - left - 8) / Math.max(1, rows.length);
   const barWidth = Math.max(4, band * 0.7);
   const scale = (value) => (value / max) * (H - 12 - bottom);
@@ -536,7 +565,13 @@ function stackedBars(title, weeks, series) {
         role: "img",
         "aria-label": `${title}. Values are in the table below.`,
       },
-      svg("text", { x: left - 6, y: 16, class: "axis", "text-anchor": "end" }, Math.round(max)),
+      ...ticks.flatMap((value) => {
+        const ty = H - bottom - scale(value);
+        return [
+          value ? svg("line", { x1: left, x2: W - 8, y1: ty, y2: ty, class: "grid" }) : null,
+          svg("text", { x: left - 6, y: ty + 4, class: "axis", "text-anchor": "end" }, value),
+        ];
+      }),
       svg("line", { x1: left, x2: W - 8, y1: H - bottom, y2: H - bottom, class: "axis-line" }),
       ...rows.flatMap((row, index) => {
         let offset = 0;
@@ -565,7 +600,7 @@ function stackedBars(title, weeks, series) {
     el(
       "figcaption",
       {},
-      `${title} · `,
+      `${title}: `,
       series.map((item) => el("span", { class: `key ${item.cls}` }, item.name))
     )
   );
@@ -577,8 +612,7 @@ function loadChart(series) {
   const left = 44;
   const bottom = 28;
   const values = series.flatMap((point) => [point.ctl, point.atl, point.tsb]);
-  const min = Math.min(0, ...values);
-  const max = Math.max(1, ...values);
+  const { lo: min, hi: max, ticks } = niceTicks(Math.min(0, ...values), Math.max(1, ...values));
   const x = (index) => left + (index / Math.max(1, series.length - 1)) * (W - left - 8);
   const y = (value) => 10 + (1 - (value - min) / (max - min)) * (H - 10 - bottom);
   const path = (key) =>
@@ -598,20 +632,16 @@ function loadChart(series) {
         role: "img",
         "aria-label": `Fitness (CTL), fatigue (ATL) and form (TSB) over ${series.length} days. Latest values are in the summary.`,
       },
-      svg("line", { x1: left, x2: W - 8, y1: y(0), y2: y(0), class: "axis-line" }),
-      svg(
-        "text",
-        { x: left - 6, y: y(max) + 4, class: "axis", "text-anchor": "end" },
-        Math.round(max)
-      ),
-      svg("text", { x: left - 6, y: y(0) + 4, class: "axis", "text-anchor": "end" }, 0),
-      min < 0
-        ? svg(
-            "text",
-            { x: left - 6, y: y(min) + 4, class: "axis", "text-anchor": "end" },
-            Math.round(min)
-          )
-        : null,
+      ...ticks.flatMap((value) => [
+        svg("line", {
+          x1: left,
+          x2: W - 8,
+          y1: y(value),
+          y2: y(value),
+          class: value ? "grid" : "axis-line",
+        }),
+        svg("text", { x: left - 6, y: y(value) + 4, class: "axis", "text-anchor": "end" }, value),
+      ]),
       svg("path", { d: path("ctl"), class: "line line-ctl" }),
       svg("path", { d: path("atl"), class: "line line-atl" }),
       svg("path", { d: path("tsb"), class: "line line-tsb" }),
@@ -625,7 +655,7 @@ function loadChart(series) {
     el(
       "figcaption",
       {},
-      "Training load (TRIMP) · ",
+      "Training load (TRIMP): ",
       el("span", { class: "key line-ctl" }, "Fitness CTL (42 d)"),
       el("span", { class: "key line-atl" }, "Fatigue ATL (7 d)"),
       el("span", { class: "key line-tsb" }, "Form TSB")
@@ -641,7 +671,7 @@ function shareBars(rows, minShare) {
       el(
         "div",
         { class: "share-row" },
-        el("span", { class: "share-name" }, label(name)),
+        el("span", { class: "share-name" }, sentence(name)),
         el(
           "meter",
           {
@@ -682,7 +712,7 @@ async function renderSession() {
         void render();
       },
     },
-    field("Day", dateInput, "Blank = latest workout day (7 days)"),
+    field("Day", dateInput, "Leave blank for the latest workout"),
     el("button", { type: "submit" }, "Load")
   );
   const data = await api("/api/session-report", { query: { date: state.date } });
@@ -704,11 +734,18 @@ async function renderSession() {
       `Session ${day(session.start)}`,
       el(
         "p",
-        {},
+        { class: "actions" },
         session.confirmed_hyrox
           ? badge("Confirmed HYROX", "green")
           : session.kind === "hyrox_candidate"
-            ? badge("Unconfirmed HYROX candidate — confirm it in Audit", "amber")
+            ? [
+                badge("Possible HYROX, not yet confirmed", "amber"),
+                el(
+                  "button",
+                  { type: "button", class: "link", onclick: () => selectTab("audit") },
+                  "Confirm in Audit"
+                ),
+              ]
             : badge("Not a HYROX session", "grey")
       ),
       el(
@@ -738,7 +775,7 @@ async function renderSession() {
         data.segments.map((segment, index) => [
           index + 1,
           segment.label,
-          label(segment.sport_name),
+          sentence(segment.sport_name),
           time(segment.start),
           duration(segment.duration_seconds),
           num(segment.avg_hr),
@@ -760,14 +797,13 @@ async function renderSession() {
               el(
                 "li",
                 {},
-                el("strong", {}, label(insight.id)),
-                " — ",
-                insight.text,
+                el("strong", {}, sentence(insight.id)),
+                el("span", {}, insight.text),
                 el("small", { class: "rule" }, `Rule: ${insight.rule}`)
               )
             )
           )
-        : el("p", { class: "empty" }, "No insight rule fired (or its inputs were missing).")
+        : el("p", { class: "empty" }, "No insight rule fired, or its inputs were missing.")
     )
   );
   nodes.push(
@@ -779,7 +815,7 @@ async function renderSession() {
         stat(
           "Recovery",
           num(context.recovery_score, 0, "%"),
-          context.recovery_band ? `${context.recovery_band} band` : undefined
+          context.recovery_band ? `${sentence(context.recovery_band)} band` : undefined
         ),
         stat(
           "HRV",
@@ -825,7 +861,7 @@ async function renderSession() {
           "Other activities",
           ["Activity", "Start", "Duration", "Avg HR", "Strain", "Workout"],
           data.other_activities.map((row) => [
-            label(row.sport_name),
+            sentence(row.sport_name),
             time(row.start),
             duration(row.duration_seconds),
             num(row.avg_hr),
@@ -846,7 +882,7 @@ async function renderSession() {
             el(
               "li",
               {},
-              `${time(item.start)} · ${label(item.kind)} · ${item.segment_count} segments`
+              `${time(item.start)} · ${sentence(item.kind)} · ${item.segment_count} ${item.segment_count === 1 ? "segment" : "segments"}`
             )
           )
         )
@@ -906,23 +942,27 @@ async function renderHyrox() {
   if (data.unconfirmed_candidates.count)
     nodes.push(
       section(
-        `Unconfirmed candidates (${data.unconfirmed_candidates.count}) — not counted`,
+        `Unconfirmed candidates (${data.unconfirmed_candidates.count})`,
         el(
           "p",
           {},
-          "WHOOP logs HYROX sims as Functional Fitness/HIIT. Confirm the ones that were HYROX."
+          "WHOOP logs HYROX sims as Functional Fitness or HIIT, so these are not counted until you confirm them."
         ),
         table(
           "Candidates",
           ["Start", "Kind", "Why", "Workouts"],
           data.unconfirmed_candidates.items.map((item) => [
             time(item.start),
-            item.kind,
+            sentence(item.kind),
             item.reason,
             item.workout_ids.join(", "),
           ])
         ),
-        el("button", { type: "button", onclick: () => selectTab("audit") }, "Review in Audit")
+        el(
+          "button",
+          { type: "button", class: "link", onclick: () => selectTab("audit") },
+          "Confirm in Audit"
+        )
       )
     );
   const analysis = data.station_analysis;
@@ -937,13 +977,18 @@ async function renderHyrox() {
           : "Needs at least two races with splits."
       ),
       analysis.weakest_station
-        ? el("p", {}, "Weakest vs your median: ", el("strong", {}, label(analysis.weakest_station)))
+        ? el(
+            "p",
+            {},
+            "Weakest against your median: ",
+            el("strong", {}, sentence(analysis.weakest_station))
+          )
         : null,
       table(
         "Stations",
         ["Station", "Median", "Latest", "Δ", "Δ %"],
         analysis.stations.map((row) => [
-          label(row.station),
+          sentence(row.station),
           duration(row.median_seconds),
           duration(row.latest_seconds),
           `${row.delta_seconds > 0 ? "+" : ""}${Math.round(row.delta_seconds)} s`,
@@ -962,7 +1007,7 @@ async function renderHyrox() {
         data.races.map((race) => [
           race.date,
           race.name,
-          label(race.category),
+          sentence(race.category),
           duration(race.total_seconds),
           race.runs_seconds ? duration(race.runs_seconds.reduce((a, b) => a + b, 0)) : "—",
           race.roxzone_seconds === null
@@ -976,7 +1021,7 @@ async function renderHyrox() {
         "Personal records by division",
         ["Division", "Date", "Total"],
         data.personal_records.best_total_by_division.map((row) => [
-          label(row.category),
+          sentence(row.category),
           row.date,
           duration(row.total_seconds),
         ]),
@@ -1028,13 +1073,13 @@ async function renderTriathlon() {
             ["swim", "bike", "run"].map((leg) => [leg, share[leg], share.below_min.includes(leg)]),
             share.min_share
           )
-        : el("p", { class: "empty" }, "Not enough swim/bike/run training to judge balance."),
+        : el("p", { class: "empty" }, "Not enough swim, bike and run training to judge balance."),
       el("small", { class: "rule" }, `Rule: ${share.rule}`),
       table(
         "Totals",
         ["Leg", "Workouts", "Minutes", "Distance", "TRIMP"],
         ["swim", "bike", "run", "multisport"].map((leg) => [
-          label(leg),
+          sentence(leg),
           data.totals[leg].workouts,
           num(data.totals[leg].minutes),
           num(data.totals[leg].distance_km, 1, " km"),
@@ -1059,7 +1104,7 @@ async function renderTriathlon() {
         ["swim", "bike", "run"]
           .filter((leg) => data.zone_mix[leg])
           .map((leg) => [
-            label(leg),
+            sentence(leg),
             ...["zone_one", "zone_two", "zone_three", "zone_four", "zone_five"].map((zone) =>
               pct(data.zone_mix[leg][zone])
             ),
@@ -1089,7 +1134,7 @@ async function renderTriathlon() {
         data.races.map((race) => [
           race.date,
           race.name,
-          label(race.category),
+          sentence(race.category),
           duration(race.total_seconds),
           duration(race.swim_seconds),
           duration(race.t1_seconds),
@@ -1127,7 +1172,7 @@ async function renderReadiness() {
       },
     },
     field("Sport", sport),
-    field("Race day", raceDate, "Optional; enables the taper check"),
+    field("Race day", raceDate, "Optional, enables the taper check"),
     el("button", { type: "submit" }, "Evaluate")
   );
   const data = await api("/api/readiness", { query: state });
@@ -1137,31 +1182,62 @@ async function renderReadiness() {
     not_ready: "red",
     insufficient_data: "grey",
   }[data.band];
+  const verdictText = {
+    ready: "Ready",
+    caution: "Caution",
+    not_ready: "Not ready",
+    insufficient_data: "Not enough data",
+  }[data.band];
+  const named = (band) =>
+    data.components.filter((component) => component.band === band).map((c) => sentence(c.id));
+  const red = named("red");
+  const amber = named("amber");
+  const unknown = named("unknown");
+  const summary = [
+    red.length ? `Red: ${red.join(", ")}.` : null,
+    amber.length ? `Amber: ${amber.join(", ")}.` : null,
+    unknown.length ? `No data: ${unknown.join(", ")}.` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
   const load = data.load;
   return [
     controls,
     storeNotice(data.store),
     section(
-      `${label(data.sport)} readiness · ${data.today}`,
+      `${sentence(data.sport)} readiness`,
       el(
-        "p",
-        { class: "headline" },
-        badge(label(data.band), bandKind),
-        data.days_to_race === null ? null : ` ${data.days_to_race} days to race`
+        "div",
+        { class: "verdict" },
+        el(
+          "p",
+          { class: "verdict-eyebrow" },
+          data.days_to_race === null
+            ? `As of ${data.today}`
+            : `As of ${data.today} · ${data.days_to_race} days to race`
+        ),
+        el("p", { class: `verdict-band verdict-${bandKind}` }, verdictText),
+        el("p", { class: "verdict-summary" }, summary || "Every component is green.")
       ),
-      el("small", { class: "rule" }, `Rule: ${data.band_rule}`),
       el(
         "div",
         { class: "components" },
         data.components.map((component) =>
           el(
             "article",
-            { class: `component band-${component.band}` },
-            el("h3", {}, label(component.id), " ", badge(label(component.band), component.band)),
+            { class: "component" },
+            el("h3", {}, sentence(component.id)),
+            badge(sentence(component.band), component.band),
             el("p", {}, component.rationale),
             evidence(component.metric)
           )
         )
+      ),
+      el(
+        "details",
+        { class: "rule-detail" },
+        el("summary", {}, "How the verdict is decided"),
+        el("p", {}, data.band_rule)
       )
     ),
     section(
@@ -1177,7 +1253,7 @@ async function renderReadiness() {
               "Load spike",
               load.load_spike.ratio === null ? "—" : `${num(load.load_spike.ratio, 2)}×`,
               load.load_spike.flagged
-                ? `above ${load.load_spike.threshold}× — flagged`
+                ? `Flagged: above ${load.load_spike.threshold}×`
                 : `threshold ${load.load_spike.threshold}×`
             )
           )
@@ -1187,7 +1263,7 @@ async function renderReadiness() {
         "Load by discipline",
         ["Discipline", "CTL", "ATL", "TSB", "28-day load"],
         Object.entries(load.by_discipline).map(([name, values]) => [
-          label(name),
+          sentence(name),
           num(values.ctl, 1),
           num(values.atl, 1),
           num(values.tsb, 1),
@@ -1197,7 +1273,9 @@ async function renderReadiness() {
       el(
         "small",
         { class: "rule" },
-        `Method: ${load.method} (${load.unit}, ${load.method_version})`
+        "Method: ",
+        el("code", {}, load.method),
+        ` (${load.unit}, ${load.method_version})`
       ),
       load.series_truncated
         ? el("p", { class: "notice" }, "Chart shows the latest 90 days only.")
@@ -1212,16 +1290,16 @@ function evidence(metric) {
   return el(
     "details",
     { class: "why" },
-    el("summary", {}, "Why?"),
+    el("summary", {}, "Evidence"),
     el(
       "dl",
       {},
       el("dt", {}, "Value"),
       el("dd", {}, metric.value === null ? "—" : `${metric.value} ${metric.unit}`),
       el("dt", {}, "Status"),
-      el("dd", {}, label(metric.status)),
+      el("dd", {}, sentence(metric.status)),
       el("dt", {}, "Method"),
-      el("dd", {}, `${metric.method} (${metric.method_version})`),
+      el("dd", {}, el("code", {}, metric.method), ` (${metric.method_version})`),
       el("dt", {}, "Window"),
       el(
         "dd",
@@ -1268,6 +1346,57 @@ async function renderAudit() {
     windowForm(state, () => void render()),
     storeNotice(data.store),
     section(
+      "To review",
+      el(
+        "p",
+        { class: "lede" },
+        "Flagged automatically, never excluded automatically. Pick a row to prefill the correction form."
+      ),
+      suspectGroups(data.suspects, prefill),
+      data.unconfirmed_candidates.length
+        ? el(
+            "div",
+            { class: "suspect-group" },
+            el(
+              "h3",
+              {},
+              "Possible HYROX sessions ",
+              el("span", { class: "count" }, `(${data.unconfirmed_candidates.length})`)
+            ),
+            table(
+              "Unconfirmed HYROX candidates",
+              ["Start", "Why", "Confirm a workout as HYROX"],
+              data.unconfirmed_candidates.map((item) => [
+                time(item.start),
+                item.reason,
+                el(
+                  "span",
+                  { class: "actions" },
+                  item.workout_ids.map((id) =>
+                    el(
+                      "button",
+                      {
+                        type: "button",
+                        class: "chip",
+                        title: id,
+                        onclick: prefill({
+                          workout_id: id,
+                          action: "relabel",
+                          discipline: "hyrox",
+                          reason: "hyrox_sim",
+                        }),
+                        "aria-label": `Confirm workout ${id} as HYROX`,
+                      },
+                      shortId(id)
+                    )
+                  )
+                ),
+              ])
+            )
+          )
+        : null
+    ),
+    section(
       "Correct a workout",
       el(
         "p",
@@ -1277,93 +1406,17 @@ async function renderAudit() {
       form.node
     ),
     section(
-      `Suspect records (${data.suspects.length})`,
-      el("p", {}, "Flagged automatically, never excluded automatically. You decide."),
-      table(
-        "Suspects",
-        ["Rule", "Workout", "Sport", "Start", "Detail", "Action"],
-        data.suspects.map((suspect) => [
-          label(suspect.rule),
-          el("code", {}, suspect.workout_id),
-          label(suspect.sport_name),
-          time(suspect.start),
-          suspect.detail,
-          el(
-            "span",
-            { class: "actions" },
-            el(
-              "button",
-              {
-                type: "button",
-                onclick: prefill({
-                  workout_id: suspect.workout_id,
-                  action: "exclude",
-                  reason: suspect.rule === "hr_out_of_range" ? "bad_hr" : "misclassified",
-                }),
-              },
-              "Exclude…"
-            ),
-            el(
-              "button",
-              {
-                type: "button",
-                onclick: prefill({
-                  workout_id: suspect.workout_id,
-                  action: "relabel",
-                  reason: "misclassified",
-                }),
-              },
-              "Relabel…"
-            )
-          ),
-        ]),
-        { empty: "No suspect records in this window." }
-      )
-    ),
-    section(
-      `Unconfirmed HYROX candidates (${data.unconfirmed_candidates.length})`,
-      table(
-        "Candidates",
-        ["Start", "Why", "Workouts"],
-        data.unconfirmed_candidates.map((item) => [
-          time(item.start),
-          item.reason,
-          el(
-            "span",
-            { class: "actions" },
-            item.workout_ids.map((id) =>
-              el(
-                "button",
-                {
-                  type: "button",
-                  onclick: prefill({
-                    workout_id: id,
-                    action: "relabel",
-                    discipline: "hyrox",
-                    reason: "hyrox_sim",
-                  }),
-                  "aria-label": `Confirm workout ${id} as HYROX`,
-                },
-                `Confirm ${id}…`
-              )
-            )
-          ),
-        ]),
-        { empty: "No unconfirmed candidates." }
-      )
-    ),
-    section(
       `Your corrections (${data.annotations.length})`,
       table(
         "Corrections",
         ["Workout", "Sport", "Start", "Action", "Discipline", "Reason", "Note", "Updated", ""],
         data.annotations.map((annotation) => [
           el("code", {}, annotation.workout_id),
-          annotation.sport_name ? label(annotation.sport_name) : "not in window",
+          annotation.sport_name ? sentence(annotation.sport_name) : "not in window",
           time(annotation.start),
-          annotation.action,
-          annotation.discipline ? label(annotation.discipline) : "—",
-          label(annotation.reason),
+          sentence(annotation.action),
+          annotation.discipline ? sentence(annotation.discipline) : "—",
+          sentence(annotation.reason),
           annotation.note ?? "",
           time(annotation.updated_at),
           annotation.action === "restore"
@@ -1391,8 +1444,8 @@ async function renderAudit() {
             "Classification rules",
             ["WHOOP sport", "Counts as", "Min minutes", "Weekdays"],
             data.rules.map((rule) => [
-              label(rule.sport_name),
-              label(rule.discipline),
+              sentence(rule.sport_name),
+              sentence(rule.discipline),
               rule.min_duration_minutes ?? "—",
               rule.weekdays?.join(", ") ?? "any",
             ])
@@ -1418,10 +1471,10 @@ async function renderAudit() {
         ["When", "By", "Action", "Target", "Reason", "Before", "After"],
         data.audit_log.entries.map((entry) => [
           time(entry.at),
-          entry.actor === "dashboard" ? "dashboard" : "assistant",
-          label(entry.action),
+          entry.actor === "dashboard" ? "Dashboard" : "Assistant",
+          sentence(entry.action),
           entry.workout_id ?? entry.race_id ?? "—",
-          entry.reason ? label(entry.reason) : "—",
+          entry.reason ? sentence(entry.reason) : "—",
           el("code", { class: "json" }, json(entry.before)),
           el("code", { class: "json" }, json(entry.after)),
         ]),
@@ -1432,6 +1485,49 @@ async function renderAudit() {
     caveatsPanel(data.caveats),
     trustFooter(data),
   ];
+}
+
+function shortId(id) {
+  return id.length > 12 ? `${id.slice(0, 8)}…` : id;
+}
+
+/** One block per suspect rule; long groups start collapsed so a noisy rule cannot bury the rest. */
+function suspectGroups(suspects, prefill) {
+  if (!suspects.length) return el("p", { class: "empty" }, "No suspect records in this window.");
+  const groups = new Map();
+  for (const suspect of suspects) {
+    if (!groups.has(suspect.rule)) groups.set(suspect.rule, []);
+    groups.get(suspect.rule).push(suspect);
+  }
+  return [...groups].map(([rule, rows]) => {
+    const heading = [sentence(rule), " ", el("span", { class: "count" }, `(${rows.length})`)];
+    const body = table(
+      sentence(rule),
+      ["Workout", "Sport", "Start", "Detail", ""],
+      rows.map((suspect) => [
+        el("code", { title: suspect.workout_id }, shortId(suspect.workout_id)),
+        sentence(suspect.sport_name),
+        time(suspect.start),
+        suspect.detail,
+        el(
+          "button",
+          {
+            type: "button",
+            onclick: prefill({
+              workout_id: suspect.workout_id,
+              action: "exclude",
+              reason: suspect.rule === "hr_out_of_range" ? "bad_hr" : "misclassified",
+            }),
+            "aria-label": `Correct workout ${suspect.workout_id}`,
+          },
+          "Correct…"
+        ),
+      ])
+    );
+    return rows.length > 3
+      ? el("details", { class: "suspect-group" }, el("summary", {}, ...heading), body)
+      : el("div", { class: "suspect-group" }, el("h3", {}, ...heading), body);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1504,8 +1600,8 @@ function claimForm() {
   const claimed = input("claimed_value", { type: "number", step: "any", required: true });
   const start = input("start", { type: "date", required: true, value: isoDay(-7) });
   const end = input("end", { type: "date", required: true, value: isoDay(1) });
-  const sport = select("sport", [["", "any"], "hyrox", "triathlon"], "");
-  const discipline = select("discipline", [["", "any"], ...DISCIPLINES], "");
+  const sport = select("sport", [["", "Any"], "hyrox", "triathlon"], "");
+  const discipline = select("discipline", [["", "Any"], ...DISCIPLINES], "");
   const compareStart = input("comparison_start", { type: "date" });
   const compareEnd = input("comparison_end", { type: "date" });
   const result = el("div", { class: "claim-result", "aria-live": "polite" });
@@ -1541,7 +1637,7 @@ function claimForm() {
     field("To (exclusive)", end),
     field("Sport", sport),
     field("Discipline", discipline, "Required for share %"),
-    field("Compare from", compareStart, "load change % only"),
+    field("Compare from", compareStart, "Only for load change %"),
     field("Compare to", compareEnd),
     el("button", { type: "submit" }, "Check")
   );
@@ -1553,7 +1649,12 @@ function claimResult(verdict) {
   return el(
     "div",
     { class: "card inner" },
-    el("p", { class: "headline" }, badge(verdict.verdict, kind), ` ${label(verdict.metric)}`),
+    el(
+      "p",
+      { class: "headline" },
+      badge(sentence(verdict.verdict), kind),
+      ` ${sentence(verdict.metric)}`
+    ),
     el("p", {}, verdict.reason),
     el(
       "dl",
@@ -1623,7 +1724,7 @@ function raceForm(sport) {
       ? el(
           "fieldset",
           { class: "splits" },
-          el("legend", {}, "Splits (optional — all 8 runs and 8 stations)"),
+          el("legend", {}, "Splits (optional, all 8 runs and 8 stations)"),
           Array.from({ length: 8 }, (_, index) => [
             splitField(`run_${index}`, `Run ${index + 1}`),
             splitField(`station_${index}`, label(HYROX_STATIONS[index])),
@@ -1633,7 +1734,7 @@ function raceForm(sport) {
       : el(
           "fieldset",
           { class: "splits" },
-          el("legend", {}, "Splits (optional — all five)"),
+          el("legend", {}, "Splits (optional, all five)"),
           splitField("swim_seconds", "Swim"),
           splitField("t1_seconds", "T1"),
           splitField("bike_seconds", "Bike"),

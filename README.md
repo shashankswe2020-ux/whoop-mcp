@@ -111,8 +111,8 @@ Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two w
 </p>
 <table>
 	<tr>
-		<td width="50%"><img src="images/readme/dashboard-readiness.png" alt="Dashboard Readiness view: a Not Ready band with the rule that produced it, and recovery, form, specificity, sleep and taper components; the recovery component's Why? panel lists its value, method, window and records used"></td>
-		<td width="50%"><img src="images/readme/dashboard-audit.png" alt="Dashboard Audit view: a form to exclude or relabel a workout, and automatically flagged suspect records such as an implausible running pace and overlapping swims, each with Exclude and Relabel buttons"></td>
+		<td width="50%"><img src="images/readme/dashboard-readiness.png" alt="Dashboard Readiness view: a large Not ready verdict with a one-line summary of which components are red or amber, then one row per component (recovery, form, specificity, sleep, taper) with its band and rationale; the recovery row's Evidence panel lists its value, method, window and records used"></td>
+		<td width="50%"><img src="images/readme/dashboard-audit.png" alt="Dashboard Audit view: automatically flagged records grouped by rule (implausible pace, overlap, indoor distance), each row with a Correct button that prefills the correction form; long groups such as Overlap start collapsed"></td>
 	</tr>
 </table>
 <p align="center"><sub>Screenshots use synthetic sample data.</sub></p>

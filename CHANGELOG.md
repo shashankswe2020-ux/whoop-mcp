@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Dashboard redesign: warm light/dark theme, serif headings, and sections
+  divided by rules instead of stacked cards. Readiness leads with a large
+  verdict and a summary of red/amber components; each component is one row, and
+  the band rule moves into a "How the verdict is decided" disclosure.
+- Dashboard copy uses sentence case and plain labels ("Not ready", "Bad HR",
+  "Discipline share %") instead of raw identifiers; method names show as code.
+- Audit groups flagged records by rule, with one "Correct…" button per row;
+  groups over three rows start collapsed. Candidate workout ids are compact
+  confirm chips.
+- Chart axes use rounded ticks with gridlines.
+
 ### Security
 - Browser-launch failure logs no longer print the URL fragment, so the dashboard
   access token never reaches stderr (#295).

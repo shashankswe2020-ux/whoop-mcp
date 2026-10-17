@@ -226,7 +226,7 @@ export function sessionInsights(
   if (runMean !== null && ergMean !== null && ergMean <= runMean - ERG_RECOVERY_HR_BPM)
     insights.push({
       id: "ergs_are_recovery",
-      text: `Erg stations averaged ${round(ergMean)} bpm vs ${round(runMean)} bpm on runs — your heart rate recovered on the ergs instead of staying at race effort.`,
+      text: `Erg stations averaged ${round(ergMean)} bpm vs ${round(runMean)} bpm on runs, so your heart rate recovered on the ergs instead of staying at race effort.`,
       rule: `mean erg avg HR ≤ mean run avg HR − ${ERG_RECOVERY_HR_BPM} bpm`,
       workout_ids: [...ergs, ...runs].map((segment) => segment.workout.id),
     });
