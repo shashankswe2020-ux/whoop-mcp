@@ -46,3 +46,34 @@ your local or hosted MCP process, and the assistant provider you configure.
 That provider's retention and usage terms apply independently. Telemetry is off
 by default; [optional telemetry](telemetry.md) sends only explicitly opted-in usage metadata, never tool
 arguments, results, or health data.
+
+## Race performance data and the local dashboard
+
+The HYROX and triathlon tools read the same WHOOP workouts, recovery and sleep as
+the other tools. In local stdio mode they also keep two files next to your tokens
+in `~/.whoop-mcp` (directory `0700`, files `0600`):
+
+| File | Contents |
+|------|----------|
+| `performance.json` | Race results you logged and your workout corrections (relabel/exclude). Written atomically. |
+| `performance-audit.jsonl` | Append-only log of every change: time, actor (`mcp_tool` or `dashboard`), action, workout id, before/after and reason. Entries are never edited; a restore adds a new entry. |
+
+Nothing is written to your WHOOP account. Delete both files to reset. In remote
+HTTP mode the write tools and the dashboard are not registered, and no files are
+created. Aggregate privacy mode exposes none of the race tools.
+
+`open_performance_dashboard` starts a small web server on your machine:
+
+- It binds to `127.0.0.1` on a random port and is never reachable from the network.
+- Every API request needs a random 32-byte token. The token is passed in the URL
+  fragment, which browsers don't send to servers or in referrers, and then held in
+  page memory only. Opening the dashboard again issues a new token.
+- Requests with a foreign `Host` or `Origin` header are rejected (DNS-rebinding and
+  CSRF defence). Writes must be same-origin JSON under 64 KB.
+- A strict Content Security Policy allows only the dashboard's own files: no
+  inline script, no third-party assets and no outbound requests.
+- It stops after 30 idle minutes, or when the MCP server exits.
+
+The dashboard URL, including its token, is returned to your assistant as part of
+the tool result. Anyone who can run programs as your user on this machine could
+already read your WHOOP tokens, so the dashboard adds no new access for them.

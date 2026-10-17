@@ -124,7 +124,7 @@ Parallelisable: T1, T2, T3 and T4 are independent.
   - Files: `index.html`, `app.js`, `style.css`, `package.json` build script
   - Depends on: T10
 
-- [ ] **T12: Docs + release prep**
+- [x] **T12: Docs + release prep**
   - Acceptance: README, `references/tools.md`, `references/privacy.md` (new local files) and
     CHANGELOG are updated. Full gate is clean: `npm test && npm run lint && npm run typecheck && npm run build`.
   - Files: docs only

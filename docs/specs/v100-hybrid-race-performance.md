@@ -232,7 +232,7 @@ WHOOP auto-splits a HYROX sim into many workouts, so grouping is needed:
 | `annotate_workout` | W (local) | `workout_id`, `action: "relabel" \| "exclude" \| "restore"`, `discipline?`, `reason` (`misclassified` \| `bad_hr` \| `duplicate` \| `not_mine` \| `hyrox_sim` \| `other`), `note?` | before/after + audit entry id |
 | `audit_performance_data` | R | `start?`, `end?` | annotations, audit-log entries, **suspect records** with rule ids, unconfirmed candidates |
 | `verify_claim` | R | `metric` (enum of supported metrics), `sport?`, `discipline?`, `period {start,end}`, `claimed_value`, `comparison_period?` | `confirmed` \| `contradicted` \| `unverifiable`, recomputed value, tolerance used, evidence refs |
-| `open_performance_dashboard` | local | `view?: "session" \| "hyrox" \| "triathlon" \| "readiness" \| "audit"` | `{ url, expires_at }`; opens the browser |
+| `open_performance_dashboard` | local | `view?: "session" \| "hyrox" \| "triathlon" \| "readiness" \| "audit"` | `{ url, view, reused, browser_opened, expires_after_idle_minutes, note }`; opens the browser. URL is `http://127.0.0.1:<port>/?view=<view>#token=<token>` |
 
 **Validation:** HYROX splits must contain exactly 8 runs + 8 stations in official order (+ optional
 roxzone). Triathlon splits contain swim/T1/bike/T2/run. When all parts are given (triathlon, or

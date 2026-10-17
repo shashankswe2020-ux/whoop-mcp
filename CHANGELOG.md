@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-18
+
+### Added
+- HYROX and triathlon performance tracking: `get_hyrox_session_report`,
+  `get_hyrox_performance`, `get_triathlon_performance`, `get_race_readiness`,
+  `audit_performance_data` and `verify_claim`.
+- Local-only tools: `log_race_result` (validated HYROX station and triathlon leg
+  splits), `annotate_workout` (relabel, exclude or restore a workout) and
+  `open_performance_dashboard`.
+- Readiness band from recovery, training form (Edwards TRIMP CTL/ATL/TSB),
+  specificity, sleep debt and taper. Each component carries its evidence and the
+  band rule is returned verbatim.
+- Audit features: every metric reports its method, window and records used or
+  excluded; automatic suspect-record rules; caveats on every result; an
+  append-only audit log; and claim verification.
+- Local dashboard on `127.0.0.1` with Session, HYROX, Triathlon, Readiness and
+  Audit views. Token-protected, Host/Origin checked, strict CSP, no third-party
+  assets, stops after 30 idle minutes.
+- Local files `performance.json` and `performance-audit.jsonl` in `~/.whoop-mcp`
+  (0600).
+
+### Notes
+- The race tools are not available in aggregate privacy mode. Remote HTTP mode
+  exposes only the six read-only race tools.
+
 ## [0.9.1] - 2026-10-09
 
 ### Changed

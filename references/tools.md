@@ -4,7 +4,8 @@
 
 ## Tools
 
-Standard mode exposes these 16 read-only tools with validated inputs and outputs.
+Standard mode exposes these 16 read-only tools with validated inputs and outputs,
+plus the [race performance tools](#race-performance-hyrox-and-triathlon).
 Scores may be pending/unscored and optional measurements unavailable; missing
 values are not zero. Aggregate mode exposes only the five tools listed in
 [Structured Results And Privacy](privacy.md#structured-results-and-privacy).
@@ -260,6 +261,134 @@ Missing days remain distinct from measured zero values.
 
 ---
 
+## Race performance (HYROX and triathlon)
+
+Nine tools track HYROX and triathlon training from your WHOOP workouts, plus race
+results you log yourself. WHOOP doesn't know what a HYROX station or a brick is, so
+these tools rebuild sessions from back-to-back workouts and show their working:
+
+- Every number is an evidenced metric: `value`, `status`, `method`, `window`,
+  `records_used`, `records_excluded` and `source`.
+- Every result ends with **caveats** ("before you trust these numbers") naming the
+  workouts each caveat applies to.
+- Suspect records are flagged, never silently dropped: low coverage, implausible
+  pace, HR out of range, overlaps, unscored, split-sum mismatch, indoor distance
+  and short "run" segments that are really transitions.
+- Load is Edwards TRIMP from WHOOP's heart-rate zones. Strain is logarithmic and is
+  never summed. Readiness is a deterministic rule, not a percentage score.
+
+| Mode | Tools available |
+|------|-----------------|
+| Local stdio (default) | All nine. Corrections and races are stored in `~/.whoop-mcp` (see [privacy](privacy.md#race-performance-data-and-the-local-dashboard)). |
+| Remote HTTP | The six read-only tools. They report `store.status: "not_configured"` and use WHOOP data only. |
+| Aggregate privacy mode | None. |
+
+Window bounds take `YYYY-MM-DD` or ISO 8601; `start` is inclusive and `end`
+exclusive (default: now).
+
+### `get_hyrox_session_report`
+
+Breaks one training day into its WHOOP segments (runs, ergs, functional work):
+timeline, avg/peak HR, strain and kcal per segment, transition time, time in zone,
+day context (recovery, HRV/RHR vs your 30-day baseline, sleep) and rule-based
+insights. Each insight shows the rule that triggered it.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `date` | string | No | Local day `YYYY-MM-DD`. Default: most recent day with a workout in the last 7 days. |
+| `session_start` | string | No | ISO 8601 start of a specific session. Overrides the default pick. |
+
+### `get_hyrox_performance`
+
+Weekly run vs HYROX load, confirmed HYROX sessions, unconfirmed candidates (likely
+sims you haven't confirmed), logged races with station splits, your personal
+weakest station (needs 2+ races) and PRs.
+
+**Parameters:** `start`, `end` (optional; default the last 56 days).
+
+### `get_triathlon_performance`
+
+Per-discipline weekly duration, distance, TRIMP and zone mix; discipline share
+(a leg under 15% is flagged); bricks; races with leg and transition splits.
+
+**Parameters:** `start`, `end` (optional; default the last 56 days).
+
+### `get_race_readiness`
+
+Readiness band (`ready`, `caution`, `not_ready`, `insufficient_data`) from five
+components: recovery, form (CTL − ATL), specificity, sleep debt and taper. Each
+component carries its evidence. Also returns fitness/fatigue/form series (up to
+90 points) and a load-spike ratio. Form needs 28+ days of history.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `sport` | `"hyrox"` \| `"triathlon"` | Yes | Race type to evaluate. |
+| `race_date` | string | No | `YYYY-MM-DD`. Enables the taper check within 14 days of the race. |
+
+### `audit_performance_data`
+
+Everything you need to check the numbers: your corrections, suspect records with
+rule ids, unconfirmed HYROX candidates, the audit log and the rules used.
+
+**Parameters:** `start`, `end` (optional; default the last 28 days), `limit`
+(audit-log entries, 1–200, default 50).
+
+### `verify_claim`
+
+Recomputes a number an assistant told you and returns `confirmed`, `contradicted`
+or `unverifiable`, with the recomputed value, tolerance and the workouts used. It
+returns `unverifiable` rather than guessing when data is missing or unconfirmed
+candidates could change the answer.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `metric` | enum | Yes | `discipline_share_pct`, `workout_count`, `training_minutes`, `trimp_total`, `distance_km`, `avg_recovery`, `load_change_pct`, `hyrox_sessions` |
+| `claimed_value` | number | Yes | The number to check. |
+| `period` | `{start, end}` | Yes | Period the claim is about. |
+| `discipline` | enum | No | Required for `discipline_share_pct`. |
+| `sport` | `"hyrox"` \| `"triathlon"` | No | Restricts scope to that race's disciplines. |
+| `comparison_period` | `{start, end}` | No | Required for `load_change_pct`. |
+
+### `log_race_result` (local only)
+
+Saves an official race result to the local race log. HYROX splits must list 8 runs
+and 8 stations in official order (roxzone optional; if omitted, the remainder is
+reported as implied roxzone). Triathlon splits are swim, T1, bike, T2, run. Split
+sums must be within ±5 s of `total_seconds`, and race dates can't be in the future.
+
+**Parameters:** `sport`, `date`, `name`, `category` (HYROX division such as
+`open_men`, or triathlon `sprint`/`olympic`/`half`/`full`/`custom`),
+`total_seconds`, `splits` (optional), `workout_id` (optional), `notes` (optional).
+
+### `annotate_workout` (local only)
+
+Corrects how a WHOOP workout is counted. Your WHOOP account is never changed.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `workout_id` | string | Yes | WHOOP workout id. |
+| `action` | `"relabel"` \| `"exclude"` \| `"restore"` | Yes | Relabel changes the discipline, exclude drops it from metrics (it stays listed), restore undoes your correction. |
+| `discipline` | enum | For relabel | e.g. `hyrox` to confirm a HYROX sim. |
+| `reason` | enum | Yes | `misclassified`, `bad_hr`, `duplicate`, `not_mine`, `hyrox_sim`, `other` |
+| `note` | string | No | Free text. |
+
+### `open_performance_dashboard` (local only)
+
+Starts (or reuses) a dashboard on `127.0.0.1` and opens it in your browser. Views:
+Session, HYROX, Triathlon, Readiness (with a "Why?" evidence drill-down for each
+component) and Audit (relabel/exclude/restore, suspects, audit log and a "Check a
+claim" form). Corrections made in the dashboard go through the same validation and
+audit log as the MCP tools.
+
+**Parameters:** `view` (optional): `session`, `hyrox`, `triathlon`, `readiness` or `audit`.
+
+**Returns:** `url`, `view`, `reused`, `browser_opened`, `expires_after_idle_minutes`
+(30) and a `note`. The URL carries a one-time access token in its fragment; each
+call issues a new token and invalidates the old one. If no browser opens (for
+example over SSH), open the URL yourself on the same machine.
+
+---
+
 ## Supported Date Expressions
 
 The four collection tools, `get_calendar`, `get_sleep_debt.start` and
@@ -333,7 +462,9 @@ are not themselves cached. There is no persistent health-data database.
 
 ## Write Operations
 
-The server registers no WHOOP create/update/delete tools. The internal
+The server registers no WHOOP create/update/delete tools. `log_race_result`,
+`annotate_workout` and the dashboard's correction forms write only to local files
+in `~/.whoop-mcp`; every write is appended to an audit log. The internal
 [`withPreview()` helper](../src/tools/write-safety.ts) is a future implementation
 scaffold, not an exposed preview/confirm command or a shipped write workflow.
 This describes the package's scope, not every capability of the WHOOP platform.

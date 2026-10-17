@@ -84,7 +84,7 @@ whoop-mcp setup --client=claude-desktop
 	<img src="images/readme/how-it-works-light.svg" width="100%" alt="Your WHOOP account grants read-only access to whoop-ai-mcp, which runs on your computer with 16 read-only tools and no hosted relay. It sends tool results to your AI assistant: Claude Desktop, Claude Code, Codex or GitHub Copilot.">
 </picture>
 
-- **Read-only.** The server has no tools that create, change or delete anything in your WHOOP account.
+- **Read-only.** The server has no tools that create, change or delete anything in your WHOOP account. Race results and workout corrections are saved only to local files, with an audit log.
 - **Local by default.** The server runs on your machine. No hosted relay is involved.
 - **Your assistant sees the results.** Health data reaches the assistant provider you use, the same as anything else you share in that chat.
 - **Aggregate mode** limits the server to five summary tools and hides per-record data. It reduces what's shared, but it isn't anonymization.
@@ -94,7 +94,19 @@ Details: [data handling](references/privacy.md) and [telemetry controls](referen
 
 ## What's included
 
-In standard mode, the server provides **16 read-only tools, 4 resources and 5 prompt templates**. Support for resources, prompts and remote connections depends on your assistant.
+In standard mode, the server provides **16 read-only tools, 4 resources and 5 prompt templates**, plus **9 HYROX and triathlon tools**. Support for resources, prompts and remote connections depends on your assistant.
+
+### HYROX and triathlon tracking
+
+Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two weeks?". The race tools:
+
+- Rebuild a HYROX session from WHOOP's back-to-back workouts: segment timeline, transition time, time in zone and rule-based insights.
+- Track weekly run vs HYROX load and swim/bike/run balance, bricks, logged races, station and leg splits, and PRs.
+- Give a **readiness** band from recovery, training form, specificity, sleep debt and taper. Every component shows its evidence; there's no opaque score.
+- Let you **audit** the numbers: suspect workouts are flagged, you can relabel or exclude workouts, every change is logged, and `verify_claim` recomputes a number your assistant told you.
+- Open a **local dashboard** (`open_performance_dashboard`) on `127.0.0.1` with session, HYROX, triathlon, readiness and audit views.
+
+Writing tools and the dashboard are available when the server runs locally (stdio). Details: [race performance tools](references/tools.md#race-performance-hyrox-and-triathlon) and [local data](references/privacy.md#race-performance-data-and-the-local-dashboard).
 
 <details>
 <summary><strong>See all tools and prompts</strong></summary>
@@ -106,6 +118,8 @@ In standard mode, the server provides **16 read-only tools, 4 resources and 5 pr
 | Trends and reviews | `get_weekly_summary`, `get_trend`, `compare_periods`, `get_calendar` |
 | Records | `get_recovery_collection`, `get_sleep_collection`, `get_workout_collection`, `get_cycle_collection`, `get_sleep_by_id`, `get_workout_by_id`, `get_cycle_by_id` |
 | Profile | `get_profile`, `get_body_measurement` |
+| HYROX and triathlon | `get_hyrox_session_report`, `get_hyrox_performance`, `get_triathlon_performance`, `get_race_readiness`, `audit_performance_data`, `verify_claim` |
+| Local only: race log, corrections, dashboard | `log_race_result`, `annotate_workout`, `open_performance_dashboard` |
 
 **Prompt templates:** `weekly_health_review`, `sleep_analysis`, `recovery_trend`, `workout_recap`, `health_check`
 
