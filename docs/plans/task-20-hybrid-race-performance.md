@@ -32,7 +32,7 @@ Parallelisable: T1, T2, T3 and T4 are independent.
 
 ## Tasks
 
-- [ ] **T1: Sport classifier + session grouping** — `sport-classifier.ts`, `session-grouping.ts`
+- [x] **T1: Sport classifier + session grouping** — `sport-classifier.ts`, `session-grouping.ts`
   - Acceptance: every official WHOOP sport relevant to run/bike/swim/multisport/HYROX maps
     correctly by `sport_name` (case/space-insensitive). Standalone Rowing/Skiing/Assault Bike and unknown
     names → `other`. Override precedence is annotation > rule > table. Brick detection works with
@@ -42,14 +42,14 @@ Parallelisable: T1, T2, T3 and T4 are independent.
   - Verify: `npm test -- tests/performance/sport-classifier.test.ts tests/performance/session-grouping.test.ts`
   - Files: `src/performance/sport-classifier.ts`, `src/performance/session-grouping.ts`, tests
 
-- [ ] **T2: Training load model** — `src/performance/training-load.ts`
+- [x] **T2: Training load model** — `src/performance/training-load.ts`
   - Acceptance: Edwards TRIMP from `zone_durations`. 42/7-day EWMA CTL/ATL, TSB, load-spike
     ratio, per discipline and total. Unscored/excluded records are counted, not used. Fewer than 28 days
     gives `insufficient_data`. Output matches hand-computed fixtures to 2 dp.
   - Verify: `npm test -- tests/performance/training-load.test.ts`
   - Files: `src/performance/training-load.ts`, test
 
-- [ ] **T3: Suspect detector** — `src/performance/suspect-detector.ts`
+- [x] **T3: Suspect detector** — `src/performance/suspect-detector.ts`
   - Acceptance: rules `low_coverage`, `implausible_pace`, `hr_out_of_range`, `overlap`,
     `unscored`, `indoor_distance`, `short_segment_mislabel`, `estimated_max_hr` with threshold ±ε
     tests. Flags only, never mutates or excludes. Also builds the "before you trust these numbers" caveats
@@ -57,14 +57,14 @@ Parallelisable: T1, T2, T3 and T4 are independent.
   - Verify: `npm test -- tests/performance/suspect-detector.test.ts`
   - Files: `src/performance/suspect-detector.ts`, test
 
-- [ ] **T4: Local store + audit log** — `store.ts`, `audit-log.ts`
+- [x] **T4: Local store + audit log** — `store.ts`, `audit-log.ts`
   - Acceptance: dir `0700`, files `0600`, atomic write, `schema_version: 1`. A missing file returns empty state.
     A corrupt file throws a typed error and leaves the file untouched. The JSONL log is append-only. Paths are
     injectable for tests (temp dirs).
   - Verify: `npm test -- tests/performance/store.test.ts tests/performance/audit-log.test.ts`
   - Files: `src/performance/store.ts`, `src/performance/audit-log.ts`, tests
 
-- [ ] **T5: Readiness composer** — `src/performance/readiness.ts` (+ `RECOVERY_ZONES` in `analytics-utils.ts`)
+- [x] **T5: Readiness composer** — `src/performance/readiness.ts` (+ `RECOVERY_ZONES` in `analytics-utils.ts`)
   - Acceptance: 5 components as `EvidencedMetric`. The worst-of band rule matches the spec.
     Taper applies only when `race_date` ≤ 14 days away. Boundary tests for each threshold.
     Includes `DISCLAIMER`.
@@ -72,7 +72,7 @@ Parallelisable: T1, T2, T3 and T4 are independent.
   - Files: `src/performance/readiness.ts`, `src/tools/analytics-utils.ts`, test
   - Depends on: T1, T2
 
-- [ ] **T6: Zod schemas** — `src/performance/schemas.ts`
+- [x] **T6: Zod schemas** — `src/performance/schemas.ts`
   - Acceptance: race result (HYROX 8 runs + 8 stations in official order + optional roxzone;
     triathlon swim/T1/bike/T2/run), ±5 s split-sum rule, no future dates, annotation and
     rule schemas. Error messages are readable by an assistant.

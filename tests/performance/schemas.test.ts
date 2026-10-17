@@ -6,6 +6,7 @@ import {
   createRaceResultSchema,
   emptyPerformanceState,
   HYROX_STATIONS,
+  impliedRoxzoneSeconds,
   performanceStateSchema,
   SPLIT_TOLERANCE_SECONDS,
 } from "../../src/performance/schemas.js";
@@ -88,6 +89,9 @@ describe("race result schema", () => {
   it("allows an omitted roxzone as long as splits do not exceed the total", () => {
     const noRox = { ...hyroxSplits, roxzone_seconds: undefined };
     expect(messages({ ...hyrox, splits: noRox })).toEqual([]);
+    expect(impliedRoxzoneSeconds(schema.parse({ ...hyrox, splits: noRox }))).toBe(400);
+    expect(impliedRoxzoneSeconds(schema.parse(hyrox))).toBeNull();
+    expect(impliedRoxzoneSeconds(schema.parse(triathlon))).toBeNull();
     expect(messages({ ...hyrox, total_seconds: 2680 + 8 * 240 - 6, splits: noRox })[0]).toMatch(
       /exceed/
     );

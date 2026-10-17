@@ -212,11 +212,13 @@ WHOOP auto-splits a HYROX sim into many workouts, so grouping is needed:
   2. *Form*: TSB band (constants `TSB_FRESH`, `TSB_FATIGUED`, documented and boundary-tested).
   3. *Specificity*: share of last-28-day load in race-relevant disciplines (HYROX: run +
      confirmed HYROX; triathlon: each of swim/bike/run ≥ `MIN_DISCIPLINE_SHARE`).
-  4. *Sleep*: reuse `get_sleep_debt`.
+  4. *Sleep*: reuse `get_sleep_debt`. Debt < `SLEEP_DEBT_AMBER_HOURS = 2` h green, 2–5 h amber,
+     > `SLEEP_DEBT_RED_HOURS = 5` h red.
   5. *Taper* (only when `race_date` given and ≤ 14 days away): ATL trending down.
-- **Band** = worst-of rule: any red → `not_ready`; ≥ 2 amber → `caution`; else `ready`. Two or more
-  `unknown` → `insufficient_data`. The rule is deterministic and shown in the output. No weighted
-  % score, no "confidence %".
+- **Band** = worst-of rule, evaluated in this order: any red → `not_ready`; otherwise two or more
+  `unknown` → `insufficient_data`; otherwise two or more amber → `caution`; otherwise `ready`.
+  `not_applicable` (taper outside 14 days) is ignored. The rule is deterministic and returned as
+  `band_rule` in the output. No weighted % score, no "confidence %".
 
 ### Tools
 
@@ -233,8 +235,10 @@ WHOOP auto-splits a HYROX sim into many workouts, so grouping is needed:
 | `open_performance_dashboard` | local | `view?: "session" \| "hyrox" \| "triathlon" \| "readiness" \| "audit"` | `{ url, expires_at }`; opens the browser |
 
 **Validation:** HYROX splits must contain exactly 8 runs + 8 stations in official order (+ optional
-roxzone). Triathlon splits contain swim/T1/bike/T2/run. The sum of splits must be within ±5 s of
-`total_seconds`, otherwise reject with a clear message. Dates can't be in the future for results.
+roxzone). Triathlon splits contain swim/T1/bike/T2/run. When all parts are given (triathlon, or
+HYROX with roxzone), the sum of splits must be within ±5 s of `total_seconds`. When HYROX roxzone is
+omitted, runs + stations must not exceed the total by more than 5 s, and the remainder is reported as
+implied roxzone. Otherwise the result is rejected with a clear message. Dates can't be in the future for results.
 
 **`verify_claim` tolerance:** relative ±2 % or absolute unit tolerance (documented per metric).
 `unverifiable` is returned when the metric is unsupported, data is insufficient, or the

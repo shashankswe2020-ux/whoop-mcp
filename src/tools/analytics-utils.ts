@@ -5,6 +5,8 @@ import type { WhoopClient } from "../api/client.js";
 import { fetchAllPages, ABSOLUTE_MAX_RECORDS } from "../api/pagination.js";
 
 export const DISCLAIMER = "Statistical observation from your data, not medical advice.";
+/** WHOOP recovery zones: < 34 red, 34–66 yellow, > 66 green. */
+export const RECOVERY_ZONES = { red_below: 34, green_above: 66 } as const;
 export const DAY_MS = 86_400_000;
 export const HOUR_MS = 3_600_000;
 export const periodSchema = z.object({ start: z.string(), end: z.string() });
