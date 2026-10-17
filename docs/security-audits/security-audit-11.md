@@ -157,3 +157,13 @@ OWASP Top 10 baseline considered: access control, cryptographic protection, inje
 | 3 | Medium | MEDIUM-3: committed state without audit / false rollback | One recoverable state+audit transaction; truthful partial-success errors and idempotent retries. Fix in current sprint. |
 | 4 | Low | LOW-1: unbounded audit read | Bounded recent-entry reads, scan budgets, retention, and bounded concurrency. Schedule next sprint. |
 | 5 | Low | LOW-2: existing permission/symlink trust | Verify ownership/path types, enforce private existing modes, no-follow handles, and Windows ACL equivalents. Schedule next sprint. |
+
+## Resolution
+
+| Finding | Issue | Commit | Status |
+|---------|-------|--------|--------|
+| MEDIUM-1 | #295 | a9194dd | Fixed: launcher logs print only the URL before `#`; sync and async failure tests. |
+| MEDIUM-2 | #296 | 4b4af99 | Fixed: O_EXCL lockfile with owner token, 30 s stale break, 5 s timeout (`busy`); tested with two independent module instances. The lock is keyed on the resolved directory, not its realpath. |
+| MEDIUM-3 | #293 | 4b4af99 | Fixed: `commitPerformanceChange` restores the previous bytes when the audit append fails; a failed rollback raises `partial_write` without "Nothing was changed.". Idempotent retries not added. |
+| LOW-1 | #292 | 0252cca | Fixed: reverse chunked read stops at limit+1 entries, 10,000 lines or 2 MiB; 256 KiB line cap. Retention not added. |
+| LOW-2 | #294 | 11e7b77 | Partly fixed: directory owner/type check and 0700 repair; audit log opened with O_NOFOLLOW, regular-file/owner check, 0600 repair. Windows ACL/reparse points and ancestor checks remain open. |

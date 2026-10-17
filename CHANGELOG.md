@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Browser-launch failure logs no longer print the URL fragment, so the dashboard
+  access token never reaches stderr (#295).
+- Performance writes take an interprocess lockfile (`performance.lock`), so two
+  MCP processes can't lose each other's updates. Busy writers get a clear
+  "try again" error (#296).
+- Store change and audit entry are one transaction: if the audit append fails,
+  `performance.json` is rolled back, so "Nothing was changed." is true. A failed
+  rollback is reported as a partial write (#293).
+- Audit-log reads scan backwards and stop after the requested entries, 10,000
+  lines or 2 MiB; oversized lines are skipped (#292).
+- An existing data directory must be owned by you and is tightened to `0700`; the
+  audit log is opened without following symlinks and tightened to `0600` (#294).
+
 ## [1.0.0] - 2026-10-18
 
 ### Added

@@ -58,6 +58,19 @@ in `~/.whoop-mcp` (directory `0700`, files `0600`):
 | `performance.json` | Race results you logged and your workout corrections (relabel/exclude). Written atomically. |
 | `performance-audit.jsonl` | Append-only log of every change: time, actor (`mcp_tool` or `dashboard`), action, workout id, before/after and reason. Entries are never edited; a restore adds a new entry. |
 
+Safeguards for these files:
+
+- Writes hold a short-lived lockfile (`performance.lock`), so two MCP processes
+  never overwrite each other. A lock older than 30 seconds is treated as left by a
+  crashed process and removed.
+- A change and its audit entry are saved together. If the audit entry can't be
+  written, the change is rolled back.
+- An existing `~/.whoop-mcp` must be a directory owned by you; group/other
+  permissions are removed. The audit log is never opened through a symlink and is
+  reset to `0600` if it was looser. (Windows ACLs are not inspected.)
+- Audit-log reads only scan the newest part of the file (up to 2 MiB or 10,000
+  lines), so a huge or damaged log can't stall the dashboard.
+
 Nothing is written to your WHOOP account. Delete both files to reset. In remote
 HTTP mode the write tools and the dashboard are not registered, and no files are
 created. Aggregate privacy mode exposes none of the race tools.
