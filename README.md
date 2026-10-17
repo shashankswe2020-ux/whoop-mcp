@@ -117,6 +117,13 @@ Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two w
 </table>
 <p align="center"><sub>Screenshots use synthetic sample data.</sub></p>
 
+<details>
+<summary><strong>Daily overview preview</strong></summary>
+<p align="center">
+	<img src="images/readme/dashboard-today.png" width="880" alt="Daily overview showing WHOOP recovery, primary sleep, cycle strain and explicit unavailable-workout status, with evidence disclosures and refresh controls. Synthetic sample data.">
+</p>
+</details>
+
 The race log, workout corrections and dashboard are available only when the server runs locally (stdio). Details: [race performance tools](references/tools.md#race-performance-hyrox-and-triathlon) and [local data](references/privacy.md#race-performance-data-and-the-local-dashboard).
 
 <details>

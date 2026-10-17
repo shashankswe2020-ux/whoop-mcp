@@ -388,6 +388,12 @@ It uses WHOOP records without local corrections; race views apply corrections.
 Missing and pending readings are not shown as zero. The latest workout may be
 historical and is dated explicitly. WHOOP recovery is not a race-readiness verdict.
 
+HYROX, Triathlon and Audit have Last 7 days and Last 28 days presets covering
+completed UTC days (inclusive start, exclusive end). View filters survive tab
+switches. Refresh reloads the current view without bypassing the WHOOP client's
+cache: "View loaded" is the browser load time, not a device-sync or source-fetch
+timestamp. Failed refreshes retain the previous data with a warning and Retry.
+
 **Parameters:** `view` (optional): `today`, `session`, `hyrox`, `triathlon`, `readiness` or `audit`.
 The default remains `session`.
 

@@ -53,6 +53,9 @@ history.replaceState(null, "", `/?view=${currentView}`);
 
 const main = document.getElementById("main");
 const statusLine = document.getElementById("status");
+const refreshButton = document.getElementById("refresh");
+const loadedAt = document.getElementById("loaded-at");
+refreshButton.addEventListener("click", () => void render());
 const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
 
 /** Per-view form state survives tab switches. */
@@ -413,6 +416,21 @@ function caveatsPanel(caveats) {
 function windowForm(state, onSubmit, extra = []) {
   const start = input("start", { type: "date", value: state.start });
   const end = input("end", { type: "date", value: state.end });
+  start.addEventListener("input", () => {
+    state.start = start.value;
+  });
+  end.addEventListener("input", () => {
+    state.end = end.value;
+  });
+  const preset = (days) => {
+    const endDate = new Date();
+    endDate.setUTCHours(0, 0, 0, 0);
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - days);
+    state.start = startDate.toISOString().slice(0, 10);
+    state.end = endDate.toISOString().slice(0, 10);
+    onSubmit();
+  };
   return el(
     "form",
     {
@@ -427,7 +445,14 @@ function windowForm(state, onSubmit, extra = []) {
     field("From", start),
     field("To (exclusive)", end),
     ...extra,
-    el("button", { type: "submit" }, "Update")
+    el("button", { type: "submit" }, "Update"),
+    el(
+      "div",
+      { class: "presets" },
+      el("button", { type: "button", onclick: () => preset(7) }, "Last 7 days"),
+      el("button", { type: "button", onclick: () => preset(28) }, "Last 28 days"),
+      el("small", {}, "Presets use completed UTC days. From is inclusive; To is exclusive.")
+    )
   );
 }
 
@@ -702,6 +727,9 @@ function shareBars(rows, minShare) {
 async function renderSession() {
   const state = viewState.session;
   const dateInput = input("date", { type: "date", value: state.date });
+  dateInput.addEventListener("input", () => {
+    state.date = dateInput.value;
+  });
   const controls = el(
     "form",
     {
@@ -1160,6 +1188,12 @@ async function renderReadiness() {
   const state = viewState.readiness;
   const sport = select("sport", ["hyrox", "triathlon"], state.sport);
   const raceDate = input("race_date", { type: "date", value: state.race_date });
+  sport.addEventListener("change", () => {
+    state.sport = sport.value;
+  });
+  raceDate.addEventListener("input", () => {
+    state.race_date = raceDate.value;
+  });
   const controls = el(
     "form",
     {
@@ -1825,6 +1859,10 @@ function raceForm(sport) {
 
 function reviewSave(path, body, message, rows, trigger) {
   if (document.querySelector("dialog")) return;
+  if (main.getAttribute("aria-busy") === "true") {
+    setStatus("This view is still loading. Review your change after it finishes.");
+    return;
+  }
   let saving = false;
   const close = () => {
     dialog.close();
@@ -1875,6 +1913,17 @@ function reviewSave(path, body, message, rows, trigger) {
       oncancel: (event) => {
         event.preventDefault();
         if (!saving) close();
+      },
+      onkeydown: (event) => {
+        if (event.key !== "Tab") return;
+        if (saving) event.preventDefault();
+        else if (event.shiftKey && document.activeElement === edit) {
+          event.preventDefault();
+          confirm.focus();
+        } else if (!event.shiftKey && document.activeElement === confirm) {
+          event.preventDefault();
+          edit.focus();
+        }
       },
     },
     el("h2", { id: "save-review-title" }, "Review before saving"),
@@ -2023,30 +2072,49 @@ const RENDERERS = {
   audit: renderAudit,
 };
 let renderId = 0;
+let displayedView;
 
 async function render(options = {}) {
   const id = ++renderId;
   const view = currentView;
   main.setAttribute("aria-busy", "true");
+  refreshButton.disabled = true;
+  if (displayedView !== view) loadedAt.textContent = "Loading this view.";
+  document.getElementById("load-error")?.remove();
   if (!options.keepStatus) setStatus("Loading…");
   try {
     const nodes = await RENDERERS[view]();
     if (id !== renderId) return;
     main.replaceChildren(...nodes.filter(Boolean));
+    displayedView = view;
+    loadedAt.textContent = `View loaded ${time(new Date().toISOString())}.`;
     if (!options.keepStatus) setStatus("");
   } catch (error) {
     if (id !== renderId) return;
-    main.replaceChildren(
-      el(
-        "section",
-        { class: "card" },
-        el("h2", {}, "Could not load this view"),
-        el("p", {}, error.message)
-      )
+    const errorPanel = el(
+      "section",
+      { class: "card", id: "load-error" },
+      el("h2", {}, "Could not load this view"),
+      el("p", {}, error.message),
+      el("button", { type: "button", onclick: () => void render() }, "Retry")
     );
-    setStatus(error.message, "error");
+    if (displayedView === view) main.prepend(errorPanel);
+    else {
+      main.replaceChildren(errorPanel);
+      displayedView = undefined;
+      loadedAt.textContent = "This view has not loaded.";
+    }
+    setStatus(
+      displayedView === view
+        ? `${error.message} Showing data from the previous load.`
+        : error.message,
+      "error"
+    );
   } finally {
-    if (id === renderId) main.removeAttribute("aria-busy");
+    if (id === renderId) {
+      main.removeAttribute("aria-busy");
+      refreshButton.disabled = false;
+    }
   }
 }
 

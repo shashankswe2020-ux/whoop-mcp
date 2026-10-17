@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Dashboard Today view reuses `get_today` for recovery, primary sleep, cycle
+  strain and the latest workout, with source status and evidence. The default
+  dashboard view remains Session.
+- Review dialogs for local workout corrections and race results, with Edit,
+  Cancel and Confirm save actions. Pending saves cannot be submitted twice;
+  failed saves preserve entries.
+- Completed-UTC-day presets for the last 7 or 28 days, persistent view filters,
+  and refresh/retry controls. Load times are explicitly separate from WHOOP
+  sync times; cached reads remain possible.
+
 ## [1.0.0] - 2026-10-18
 
 ### Added

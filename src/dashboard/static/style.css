@@ -913,3 +913,23 @@ dialog.save-review::backdrop {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.refresh-bar {
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding: var(--s3) var(--s5) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.refresh-bar p,
+.presets small {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  flex-basis: 100%;
+}
