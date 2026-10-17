@@ -32,6 +32,30 @@ import { getBaselines, baselinesInputSchema } from "./tools/get-baselines.js";
 import { getSleepDebt, sleepDebtInputSchema } from "./tools/get-sleep-debt.js";
 import type { Telemetry } from "./telemetry/telemetry.js";
 import {
+  hyroxSessionReportInputSchema,
+  getHyroxSessionReport,
+} from "./tools/get-hyrox-session-report.js";
+import { getHyroxPerformance, hyroxPerformanceInputSchema } from "./tools/get-hyrox-performance.js";
+import {
+  getTriathlonPerformance,
+  triathlonPerformanceInputSchema,
+} from "./tools/get-triathlon-performance.js";
+import { getRaceReadiness, raceReadinessInputSchema } from "./tools/get-race-readiness.js";
+import {
+  auditPerformanceData,
+  auditPerformanceDataInputSchema,
+} from "./tools/audit-performance-data.js";
+import { verifyClaim, verifyClaimInputSchema } from "./tools/verify-claim.js";
+import { logRaceResult, logRaceResultInputSchema } from "./tools/log-race-result.js";
+import { annotateWorkout, annotateWorkoutInputSchema } from "./tools/annotate-workout.js";
+import {
+  PerformanceInputError,
+  type PerformanceDeps,
+  type PerformanceWriteDeps,
+} from "./performance/context.js";
+import { loadPerformanceState, PerformanceStoreError } from "./performance/store.js";
+import { readAuditLog } from "./performance/audit-log.js";
+import {
   outputSchemas,
   aggregateOutputSchemas,
   privacyModeSchema,
@@ -133,6 +157,10 @@ function errorResponse(error: unknown): {
     message = "WHOOP authentication failed. Run setup --verify to reconnect.";
   } else if (error instanceof WhoopNetworkError) {
     message = "Network error: Unable to reach the WHOOP API. Check your internet connection.";
+  } else if (error instanceof PerformanceInputError) {
+    message = `Invalid input: ${error.message}`;
+  } else if (error instanceof PerformanceStoreError) {
+    message = `Local performance data error: ${error.message} Nothing was changed.`;
   } else if (error instanceof z.ZodError || error instanceof RangeError) {
     message = "Invalid input or data. Check the requested parameters and date range.";
   } else {
@@ -168,7 +196,12 @@ function classifyToolError(error: unknown): ToolErrorCategory {
     return error.statusCode >= 500 ? "api_server" : "api_client";
   }
   if (error instanceof WhoopNetworkError) return "network";
-  if (error instanceof z.ZodError || error instanceof RangeError) return "invalid_data";
+  if (
+    error instanceof z.ZodError ||
+    error instanceof RangeError ||
+    error instanceof PerformanceInputError
+  )
+    return "invalid_data";
   return "unexpected";
 }
 
@@ -191,6 +224,11 @@ export interface CreateServerOptions {
   telemetry?: Pick<Telemetry, "record">;
   /** Disable MCP resource registration (set via WHOOP_MCP_DISABLE_RESOURCES=1) */
   disableResources?: boolean;
+  /**
+   * Local (stdio) mode only: enables the on-disk race log, annotations and audit log plus the
+   * write tools. Omit for remote transports, where the analytics tools run on WHOOP data alone.
+   */
+  localPerformance?: { directory?: string };
 }
 
 /** Return type for the configured MCP server. */
@@ -545,6 +583,109 @@ export function createWhoopServer(client: WhoopClient, options?: CreateServerOpt
     },
     async (args) => safeTool(() => getSleepDebt(client, args))
   );
+
+  // -------------------------------------------------------------------------
+  // Hybrid race performance (HYROX + triathlon)
+  // -------------------------------------------------------------------------
+  const local = options?.localPerformance;
+  const performanceDeps = (): PerformanceDeps =>
+    local
+      ? {
+          loadState: () => loadPerformanceState(local.directory),
+          readAudit: (limit) => readAuditLog(local.directory, { limit }),
+        }
+      : {};
+  const raceCaveat =
+    " Derived from WHOOP heart-rate data plus your local corrections; check `data_quality` and caveats. Not medical advice.";
+
+  registerTool(
+    "get_hyrox_session_report",
+    {
+      description:
+        "Breaks one HYROX-style session (chained runs + ergs) into segments with HR, strain, transitions, deterministic insights and 'before you trust these numbers' caveats. Defaults to the most recent workout day in the last 7 days." +
+        raceCaveat,
+      inputSchema: hyroxSessionReportInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => safeTool(() => getHyroxSessionReport(client, args, performanceDeps()))
+  );
+  registerTool(
+    "get_hyrox_performance",
+    {
+      description:
+        "HYROX training load by week, logged race results, station strengths/weaknesses and PRs. Unconfirmed Functional Fitness/HIIT sessions are listed as candidates, never counted." +
+        raceCaveat,
+      inputSchema: hyroxPerformanceInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => safeTool(() => getHyroxPerformance(client, args, performanceDeps()))
+  );
+  registerTool(
+    "get_triathlon_performance",
+    {
+      description:
+        "Swim/bike/run volume, distance, zone mix, discipline balance, bricks and logged triathlon results by week." +
+        raceCaveat,
+      inputSchema: triathlonPerformanceInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => safeTool(() => getTriathlonPerformance(client, args, performanceDeps()))
+  );
+  registerTool(
+    "get_race_readiness",
+    {
+      description:
+        "Readiness for a HYROX or triathlon race from activity logs: fitness/fatigue/form (TRIMP), load spike, discipline balance, taper, today's recovery and sleep debt. Every component shows its inputs and rule." +
+        raceCaveat,
+      inputSchema: raceReadinessInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => safeTool(() => getRaceReadiness(client, args, performanceDeps()))
+  );
+  registerTool(
+    "audit_performance_data",
+    {
+      description:
+        "Lists what could make the performance numbers wrong: suspect workouts (bad HR, GPS drift, mislabelled segments, overlaps), unconfirmed HYROX candidates, your relabels/exclusions and the append-only audit log.",
+      inputSchema: auditPerformanceDataInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => safeTool(() => auditPerformanceData(client, args, performanceDeps()))
+  );
+  registerTool(
+    "verify_claim",
+    {
+      description:
+        "Fact-checks a number an assistant stated (e.g. 'bike was 40% of training') by recomputing it from WHOOP data. Returns confirmed, contradicted or unverifiable with the tolerance and the workout ids used.",
+      inputSchema: verifyClaimInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => safeTool(() => verifyClaim(client, args, performanceDeps()))
+  );
+
+  if (local) {
+    const writeDeps: PerformanceWriteDeps = { directory: local.directory, actor: "mcp_tool" };
+    registerTool(
+      "log_race_result",
+      {
+        description:
+          "Saves an official HYROX or triathlon result (total, optional splits) to the local race log (~/.whoop-mcp, 0600). Validates station order and split sums; every save is recorded in the audit log.",
+        inputSchema: logRaceResultInputSchema,
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+      },
+      async (args) => safeTool(() => logRaceResult(args, writeDeps))
+    );
+    registerTool(
+      "annotate_workout",
+      {
+        description:
+          "Corrects how a WHOOP workout is counted: relabel its discipline (e.g. confirm a HYROX sim), exclude it, or restore it. WHOOP data is never changed; each change appends an audit entry with before/after.",
+        inputSchema: annotateWorkoutInputSchema,
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+      },
+      async (args) => safeTool(() => annotateWorkout(args, writeDeps))
+    );
+  }
 
   if (!options?.disableResources && privacyMode === "standard") {
     registerResources(server, client);

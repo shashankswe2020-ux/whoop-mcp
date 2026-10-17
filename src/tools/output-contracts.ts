@@ -8,6 +8,14 @@ import {
 import { dataQualitySchema, periodSchema } from "./analytics-utils.js";
 import { baselinesOutputSchema } from "./get-baselines.js";
 import { sleepDebtOutputSchema } from "./get-sleep-debt.js";
+import { hyroxSessionReportOutputSchema } from "./get-hyrox-session-report.js";
+import { hyroxPerformanceOutputSchema } from "./get-hyrox-performance.js";
+import { triathlonPerformanceOutputSchema } from "./get-triathlon-performance.js";
+import { raceReadinessOutputSchema } from "./get-race-readiness.js";
+import { auditPerformanceDataOutputSchema } from "./audit-performance-data.js";
+import { verifyClaimOutputSchema } from "./verify-claim.js";
+import { logRaceResultOutputSchema } from "./log-race-result.js";
+import { annotateWorkoutOutputSchema } from "./annotate-workout.js";
 
 export { privacyModeSchema, type PrivacyMode } from "../privacy.js";
 const JSON_SCHEMA_2020_12_URI = "https://json-schema.org/draft/2020-12/schema";
@@ -163,6 +171,14 @@ export const outputSchemas: Record<string, z.ZodObject> = withOutputSchemaDialec
   get_calendar: calendar,
   get_baselines: baselinesOutputSchema,
   get_sleep_debt: sleepDebtOutputSchema,
+  get_hyrox_session_report: hyroxSessionReportOutputSchema,
+  get_hyrox_performance: hyroxPerformanceOutputSchema,
+  get_triathlon_performance: triathlonPerformanceOutputSchema,
+  get_race_readiness: raceReadinessOutputSchema,
+  audit_performance_data: auditPerformanceDataOutputSchema,
+  verify_claim: verifyClaimOutputSchema,
+  log_race_result: logRaceResultOutputSchema,
+  annotate_workout: annotateWorkoutOutputSchema,
 });
 
 const aggregateBand = z.object({

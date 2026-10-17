@@ -29,6 +29,15 @@ describe("existing client wire contract", () => {
     ["tool", "get_calendar"],
     ["tool", "get_baselines"],
     ["tool", "get_sleep_debt"],
+    ["tool", "get_hyrox_session_report"],
+    ["tool", "get_hyrox_performance"],
+    ["tool", "get_triathlon_performance"],
+    ["tool", "get_race_readiness"],
+    ["tool", "audit_performance_data"],
+    ["tool", "verify_claim"],
+    ["tool", "log_race_result"],
+    ["tool", "annotate_workout"],
+    ["tool", "open_performance_dashboard"],
   ])("accepts both outcomes emitted for %s %s", async (kind, name) => {
     const increment = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal(

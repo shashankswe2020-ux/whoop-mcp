@@ -166,6 +166,8 @@ export async function main(telemetry?: Telemetry): Promise<void> {
     disableResources,
     privacyMode,
     ...(telemetry?.status.enabled ? { telemetry } : {}),
+    // Local race logs and write tools only when no remote client can reach this server.
+    ...(transportMode === "stdio" ? { localPerformance: {} } : {}),
   });
 
   // 5. Connect transports based on MCP_TRANSPORT mode

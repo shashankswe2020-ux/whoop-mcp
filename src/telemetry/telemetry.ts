@@ -29,6 +29,15 @@ const toolNameSchema = z.enum([
   "get_calendar",
   "get_baselines",
   "get_sleep_debt",
+  "get_hyrox_session_report",
+  "get_hyrox_performance",
+  "get_triathlon_performance",
+  "get_race_readiness",
+  "audit_performance_data",
+  "verify_claim",
+  "log_race_result",
+  "annotate_workout",
+  "open_performance_dashboard",
 ]);
 const eventSchema = z.union([
   z.strictObject({

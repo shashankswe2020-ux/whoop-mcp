@@ -238,7 +238,7 @@ describe("createWhoopServer", () => {
     it("returns all registered tools", async () => {
       const result = await client.listTools();
 
-      expect(result.tools).toHaveLength(16);
+      expect(result.tools).toHaveLength(22);
     });
 
     it("returns tools with the correct names", async () => {
@@ -246,22 +246,28 @@ describe("createWhoopServer", () => {
       const names = result.tools.map((t) => t.name).sort();
 
       expect(names).toEqual([
+        "audit_performance_data",
         "compare_periods",
         "get_baselines",
         "get_body_measurement",
         "get_calendar",
         "get_cycle_by_id",
         "get_cycle_collection",
+        "get_hyrox_performance",
+        "get_hyrox_session_report",
         "get_profile",
+        "get_race_readiness",
         "get_recovery_collection",
         "get_sleep_by_id",
         "get_sleep_collection",
         "get_sleep_debt",
         "get_today",
         "get_trend",
+        "get_triathlon_performance",
         "get_weekly_summary",
         "get_workout_by_id",
         "get_workout_collection",
+        "verify_claim",
       ]);
     });
 

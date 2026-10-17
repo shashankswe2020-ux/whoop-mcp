@@ -15,7 +15,7 @@ describe("stdio release contracts", () => {
       const client = new Client({ name: "stdio-test", version: "1" });
       try {
         await client.connect(transport);
-        expect((await client.listTools()).tools).toHaveLength(mode === "standard" ? 16 : 5);
+        expect((await client.listTools()).tools).toHaveLength(mode === "standard" ? 22 : 5);
         const result = await client.callTool({ name: "get_sleep_debt", arguments: {} });
         expect(result.isError).not.toBe(true);
         const content = result.content as Array<{ text: string }>;

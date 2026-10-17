@@ -534,6 +534,7 @@ describe("main() entry point", () => {
         {
           disableResources: false,
           privacyMode: "standard",
+          localPerformance: {},
         }
       );
       expect(mockCreateWhoopClient).not.toHaveBeenCalled();
@@ -629,6 +630,7 @@ describe("main() entry point", () => {
       );
       // server.connect was called with the http transport
       expect(mockConnect).toHaveBeenCalledWith({ _http: true });
+      expect(mockCreateWhoopServer.mock.calls[0]![1]).not.toHaveProperty("localPerformance");
     });
 
     it("MCP_TRANSPORT=both starts both stdio AND HTTP", async () => {
@@ -644,6 +646,8 @@ describe("main() entry point", () => {
       expect(mockCreateHttpServer).toHaveBeenCalledOnce();
       // server.connect called for both transports
       expect(mockConnect).toHaveBeenCalledTimes(2);
+      // One server instance is shared with HTTP clients, so local write tools stay off.
+      expect(mockCreateWhoopServer.mock.calls[0]![1]).not.toHaveProperty("localPerformance");
     });
 
     it("uses default port 3000 when MCP_PORT is unset", async () => {

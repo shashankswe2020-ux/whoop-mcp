@@ -166,7 +166,7 @@ describe("release MCP contracts", () => {
   it("advertises output schemas and returns equivalent structured/text results", async () => {
     await connected(false, async (client) => {
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(16);
+      expect(tools).toHaveLength(22);
       expect(tools.every((tool) => tool.outputSchema?.type === "object")).toBe(true);
       expect(
         tools.every(

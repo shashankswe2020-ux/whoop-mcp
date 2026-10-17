@@ -97,7 +97,7 @@ Parallelisable: T1, T2, T3 and T4 are independent.
   - Files: 4 tool files + 4 tests
   - Depends on: T3, T4, T6, T7
 
-- [ ] **T9: Server registration + mode gating**
+- [x] **T9: Server registration + mode gating**
   - Acceptance: all 9 tools are registered in stdio mode. In HTTP mode only the 6 read-only analytics tools are registered.
     `readOnlyHint` is correct. Tool-name allowlists are updated in `src/telemetry/telemetry.ts` and
     `collector/src/collector.ts` (names only, no new fields).
