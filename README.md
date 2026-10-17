@@ -106,6 +106,17 @@ Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two w
 - Let you **audit** the numbers: suspect workouts are flagged, you can relabel or exclude workouts, every change is logged, and `verify_claim` recomputes a number your assistant told you.
 - Open a **local dashboard** (`open_performance_dashboard`) on `127.0.0.1` with session, HYROX, triathlon, readiness and audit views.
 
+<p align="center">
+	<img src="images/readme/dashboard-session.png" width="880" alt="Dashboard Session view: a HYROX sim rebuilt from nine WHOOP workouts, with span, tracked time, transition time, peak heart rate, energy and a segment timeline showing average and peak heart rate for each run and erg, with transition gaps shaded">
+</p>
+<table>
+	<tr>
+		<td width="50%"><img src="images/readme/dashboard-readiness.png" alt="Dashboard Readiness view: a Not Ready band with the rule that produced it, and recovery, form, specificity, sleep and taper components; the recovery component's Why? panel lists its value, method, window and records used"></td>
+		<td width="50%"><img src="images/readme/dashboard-audit.png" alt="Dashboard Audit view: a form to exclude or relabel a workout, and automatically flagged suspect records such as an implausible running pace and overlapping swims, each with Exclude and Relabel buttons"></td>
+	</tr>
+</table>
+<p align="center"><sub>Screenshots use synthetic sample data.</sub></p>
+
 Writing tools and the dashboard are available when the server runs locally (stdio). Details: [race performance tools](references/tools.md#race-performance-hyrox-and-triathlon) and [local data](references/privacy.md#race-performance-data-and-the-local-dashboard).
 
 <details>
