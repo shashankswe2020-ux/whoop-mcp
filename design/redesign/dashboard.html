@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Race performance</title>
+<style>
+@font-face{font-family:"Archivo";font-weight:400;src:url(fonts/archivo-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:500;src:url(fonts/archivo-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:600;src:url(fonts/archivo-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:700;src:url(fonts/archivo-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo Narrow";font-weight:500;src:url(fonts/archivo-narrow-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo Narrow";font-weight:600;src:url(fonts/archivo-narrow-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo Narrow";font-weight:700;src:url(fonts/archivo-narrow-latin-700-normal.woff2) format("woff2")}
+
+:root{
+  color-scheme:dark;
+  --bg:#0c0e13; --panel:#141821; --panel-2:#1b2030; --line:#262c3a; --grid:#1f2431;
+  --ink:#f1f3f7; --ink-2:#b8bfcc; --faint:#7c8597;
+  /* heart-rate intensity: one cool-to-hot ramp used by every chart (lightness rises with effort) */
+  --z0:#3a3f52; --z1:#4f46c8; --z2:#9b3fc4; --z3:#e0457b; --z4:#f7843b; --z5:#ffd84a;
+  /* recovery, WHOOP's own convention */
+  --red:#e5484d; --yellow:#f5c518; --green:#30c85e; --none:#3a3f52;
+  /* sports (validated categorical) */
+  --lift:#3987e5; --walk:#199e70; --cardio:#9085e9; --run:#d95926;
+  --text:"Archivo",system-ui,sans-serif; --num:"Archivo Narrow","Arial Narrow",sans-serif;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#eef0f4; --panel:#ffffff; --panel-2:#f3f5f9; --line:#dfe3ea; --grid:#eceff4;
+  --ink:#0f1320; --ink-2:#3d4557; --faint:#6a7386;
+  --z0:#c9cdd8; --z1:#5b52d6; --z2:#9a3cc6; --z3:#d63a70; --z4:#e9711f; --z5:#d9a800;
+  --red:#d7263d; --yellow:#d9a800; --green:#1f9d46; --none:#c9cdd8;
+  --lift:#2a78d6; --walk:#1baf7a; --cardio:#6250d6; --run:#eb6834;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--text)}
+h1,h2,h3,p{margin:0}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--z5);outline-offset:2px}
+.n{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:600}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top-in{max-width:1240px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.brand{font-weight:700;font-size:16px;margin-right:4px}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;max-width:100%}
+.tab{appearance:none;border:0;background:none;padding:8px 14px;border-radius:999px;cursor:pointer;color:var(--ink-2);font-weight:500;white-space:nowrap}
+.tab:hover{color:var(--ink);background:var(--panel)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);font-weight:600}
+.status{margin-left:auto;display:flex;gap:10px;align-items:center;font-size:13px;color:var(--ink-2);flex-wrap:wrap;min-width:0}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.theme{appearance:none;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 10px;cursor:pointer;font-size:13px;color:var(--ink-2)}
+
+main{max-width:1240px;margin:0 auto;padding:24px 24px 64px}
+.grid{display:grid;gap:16px}
+.g-hero{grid-template-columns:320px 1fr}
+.g2{grid-template-columns:1fr 1fr}
+.g-32{grid-template-columns:3fr 2fr}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 20px 16px;min-width:0;position:relative}
+.card h2{font-size:15px;font-weight:600;color:var(--ink)}
+.card .sub{color:var(--faint);font-size:13px;margin-top:2px}
+.card header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.legend i.ln{height:2px;width:14px;border-radius:1px}
+.title{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:4px 0 18px}
+.title h1{font-size:28px;font-weight:700;letter-spacing:-.015em}
+.title p{color:var(--ink-2)}
+
+svg{display:block;width:100%;height:auto;overflow:visible}
+svg text{font-family:var(--text);font-size:11px;fill:var(--faint)}
+svg .num{font-family:var(--num);font-weight:600;fill:var(--ink)}
+svg .lab{fill:var(--ink-2);font-weight:500}
+svg .hot{fill:var(--ink);font-weight:600;font-size:12px}
+.hit{fill:transparent;cursor:crosshair}
+
+.tip{position:fixed;z-index:20;pointer-events:none;background:var(--ink);color:var(--bg);padding:8px 10px;border-radius:8px;font-size:12px;line-height:1.4;max-width:260px;opacity:0;transform:translate(-50%,calc(-100% - 12px));transition:opacity .08s}
+.tip.on{opacity:1}
+.tip b{font-weight:700}
+.tip .row{display:flex;justify-content:space-between;gap:14px}
+.tip .row i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+
+/* ring numbers */
+.big{font-family:var(--num);font-weight:700;font-size:64px;line-height:1;letter-spacing:-.02em}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:16px}
+.stat .v{font-family:var(--num);font-weight:700;font-size:26px;line-height:1}
+.stat .l{font-size:12px;color:var(--faint);margin-top:3px}
+.stat .d{font-size:12px;margin-top:2px}
+.down{color:var(--red)}.up{color:var(--green)}
+.note{font-size:13px;color:var(--ink-2);margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.note b{color:var(--ink)}
+.callouts{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+.callout{border-left:3px solid var(--z3);padding:2px 0 2px 12px}
+.callout b{display:block;font-size:14px}
+.callout span{font-size:13px;color:var(--ink-2)}
+.list{display:grid;gap:10px}
+.li{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:baseline;font-size:14px}
+.li i{width:10px;height:10px;border-radius:50%;display:inline-block;transform:translateY(1px)}
+.li span{color:var(--ink-2);font-size:13px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{text-align:left;padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}
+th{color:var(--faint);font-weight:500}
+
+@media (prefers-reduced-motion:reduce){.draw{animation:none!important}}
+@keyframes reveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+.draw{animation:reveal 1.4s cubic-bezier(.2,.7,.2,1) both}
+
+@media (max-width:980px){.g-hero,.g2,.g-32{grid-template-columns:1fr}.callouts{grid-template-columns:1fr 1fr}}
+@media (max-width:600px){.top-in{padding:10px 14px;gap:10px}.status{margin-left:0;width:100%}main{padding:16px 12px 48px}.card{padding:16px 14px 12px}.title h1{font-size:22px}.big{font-size:52px}.callouts{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <span class="brand">Race performance</span>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Views"></nav>
+  <div class="status">
+    <span class="pill"><i style="background:var(--red)"></i>Not ready for HYROX</span>
+    <span class="pill"><i style="background:var(--yellow)"></i>WHOOP last synced Thu 6:30 pm</span>
+    <button class="theme" id="theme" type="button">Light</button>
+  </div>
+</div></header>
+<main id="main" role="tabpanel" tabindex="-1"></main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+// Real WHOOP history for this account (Aug 29 – Oct 16, 2026), compacted from the v2 API records.
+const REAL = {"days":{"2026-10-16":{"light":0.69,"deep":1.18,"rem":1.68,"awake":0.17,"perf":34,"strain":5.3,"rec":17,"hrv":64.6,"rhr":61},"2026-10-15":{"light":1.26,"deep":1.09,"rem":1.58,"awake":0.17,"perf":45,"strain":8.2,"rec":23,"hrv":65.2,"rhr":59},"2026-10-14":{"light":2.47,"deep":2.13,"rem":2.57,"awake":1.75,"perf":71,"strain":4.5,"rec":74,"hrv":104.0,"rhr":54},"2026-10-13":{"light":2.19,"deep":1.35,"rem":1.08,"awake":0.11,"perf":42,"strain":4.6,"rec":16,"hrv":43.5,"rhr":69},"2026-10-12":{"light":2.93,"deep":2.1,"rem":2.24,"awake":0.18,"perf":75,"strain":5.6,"rec":45,"hrv":70.8,"rhr":62},"2026-10-11":{"light":1.99,"deep":1.69,"rem":1.58,"awake":0.07,"perf":66,"strain":4.7,"rec":45,"hrv":82.0,"rhr":59},"2026-10-10":{"light":1.08,"deep":1.7,"rem":2.31,"awake":0.29,"perf":72,"strain":4.1,"rec":58,"hrv":92.4,"rhr":57},"2026-10-04":{"light":2.8,"deep":1.53,"rem":2.36,"awake":0.28,"perf":73,"strain":4.3,"rec":26,"hrv":58.7,"rhr":63},"2026-10-03":{"light":0.66,"deep":1.21,"rem":1.52,"awake":0.16,"perf":34,"strain":7.2,"rec":24,"hrv":91.0,"rhr":57},"2026-10-02":{"light":2.93,"deep":1.71,"rem":3.1,"awake":0.19,"perf":82,"strain":9.2,"rec":37,"hrv":68.9,"rhr":63},"2026-10-01":{"light":2.38,"deep":1.73,"rem":2.4,"awake":0.29,"perf":77,"strain":6.0,"rec":57,"hrv":97.2,"rhr":58},"2026-09-30":{"light":1.53,"deep":1.18,"rem":1.48,"awake":0.11,"perf":47,"strain":3.6,"rec":28,"hrv":90.7,"rhr":58},"2026-09-29":{"light":2.01,"deep":1.63,"rem":1.44,"awake":0.64,"perf":65,"strain":5.4,"rec":53,"hrv":105.5,"rhr":55},"2026-09-28":{"light":2.19,"deep":2.07,"rem":2.51,"awake":0.5,"perf":79,"strain":4.5,"rec":46,"hrv":82.2,"rhr":60},"2026-09-27":{"light":1.43,"deep":1.89,"rem":1.88,"awake":0.08,"perf":75,"strain":1.1,"rec":90,"hrv":128.3,"rhr":52},"2026-09-26":{"light":2.13,"deep":1.21,"rem":1.57,"awake":0.37,"perf":63,"strain":2.5,"rec":72,"hrv":132.3,"rhr":52},"2026-09-25":{"light":2.43,"deep":1.64,"rem":1.8,"awake":2.87,"perf":44,"strain":4.8,"rec":38,"hrv":61.5,"rhr":63},"2026-09-24":{"light":1.88,"deep":1.72,"rem":1.82,"awake":0.12,"perf":75,"strain":12.8,"rec":94,"hrv":121.2,"rhr":51},"2026-09-23":{"light":1.59,"deep":1.83,"rem":1.75,"awake":0.1,"perf":76,"strain":4.0,"rec":95,"hrv":114.7,"rhr":54},"2026-09-22":{"light":2.72,"deep":1.8,"rem":2.1,"awake":0.28,"perf":78,"strain":3.5,"rec":39,"hrv":52.1,"rhr":66},"2026-09-15":{"rec":45,"hrv":68.6,"rhr":64},"2026-09-18":{"rec":17,"hrv":97.1,"rhr":57},"2026-09-19":{"rec":34,"hrv":78.1,"rhr":60},"2026-09-21":{"rec":72,"hrv":78.6,"rhr":60}},"workouts":[{"day":"2026-08-29","h":12.78,"min":23,"sport":"weightlifting","strain":8.3,"avg":127,"max":163,"z":[0.8,11.2,8.4,2.5,0.0,0.0]},{"day":"2026-08-29","h":13.48,"min":103,"sport":"weightlifting","strain":15.9,"avg":133,"max":172,"z":[0.0,45.1,43.5,12.7,1.7,0.0]},{"day":"2026-08-29","h":15.65,"min":33,"sport":"weightlifting","strain":12.8,"avg":140,"max":179,"z":[0.0,12.2,4.5,10.2,4.9,1.3]},{"day":"2026-08-29","h":23.07,"min":22,"sport":"walking","strain":4.4,"avg":98,"max":123,"z":[16.6,5.3,0.0,0.0,0.0,0.0]},{"day":"2026-08-30","h":18.17,"min":53,"sport":"squash","strain":15.0,"avg":147,"max":189,"z":[0.2,16.4,4.8,9.8,13.7,8.0]},{"day":"2026-08-30","h":20.63,"min":21,"sport":"weightlifting","strain":6.8,"avg":119,"max":147,"z":[0.9,15.9,4.2,0.0,0.0,0.0]},{"day":"2026-08-31","h":14.5,"min":24,"sport":"weightlifting","strain":8.8,"avg":129,"max":168,"z":[0.5,12.8,6.9,2.8,1.0,0.0]},{"day":"2026-08-31","h":15.1,"min":63,"sport":"weightlifting","strain":15.6,"avg":140,"max":171,"z":[0.0,14.8,17.5,23.4,7.2,0.0]},{"day":"2026-08-31","h":16.43,"min":23,"sport":"spin","strain":6.5,"avg":128,"max":149,"z":[0.0,15.7,7.2,0.1,0.0,0.0]},{"day":"2026-09-03","h":22.23,"min":13,"sport":"walking","strain":7.6,"avg":143,"max":180,"z":[0.0,4.7,2.5,2.0,2.5,1.3]},{"day":"2026-09-04","h":15.22,"min":18,"sport":"weightlifting","strain":5.3,"avg":109,"max":127,"z":[5.2,12.8,0.0,0.0,0.0,0.0]},{"day":"2026-09-04","h":15.98,"min":29,"sport":"weightlifting","strain":8.5,"avg":110,"max":151,"z":[13.2,11.0,3.7,1.1,0.0,0.0]},{"day":"2026-09-04","h":16.72,"min":16,"sport":"walking","strain":4.5,"avg":106,"max":135,"z":[6.7,9.3,0.0,0.0,0.0,0.0]},{"day":"2026-09-04","h":19.63,"min":186,"sport":"weightlifting","strain":14.2,"avg":110,"max":145,"z":[56.0,126.3,3.7,0.0,0.0,0.0]},{"day":"2026-09-05","h":3.68,"min":25,"sport":"walking","strain":4.3,"avg":96,"max":114,"z":[24.3,0.7,0.0,0.0,0.0,0.0]},{"day":"2026-09-05","h":19.53,"min":27,"sport":"weightlifting","strain":7.7,"avg":109,"max":145,"z":[9.0,17.3,0.7,0.0,0.0,0.0]},{"day":"2026-09-06","h":13.05,"min":57,"sport":"weightlifting","strain":12.9,"avg":119,"max":161,"z":[13.4,33.0,7.7,2.8,0.0,0.0]},{"day":"2026-09-06","h":14.23,"min":40,"sport":"weightlifting","strain":12.5,"avg":131,"max":170,"z":[0.9,19.9,10.6,6.8,1.9,0.0]},{"day":"2026-09-06","h":15.95,"min":98,"sport":"weightlifting","strain":16.8,"avg":139,"max":176,"z":[0.0,29.9,33.4,25.3,9.3,0.1]},{"day":"2026-09-10","h":15.0,"min":18,"sport":"walking","strain":5.5,"avg":122,"max":149,"z":[0.1,16.7,1.1,0.0,0.0,0.0]},{"day":"2026-09-12","h":6.45,"min":103,"sport":"weightlifting","strain":17.1,"avg":140,"max":173,"z":[0.0,28.1,34.3,31.4,9.2,0.0]},{"day":"2026-09-13","h":21.92,"min":19,"sport":"walking","strain":6.0,"avg":122,"max":174,"z":[3.1,10.7,2.5,2.0,0.8,0.0]},{"day":"2026-09-16","h":18.38,"min":35,"sport":"weightlifting","strain":9.5,"avg":113,"max":158,"z":[8.9,23.4,2.5,0.2,0.0,0.0]},{"day":"2026-09-19","h":14.9,"min":122,"sport":"walking","strain":4.1,"avg":95,"max":114,"z":[121.6,0.4,0.0,0.0,0.0,0.0]},{"day":"2026-09-24","h":16.85,"min":46,"sport":"kayaking","strain":9.6,"avg":111,"max":154,"z":[22.6,19.0,3.8,0.6,0.0,0.0]},{"day":"2026-09-24","h":17.83,"min":42,"sport":"walking","strain":5.9,"avg":111,"max":150,"z":[16.1,24.8,1.0,0.1,0.0,0.0]},{"day":"2026-09-24","h":22.05,"min":17,"sport":"swimming","strain":4.3,"avg":100,"max":127,"z":[14.8,2.2,0.0,0.0,0.0,0.0]},{"day":"2026-10-02","h":21.9,"min":25,"sport":"walking","strain":7.7,"avg":126,"max":179,"z":[3.4,12.0,5.6,1.2,1.9,0.9]},{"day":"2026-10-15","h":13.53,"min":16,"sport":"walking","strain":4.6,"avg":106,"max":120,"z":[9.9,6.1,0.0,0.0,0.0,0.0]},{"day":"2026-10-16","h":17.95,"min":17,"sport":"weightlifting","strain":4.7,"avg":99,"max":116,"z":[15.9,1.1,0.0,0.0,0.0,0.0]}]};
+// HYROX simulation fixture (r/whoop session, 2026-10-15). This account has no HYROX-shaped session yet.
+const SIM = { when: "Thu 15 Oct, 7:32 pm", maxHr: 190,
+  segs: [["Run 1","run","19:32:00",429,142,161],["SkiErg","erg","19:39:30",157,147,162],["Run 2","run","19:42:30",349,145,162],["Row","erg","19:50:00",178,122,131],["Run 3","run","19:53:20",347,155,169],["Run 4","run","20:00:10",78,118,148,true],["Run 5","run","20:02:00",375,141,152],["SkiErg","erg","20:09:00",201,117,145],["Run 6","run","20:13:16",310,162,171]],
+  day: { recovery: 62, hrv: 78, rhr: 56, sleep: 7.1, strain: 11.0 }, after: { name: "Weightlifting", at: "8:48 pm", min: 55, strain: 11.9 } };
+const COURSE = ["Run 1","SkiErg","Run 2","Sled push","Run 3","Sled pull","Run 4","Burpee broad jumps","Run 5","Row","Run 6","Farmers carry","Run 7","Sandbag lunges","Run 8","Wall balls"];
+const TODAY = "2026-10-18";
+
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+const NS = "http://www.w3.org/2000/svg";
+function S(tag, a = {}, ...kids) { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(a)) if (v != null) n.setAttribute(k, v); for (const c of kids.flat()) if (c != null) n.append(c.nodeType ? c : document.createTextNode(c)); return n; }
+function H(tag, a = {}, ...kids) { const n = document.createElement(tag); for (const [k, v] of Object.entries(a)) { if (k === "class") n.className = v; else if (k === "html") n.innerHTML = v; else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else if (v != null) n.setAttribute(k, v); } for (const c of kids.flat()) if (c != null && c !== false) n.append(c.nodeType ? c : String(c)); return n; }
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const mmss = s => { s = Math.round(s); const m = Math.floor(s / 60), x = s % 60; return `${m}:${String(x).padStart(2, "0")}`; };
+const sec = c => { const [a, b, x] = c.split(":").map(Number); return a * 3600 + b * 60 + x; };
+const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const span = (a, b) => { const out = []; for (let d = a; d <= b; d = addDays(d, 1)) out.push(d); return out; };
+const fmtDay = (iso, o = { day: "numeric", month: "short" }) => new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { ...o, timeZone: "UTC" });
+const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+const sd = a => { const m = mean(a); return Math.sqrt(mean(a.map(x => (x - m) ** 2))); };
+const band = r => r == null ? "none" : r < 34 ? "red" : r < 67 ? "yellow" : "green";
+const zoneOf = (hr, max) => { const p = hr / max; return p < .5 ? 0 : p < .6 ? 1 : p < .7 ? 2 : p < .8 ? 3 : p < .9 ? 4 : 5; };
+const sportOf = s => s === "weightlifting" ? "lift" : s === "walking" ? "walk" : s === "running" ? "run" : "cardio";
+const SPORT = { lift: "Lifting", walk: "Walking", cardio: "Other cardio", run: "Running" };
+const nice = (v, step) => Math.ceil(v / step) * step;
+
+const tip = $("#tip");
+function showTip(e, html) { tip.innerHTML = html; tip.classList.add("on"); moveTip(e); }
+function moveTip(e) { const x = Math.min(window.innerWidth - 140, Math.max(140, e.clientX)); tip.style.left = x + "px"; tip.style.top = e.clientY + "px"; }
+function hideTip() { tip.classList.remove("on"); }
+function hover(el, html) { el.addEventListener("pointerenter", e => showTip(e, typeof html === "function" ? html() : html)); el.addEventListener("pointermove", moveTip); el.addEventListener("pointerleave", hideTip); return el; }
+const row = (c, k, v) => `<div class="row"><span>${c ? `<i style="background:${c}"></i>` : ""}${k}</span><b>${v}</b></div>`;
+function widthOf(el) { return Math.max(300, Math.floor(el.getBoundingClientRect().width)); }
+
+// ---------- derived real series ----------
+const DAYS = span("2026-09-15", TODAY);
+const D = REAL.days;
+const hrvVals = DAYS.map(d => D[d]?.hrv).filter(v => v != null), rhrVals = DAYS.map(d => D[d]?.rhr).filter(v => v != null);
+const HRV = { m: mean(hrvVals), s: sd(hrvVals) }, RHR = { m: mean(rhrVals), s: sd(rhrVals) };
+const lastScored = [...DAYS].reverse().find(d => D[d]?.rec != null);
+const W = REAL.workouts.map(w => ({ ...w, cat: sportOf(w.sport), trimp: w.z.reduce((a, m, i) => a + m * i, 0) }));
+const LOADDAYS = span("2026-08-29", TODAY);
+const PMC = (() => { let ctl = 0, atl = 0; return LOADDAYS.map(d => { const t = W.filter(w => w.day === d).reduce((a, w) => a + w.trimp, 0); ctl += (t - ctl) / 42; atl += (t - atl) / 7; return { d, t, ctl, atl, tsb: ctl - atl }; }); })();
+
+// ---------- routing ----------
+const VIEWS = [["today", "Today"], ["session", "Session"], ["training", "Training"], ["readiness", "Readiness"], ["audit", "Audit"]];
+let view = new URLSearchParams(location.search).get("view"); if (!VIEWS.some(v => v[0] === view)) view = "today";
+const tabs = $("#tabs");
+for (const [id, label] of VIEWS) tabs.append(H("button", { class: "tab", role: "tab", "data-v": id, "aria-selected": String(id === view), onclick: () => go(id) }, label));
+function go(v) { view = v; history.replaceState(null, "", "?view=" + v); for (const b of tabs.children) b.setAttribute("aria-selected", String(b.dataset.v === v)); draw(true); }
+$("#theme").addEventListener("click", e => { const r = document.documentElement, light = r.dataset.theme !== "light"; r.dataset.theme = light ? "light" : "dark"; e.target.textContent = light ? "Dark" : "Light"; draw(false); });
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => draw(false), 120); });
+const main = $("#main");
+let animate = true;
+function draw(anim) { animate = anim; hideTip(); main.replaceChildren(); ({ today, session, training, readiness, audit })[view](); }
+
+// ======================================================================
+// TODAY: recovery ring + vitals stack on one timeline
+// ======================================================================
+function ring(size, pct, color, label, sub) {
+  const r = size / 2 - 12, c = 2 * Math.PI * r;
+  const svg = S("svg", { viewBox: `0 0 ${size} ${size}`, width: size, height: size, style: `width:${size}px`, role: "img", "aria-label": `${label} ${pct}%` },
+    S("circle", { cx: size / 2, cy: size / 2, r, fill: "none", stroke: css("--grid"), "stroke-width": 14 }),
+    S("circle", { cx: size / 2, cy: size / 2, r, fill: "none", stroke: color, "stroke-width": 14, "stroke-linecap": "round", "stroke-dasharray": `${c * pct / 100} ${c}`, transform: `rotate(-90 ${size / 2} ${size / 2})` }),
+    S("text", { x: size / 2, y: size / 2 + 8, "text-anchor": "middle", class: "num", style: "font-size:52px;font-weight:700" }, pct + "%"),
+    S("text", { x: size / 2, y: size / 2 + 32, "text-anchor": "middle", class: "lab", style: "font-size:13px" }, sub));
+  return svg;
+}
+function today() {
+  const last = D[lastScored];
+  main.append(H("div", { class: "title" }, H("h1", {}, "Today"), H("p", {}, "WHOOP hasn't synced since Thursday. Showing your last scored morning, ", fmtDay(lastScored, { weekday: "long", day: "numeric", month: "short" }), ".")));
+  const left = H("section", { class: "card" }, H("h2", {}, "Recovery"), H("p", { class: "sub" }, `Last scored ${fmtDay(lastScored, { weekday: "short", day: "numeric", month: "short" })}`),
+    H("div", { style: "display:flex;justify-content:center;margin:14px 0 4px" }, ring(220, last.rec, css("--" + band(last.rec)), "Recovery", "Red band")),
+    H("div", { class: "stats" },
+      stat(last.hrv.toFixed(0) + " ms", "HRV", `${Math.round(HRV.m - last.hrv)} below your normal ${HRV.m.toFixed(0)}`, "down"),
+      stat(last.rhr + " bpm", "Resting HR", `${Math.round(last.rhr - RHR.m)} above your normal ${RHR.m.toFixed(0)}`, "down"),
+      stat((last.light + last.deep + last.rem).toFixed(1) + " h", "Sleep", `${last.perf}% of need`, "down"),
+      stat(last.strain.toFixed(1), "Day strain", "Light day", "")),
+    H("p", { class: "note" }, H("b", {}, "Three of your last four mornings were red. "), "HRV has been under your normal range since Oct 12 and sleep has been short. A good day to keep it easy."));
+  const right = H("section", { class: "card" }, H("header", {}, H("div", {}, H("h2", {}, "Vitals, last five weeks"), H("p", { class: "sub" }, "One timeline. Hover any day to read all four. Shaded bands are your normal range (mean ± 1 SD).")),
+    H("div", { class: "legend" }, H("span", {}, H("i", { style: "background:var(--green)" }), "Green"), H("span", {}, H("i", { style: "background:var(--yellow)" }), "Yellow"), H("span", {}, H("i", { style: "background:var(--red)" }), "Red"))));
+  main.append(H("div", { class: "grid g-hero" }, left, right));
+  right.append(vitals(widthOf(right) - 40));
+}
+function stat(v, l, d, cls) { return H("div", { class: "stat" }, H("div", { class: "v" }, v), H("div", { class: "l" }, l), d ? H("div", { class: "d " + cls }, d) : null); }
+
+function vitals(w) {
+  const L = 44, R = 12, rows = [{ k: "rec", h: 120, name: "Recovery %" }, { k: "hrv", h: 92, name: "HRV ms" }, { k: "rhr", h: 80, name: "Resting HR" }, { k: "sleep", h: 104, name: "Sleep h" }];
+  const gap = 18, total = rows.reduce((a, r) => a + r.h + gap, 0) + 20;
+  const svg = S("svg", { viewBox: `0 0 ${w} ${total}`, role: "img", "aria-label": "Recovery, HRV, resting heart rate and sleep per day, Sep 15 to Oct 18" });
+  const n = DAYS.length, bw = (w - L - R) / n, x = i => L + i * bw;
+  let y0 = 0;
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  for (const r of rows) {
+    const top = y0, bot = y0 + r.h;
+    g.append(S("text", { x: 0, y: top + 11, class: "lab" }, r.name)); const PH = r.h - 26;
+    if (r.k === "rec") {
+      const y = v => bot - v / 100 * PH;
+      [34, 67].forEach(t => g.append(S("line", { x1: L, x2: w - R, y1: y(t), y2: y(t), stroke: css("--grid"), "stroke-dasharray": "2 3" }), S("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }, t)));
+      DAYS.forEach((d, i) => { const v = D[d]?.rec; if (v == null) { g.append(S("rect", { x: x(i) + bw * .2, y: bot - 3, width: bw * .6, height: 3, rx: 1.5, fill: css("--none") })); return; }
+        g.append(S("rect", { x: x(i) + bw * .15, y: y(v), width: bw * .7, height: bot - y(v), rx: Math.min(4, bw * .3), fill: css("--" + band(v)) }));
+        if (d === lastScored) g.append(S("text", { x: x(i) + bw / 2, y: y(v) - 5, "text-anchor": "middle", class: "num", style: "font-size:13px" }, v)); });
+    } else if (r.k === "hrv" || r.k === "rhr") {
+      const st = r.k === "hrv" ? HRV : RHR, vals = r.k === "hrv" ? hrvVals : rhrVals;
+      const lo = Math.floor(Math.min(...vals, st.m - st.s) / 10) * 10, hi = Math.ceil(Math.max(...vals, st.m + st.s) / 10) * 10;
+      const y = v => bot - (v - lo) / (hi - lo) * PH;
+      g.append(S("rect", { x: L, width: w - L - R, y: y(st.m + st.s), height: y(st.m - st.s) - y(st.m + st.s), fill: css("--z1"), opacity: .16, rx: 4 }));
+      g.append(S("line", { x1: L, x2: w - R, y1: y(st.m), y2: y(st.m), stroke: css("--z1"), opacity: .6, "stroke-dasharray": "4 3" }));
+      g.append(S("text", { x: L - 6, y: y(hi) + 4, "text-anchor": "end" }, hi), S("text", { x: L - 6, y: y(lo) + 4, "text-anchor": "end" }, lo));
+      let dpath = "", pen = false;
+      DAYS.forEach((d, i) => { const v = D[d]?.[r.k]; if (v == null) { pen = false; return; } dpath += (pen ? "L" : "M") + (x(i) + bw / 2).toFixed(1) + " " + y(v).toFixed(1); pen = true; });
+      g.append(S("path", { d: dpath, fill: "none", stroke: css("--ink"), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+      DAYS.forEach((d, i) => { const v = D[d]?.[r.k]; if (v == null) return; const out = r.k === "hrv" ? v < st.m - st.s : v > st.m + st.s;
+        g.append(S("circle", { cx: x(i) + bw / 2, cy: y(v), r: out ? 4.5 : 3, fill: out ? css("--red") : css("--ink"), stroke: css("--panel"), "stroke-width": 2 })); });
+    } else {
+      const max = 9, y = v => bot - v / max * PH;
+      [4, 8].forEach(t => g.append(S("line", { x1: L, x2: w - R, y1: y(t), y2: y(t), stroke: css("--grid"), "stroke-dasharray": "2 3" }), S("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }, t)));
+      DAYS.forEach((d, i) => { const s = D[d]; if (!s || s.deep == null) { g.append(S("rect", { x: x(i) + bw * .2, y: bot - 3, width: bw * .6, height: 3, rx: 1.5, fill: css("--none") })); return; }
+        let acc = 0; [["deep", "--z1"], ["rem", "--z2"], ["light", "--z0"], ["awake", "--grid"]].forEach(([k, c]) => { const v = s[k]; g.append(S("rect", { x: x(i) + bw * .15, y: y(acc + v), width: bw * .7, height: Math.max(0, y(acc) - y(acc + v) - 1), fill: css(c), rx: 2 })); acc += v; }); });
+    }
+    y0 = bot + gap;
+  }
+  // x labels
+  DAYS.forEach((d, i) => { if (i % 7 === 0 || i === n - 1) svg.append(S("text", { x: x(i) + bw / 2, y: total - 2, "text-anchor": "middle" }, fmtDay(d))); });
+  // crosshair
+  const cross = S("rect", { x: 0, y: 0, width: bw, height: total - 16, fill: css("--ink"), opacity: 0, rx: 4 }); svg.prepend(cross);
+  DAYS.forEach((d, i) => { const hit = S("rect", { x: x(i), y: 0, width: bw, height: total - 16, class: "hit" }); svg.append(hit);
+    hit.addEventListener("pointerenter", e => { cross.setAttribute("x", x(i)); cross.setAttribute("opacity", .06); const s = D[d] || {};
+      showTip(e, `<b>${fmtDay(d, { weekday: "short", day: "numeric", month: "short" })}</b>` + (s.rec == null && s.deep == null ? "<div>No scored data. WHOOP didn't record or hasn't synced.</div>" :
+        row(css("--" + band(s.rec)), "Recovery", s.rec != null ? s.rec + "%" : "—") + row(null, "HRV", s.hrv != null ? s.hrv.toFixed(0) + " ms" : "—") + row(null, "Resting HR", s.rhr != null ? s.rhr + " bpm" : "—") +
+        row(css("--z1"), "Deep", s.deep != null ? s.deep.toFixed(1) + " h" : "—") + row(css("--z2"), "REM", s.rem != null ? s.rem.toFixed(1) + " h" : "—") + row(css("--z0"), "Light", s.light != null ? s.light.toFixed(1) + " h" : "—") + row(null, "Strain", s.strain ?? "—"))); });
+    hit.addEventListener("pointermove", moveTip); hit.addEventListener("pointerleave", () => { cross.setAttribute("opacity", 0); hideTip(); }); });
+  const lg = H("div", { class: "legend", style: "margin-top:10px" }, H("span", {}, H("i", { style: "background:var(--z1)" }), "Deep"), H("span", {}, H("i", { style: "background:var(--z2)" }), "REM"), H("span", {}, H("i", { style: "background:var(--z0)" }), "Light"), H("span", {}, H("i", { style: "background:var(--red);border-radius:50%" }), "Outside your normal range"), H("span", {}, H("i", { style: "background:var(--none);height:3px" }), "No data"));
+  const wrap = H("div"); wrap.append(svg, lg); return wrap;
+}
+
+// ======================================================================
+// SESSION: heart-rate elevation profile + course ring + zone time
+// ======================================================================
+function session() {
+  const segs = SIM.segs.map(([name, kind, at, dur, avg, peak, flag]) => ({ name, kind, at: sec(at), dur, avg, peak, flag }));
+  const t0 = segs[0].at, t1 = segs.at(-1).at + segs.at(-1).dur, spanS = t1 - t0, tracked = segs.reduce((a, s) => a + s.dur, 0);
+  main.append(H("div", { class: "title" }, H("h1", {}, "HYROX simulation"), H("p", {}, `${SIM.when} · ${mmss(spanS)} · peak ${Math.max(...segs.map(s => s.peak))} bpm`), H("button", { class: "btn", style: "margin-left:auto" }, "Confirm as HYROX")));
+  const hero = H("section", { class: "card" }, H("header", {}, H("div", {}, H("h2", {}, "Heart rate through the session"), H("p", { class: "sub" }, "Each block is one WHOOP segment at its average, with the peak marked. Hatched gaps are untracked transitions.")),
+    H("div", { class: "legend" }, ...[1, 2, 3, 4, 5].map(z => H("span", {}, H("i", { style: `background:var(--z${z})` }), "Z" + z)))));
+  main.append(hero);
+  hero.append(profile(widthOf(hero) - 40, segs, t0, spanS));
+  const runs = segs.filter(s => s.kind === "run" && !s.flag), ergs = segs.filter(s => s.kind === "erg");
+  hero.append(H("div", { class: "callouts" },
+    H("div", { class: "callout", style: "border-color:var(--z4)" }, H("b", {}, "You finished hardest"), H("span", {}, `Run 6 at ${runs.at(-1).avg} bpm, ${runs.at(-1).avg - runs[0].avg} above Run 1.`)),
+    H("div", { class: "callout", style: "border-color:var(--z2)" }, H("b", {}, "Ergs were rest"), H("span", {}, `${Math.round(mean(ergs.map(s => s.avg)))} bpm on ergs vs ${Math.round(mean(runs.map(s => s.avg)))} on runs.`)),
+    H("div", { class: "callout", style: "border-color:var(--z0)" }, H("b", {}, `${mmss(spanS - tracked)} in transitions`), H("span", {}, `${Math.round((spanS - tracked) / spanS * 100)}% of the block. In a race that's Roxzone.`)),
+    H("div", { class: "callout", style: "border-color:var(--lift)" }, H("b", {}, "The lift cost more"), H("span", {}, `${SIM.after.name} after: strain ${SIM.after.strain}. No sim segment passed 5.9.`))));
+  const c1 = H("section", { class: "card" }, H("header", {}, H("div", {}, H("h2", {}, "The course WHOOP could see"), H("p", { class: "sub" }, "All 16 HYROX legs. Filled legs were recorded; hatched ones are stations WHOOP can't detect."))));
+  const c2 = H("section", { class: "card" }, H("header", {}, H("div", {}, H("h2", {}, "Where the time went"), H("p", { class: "sub" }, `By segment average against max HR ${SIM.maxHr}. Runs left to right show the build.`))));
+  main.append(H("div", { class: "grid g2", style: "margin-top:16px" }, c1, c2));
+  c1.append(courseRing(Math.min(widthOf(c1) - 40, 420), segs));
+  c2.append(zoneBar(widthOf(c2) - 40, segs, spanS - tracked), runBuild(widthOf(c2) - 40, runs));
+}
+
+function profile(w, segs, t0, spanS) {
+  const h = Math.round(Math.max(260, Math.min(380, w * .36))), L = 40, R = 46, T = 30, B = 28, max = SIM.maxHr;
+  const lo = 90, hi = 185, x = t => L + (t - t0) / spanS * (w - L - R), y = v => T + (1 - (v - lo) / (hi - lo)) * (h - T - B);
+  const svg = S("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": "Heart rate by segment across the 46-minute session" });
+  const defs = S("defs"); svg.append(defs);
+  const pat = S("pattern", { id: "hatch", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, S("line", { x1: 0, y1: 0, x2: 0, y2: 6, stroke: css("--line"), "stroke-width": 2 })); defs.append(pat);
+  for (let z = 1; z <= 5; z++) { const gr = S("linearGradient", { id: "g" + z, x1: 0, y1: 0, x2: 0, y2: 1 }, S("stop", { offset: 0, "stop-color": css("--z" + z), "stop-opacity": .95 }), S("stop", { offset: 1, "stop-color": css("--z" + z), "stop-opacity": .25 })); defs.append(gr); }
+  // zone bands
+  for (let z = 1; z <= 5; z++) { const a = Math.max(lo, max * (.4 + z * .1)), b = Math.min(hi, max * (.5 + z * .1)); if (b <= lo) continue;
+    svg.append(S("rect", { x: L, y: y(b), width: w - L - R, height: y(a) - y(b), fill: css("--z" + z), opacity: z % 2 ? .07 : .04 }));
+    svg.append(S("text", { x: w - R + 8, y: (y(a) + y(b)) / 2 + 4, style: `fill:${css("--z" + z)};font-weight:600` }, "Z" + z)); }
+  [100, 120, 140, 160, 180].forEach(v => svg.append(S("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end" }, v)));
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  // transitions
+  let prev = t0;
+  segs.forEach(s => { if (s.at - prev > 15) { g.append(hover(S("rect", { x: x(prev), y: T, width: x(s.at) - x(prev), height: h - T - B, fill: "url(#hatch)", opacity: .9 }), `<b>Transition</b><div>${mmss(s.at - prev)} untracked</div>`)); } prev = s.at + s.dur; });
+  // segments
+  segs.forEach(s => {
+    const z = zoneOf(s.avg, max), x0 = x(s.at) + 1, x1 = x(s.at + s.dur) - 1, top = y(s.avg), r = Math.min(8, (x1 - x0) / 3);
+    const path = `M${x0} ${h - B} L${x0} ${top + r} Q${x0} ${top} ${x0 + r} ${top} L${x1 - r} ${top} Q${x1} ${top} ${x1} ${top + r} L${x1} ${h - B} Z`;
+    const shape = S("path", { d: path, fill: `url(#g${Math.max(1, z)})`, opacity: s.flag ? .45 : 1 });
+    g.append(hover(shape, `<b>${s.name}${s.flag ? " · flagged" : ""}</b>` + row(null, "Split", mmss(s.dur)) + row(null, "Average", s.avg + " bpm") + row(null, "Peak", s.peak + " bpm") + row(css("--z" + z), "Zone", "Z" + z) + (s.flag ? `<div style="margin-top:4px">Too short and easy for a run; probably a sled or carry.</div>` : "")));
+    g.append(S("line", { x1: x0 + 3, x2: x1 - 3, y1: y(s.peak), y2: y(s.peak), stroke: css("--ink"), "stroke-width": 2, opacity: .85, "stroke-linecap": "round" }));
+    if (x1 - x0 > 34) g.append(S("text", { x: (x0 + x1) / 2, y: y(s.peak) - 8, "text-anchor": "middle", class: "hot" }, s.name), S("text", { x: (x0 + x1) / 2, y: h - B - 8, "text-anchor": "middle", class: "num", style: "font-size:12px;fill:#fff" }, mmss(s.dur)));
+  });
+  // run build line
+  const runs = segs.filter(s => s.kind === "run" && !s.flag);
+  g.append(S("path", { d: runs.map((s, i) => (i ? "L" : "M") + x(s.at + s.dur / 2) + " " + y(s.avg)).join(""), fill: "none", stroke: css("--ink"), "stroke-width": 1.5, "stroke-dasharray": "3 4", opacity: .7 }));
+  runs.forEach(s => g.append(S("circle", { cx: x(s.at + s.dur / 2), cy: y(s.avg), r: 4, fill: css("--ink"), stroke: css("--panel"), "stroke-width": 2 })));
+  const lr = runs.at(-1); if (w > 640) g.append(S("text", { x: x(lr.at + lr.dur / 2), y: y(lr.avg) + 24, "text-anchor": "middle", class: "hot", style: "fill:#fff;font-size:13px" }, `+${lr.avg - runs[0].avg} bpm`), S("text", { x: x(lr.at + lr.dur / 2), y: y(lr.avg) + 39, "text-anchor": "middle", style: "fill:#fff;opacity:.85" }, "since Run 1"));
+  // time axis
+  for (let m = 0; m <= spanS / 60; m += 5) svg.append(S("text", { x: x(t0 + m * 60), y: h - 8, "text-anchor": "middle" }, m + "′"));
+  return svg;
+}
+
+function courseRing(size, segs) {
+  const cx = size / 2, cy = size / 2, ro = size / 2 - 8, ri = ro - Math.max(38, size * .13), n = COURSE.length, gap = .02;
+  const svg = S("svg", { viewBox: `0 0 ${size} ${size}`, style: `max-width:${size}px;margin:0 auto`, role: "img", "aria-label": "HYROX course ring: 9 of 16 legs recorded" });
+  const defs = S("defs", {}, S("pattern", { id: "hatch2", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, S("line", { x1: 0, y1: 0, x2: 0, y2: 6, stroke: css("--line"), "stroke-width": 2 }))); svg.append(defs);
+  const covered = { SkiErg: segs.filter(s => s.name === "SkiErg"), Row: segs.filter(s => s.name === "Row") }, runs = segs.filter(s => s.kind === "run" && !s.flag); let ri2 = 0, seen = 0;
+  const arc = (a0, a1, r0, r1) => { const p = (a, r) => [cx + r * Math.sin(a), cy - r * Math.cos(a)]; const [x0, y0] = p(a0, r1), [x1, y1] = p(a1, r1), [x2, y2] = p(a1, r0), [x3, y3] = p(a0, r0), lg = a1 - a0 > Math.PI ? 1 : 0;
+    return `M${x0} ${y0} A${r1} ${r1} 0 ${lg} 1 ${x1} ${y1} L${x2} ${y2} A${r0} ${r0} 0 ${lg} 0 ${x3} ${y3} Z`; };
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  COURSE.forEach((name, i) => {
+    const a0 = i / n * 2 * Math.PI + gap, a1 = (i + 1) / n * 2 * Math.PI - gap; let s = null;
+    if (name.startsWith("Run")) s = runs[ri2++]; else if (covered[name]?.length) s = covered[name].shift();
+    if (s) seen++;
+    const z = s ? Math.max(1, zoneOf(s.avg, SIM.maxHr)) : 0;
+    const p = S("path", { d: arc(a0, a1, ri, ro), fill: s ? css("--z" + z) : "url(#hatch2)", stroke: s ? "none" : css("--line") });
+    g.append(hover(p, s ? `<b>${name}</b>` + row(null, "Split", mmss(s.dur)) + row(css("--z" + z), "Average", s.avg + " bpm") : `<b>${name}</b><div>${name.startsWith("Run") ? "Not run in this sim." : "WHOOP doesn't record this station as its own activity."}</div>`));
+    const am = (a0 + a1) / 2, lr = ro + 4;
+    if (size > 340) { const tx = cx + (ri - 12) * Math.sin(am), ty = cy - (ri - 12) * Math.cos(am); g.append(S("text", { x: tx, y: ty + 4, "text-anchor": "middle", style: "font-size:10px" }, name.startsWith("Run") ? "R" + name.slice(4) : name.split(" ")[0])); }
+  });
+  svg.append(S("text", { x: cx, y: cy - 6, "text-anchor": "middle", class: "num", style: "font-size:44px;font-weight:700" }, `${seen}/16`));
+  svg.append(S("text", { x: cx, y: cy + 18, "text-anchor": "middle", class: "lab", style: "font-size:13px" }, "legs WHOOP saw"));
+  return svg;
+}
+
+function zoneBar(w, segs, untracked) {
+  const t = [0, 0, 0, 0, 0, 0]; segs.forEach(s => t[zoneOf(s.avg, SIM.maxHr)] += s.dur);
+  const total = t.reduce((a, b) => a + b, 0) + untracked, h = 70;
+  const svg = S("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": "Time by heart-rate zone" });
+  let x = 0; const parts = [...t.map((v, z) => [v, "--z" + z, "Z" + z]), [untracked, null, "Untracked"]];
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  parts.forEach(([v, c, k]) => { if (!v) return; const ww = v / total * w;
+    g.append(hover(S("rect", { x: x + 1, y: 0, width: Math.max(0, ww - 2), height: 34, rx: 6, fill: c ? css(c) : "url(#hatch)", stroke: c ? "none" : css("--line") }), `<b>${k}</b>${row(null, "Time", mmss(v))}${row(null, "Share", Math.round(v / total * 100) + "%")}`));
+    if (ww > 44) g.append(S("text", { x: x + 8, y: 54, class: "num", style: "font-size:15px" }, mmss(v)), S("text", { x: x + 8, y: 68 }, k));
+    x += ww; });
+  if (!document.getElementById("hatch")) svg.prepend(S("defs", {}, S("pattern", { id: "hatch", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, S("line", { x1: 0, y1: 0, x2: 0, y2: 6, stroke: css("--line"), "stroke-width": 2 }))));
+  return svg;
+}
+function runBuild(w, runs) {
+  const h = 170, L = 36, R = 16, T = 24, B = 26, lo = 130, hi = 170, n = runs.length;
+  const x = i => L + i / (n - 1) * (w - L - R), y = v => T + (1 - (v - lo) / (hi - lo)) * (h - T - B);
+  const svg = S("svg", { viewBox: `0 0 ${w} ${h}`, style: "margin-top:20px", role: "img", "aria-label": "Average heart rate on each run, rising from 142 to 162" });
+  svg.append(S("text", { x: 0, y: 12, class: "lab" }, "Average HR on each run"));
+  [140, 150, 160].forEach(v => svg.append(S("line", { x1: L, x2: w - R, y1: y(v), y2: y(v), stroke: css("--grid") }), S("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end" }, v)));
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  const area = `M${x(0)} ${h - B} ` + runs.map((s, i) => `L${x(i)} ${y(s.avg)}`).join(" ") + ` L${x(n - 1)} ${h - B} Z`;
+  const gid = "rb" + Math.random().toString(36).slice(2, 7);
+  svg.prepend(S("defs", {}, S("linearGradient", { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, S("stop", { offset: 0, "stop-color": css("--z3") }), S("stop", { offset: 1, "stop-color": css("--z4") }))));
+  g.append(S("path", { d: area, fill: `url(#${gid})`, opacity: .22 }), S("path", { d: runs.map((s, i) => (i ? "L" : "M") + x(i) + " " + y(s.avg)).join(""), fill: "none", stroke: `url(#${gid})`, "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+  runs.forEach((s, i) => { g.append(hover(S("circle", { cx: x(i), cy: y(s.avg), r: 6, fill: css("--z" + zoneOf(s.avg, SIM.maxHr)), stroke: css("--panel"), "stroke-width": 2.5 }), `<b>${s.name}</b>${row(null, "Average", s.avg + " bpm")}${row(null, "Split", mmss(s.dur))}`));
+    g.append(S("text", { x: x(i), y: y(s.avg) - 12, "text-anchor": "middle", class: "num", style: "font-size:13px" }, s.avg), S("text", { x: x(i), y: h - 6, "text-anchor": "middle" }, s.name.replace("Run ", "R"))); });
+  return svg;
+}
+
+// ======================================================================
+// TRAINING: weekly zone stack, every workout, fitness/fatigue/form
+// ======================================================================
+function training() {
+  main.append(H("div", { class: "title" }, H("h1", {}, "Training"), H("p", {}, "Last eight weeks from WHOOP. No runs or HYROX sessions recorded.")));
+  const c1 = H("section", { class: "card" }, H("header", {}, H("div", {}, H("h2", {}, "Minutes per week by heart-rate zone"), H("p", { class: "sub" }, "Every recorded workout, split into WHOOP's zone minutes. Rest weeks stay on the axis.")),
+    H("div", { class: "legend" }, ...[0, 1, 2, 3, 4, 5].map(z => H("span", {}, H("i", { style: `background:var(--z${z})` }), "Z" + z)))));
+  const c2 = H("section", { class: "card" }, H("header", {}, H("div", {}, H("h2", {}, "Every workout"), H("p", { class: "sub" }, "Height is strain, size is duration.")),
+    H("div", { class: "legend" }, ...["lift", "walk", "cardio"].map(k => H("span", {}, H("i", { style: `background:var(--${k});border-radius:50%` }), SPORT[k])))));
+  main.append(H("div", { class: "grid g-32" }, c1, c2));
+  c1.append(weekly(widthOf(c1) - 40)); c2.append(bubbles(widthOf(c2) - 40));
+  const c3 = H("section", { class: "card", style: "margin-top:16px" }, H("header", {}, H("div", {}, H("h2", {}, "Fitness, fatigue and form"), H("p", { class: "sub" }, "Edwards TRIMP from zone minutes. Fitness is the 42-day average load, fatigue the 7-day; form is the gap. Under-counts lifting.")),
+    H("div", { class: "legend" }, H("span", {}, H("i", { style: "background:var(--lift)" }), "Fitness"), H("span", {}, H("i", { class: "ln", style: "background:var(--run)" }), "Fatigue"), H("span", {}, H("i", { style: "background:var(--walk)" }), "Form"))));
+  main.append(c3); c3.append(pmc(widthOf(c3) - 40, 260));
+}
+function weekStart(iso) { const d = new Date(iso + "T00:00:00Z"); const k = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - k); return d.toISOString().slice(0, 10); }
+function weekly(w) {
+  const weeks = []; for (let d = weekStart("2026-08-29"); d <= TODAY; d = addDays(d, 7)) weeks.push(d);
+  const data = weeks.map(wk => { const z = [0, 0, 0, 0, 0, 0], items = W.filter(x => weekStart(x.day) === wk); items.forEach(x => x.z.forEach((m, i) => z[i] += m)); return { wk, z, items }; });
+  const h = 300, L = 40, R = 8, T = 18, B = 26, max = nice(Math.max(...data.map(d => d.z.reduce((a, b) => a + b, 0))), 60);
+  const bw = (w - L - R) / weeks.length, y = v => T + (1 - v / max) * (h - T - B);
+  const svg = S("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": "Minutes per week by heart-rate zone" });
+  for (let v = 0; v <= max; v += max / 4) svg.append(S("line", { x1: L, x2: w - R, y1: y(v), y2: y(v), stroke: css("--grid") }), S("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end" }, Math.round(v)));
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  data.forEach((d, i) => { let acc = 0; const x0 = L + i * bw + bw * .18, ww = bw * .64, tot = d.z.reduce((a, b) => a + b, 0);
+    d.z.forEach((m, z) => { if (m < .5) return; g.append(S("rect", { x: x0, y: y(acc + m), width: ww, height: Math.max(0, y(acc) - y(acc + m) - 2), rx: 4, fill: css("--z" + z) })); acc += m; });
+    if (!tot) g.append(S("rect", { x: x0, y: h - B - 3, width: ww, height: 3, rx: 1.5, fill: css("--none") }));
+    else g.append(S("text", { x: x0 + ww / 2, y: y(tot) - 6, "text-anchor": "middle", class: "num", style: "font-size:13px" }, Math.round(tot)));
+    svg.append(S("text", { x: x0 + ww / 2, y: h - 8, "text-anchor": "middle" }, fmtDay(d.wk)));
+    const hit = S("rect", { x: L + i * bw, y: T, width: bw, height: h - T - B, class: "hit" }); svg.append(hit);
+    hover(hit, () => `<b>Week of ${fmtDay(d.wk)}</b>` + (tot ? d.z.map((m, z) => m >= .5 ? row(css("--z" + z), "Z" + z, Math.round(m) + " min") : "").join("") + `<div style="margin-top:4px">${d.items.length} workouts: ${[...new Set(d.items.map(x => SPORT[x.cat]))].join(", ")}</div>` : "<div>No workouts recorded.</div>")); });
+  return svg;
+}
+function bubbles(w) {
+  const h = 300, L = 30, R = 12, T = 14, B = 26, d0 = "2026-08-29", nd = LOADDAYS.length;
+  const x = iso => L + (span(d0, iso).length - 1) / (nd - 1) * (w - L - R), y = v => T + (1 - v / 21) * (h - T - B), r = m => 3 + Math.sqrt(m) * 1.6;
+  const svg = S("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": "Each workout by date and strain" });
+  [0, 7, 14, 21].forEach(v => svg.append(S("line", { x1: L, x2: w - R, y1: y(v), y2: y(v), stroke: css("--grid") }), S("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }, v)));
+  ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"].forEach(d => svg.append(S("text", { x: x(d), y: h - 8, "text-anchor": "middle" }, fmtDay(d))));
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  [...W].sort((a, b) => b.min - a.min).forEach(wk => g.append(hover(S("circle", { cx: x(wk.day), cy: y(wk.strain), r: r(wk.min), fill: css("--" + wk.cat), "fill-opacity": .72, stroke: css("--panel"), "stroke-width": 1.5 }),
+    `<b>${SPORT[wk.cat] === "Other cardio" ? wk.sport[0].toUpperCase() + wk.sport.slice(1) : SPORT[wk.cat]}</b><div>${fmtDay(wk.day, { weekday: "short", day: "numeric", month: "short" })}</div>` + row(null, "Strain", wk.strain) + row(null, "Duration", wk.min + " min") + row(null, "Avg / max HR", `${wk.avg} / ${wk.max}`))));
+  return svg;
+}
+function pmc(w, h) {
+  const L = 40, R = 84, T = 14, B = 26, mid = Math.round((h - T - B) * .5) + T, n = PMC.length;
+  const x = i => L + i / (n - 1) * (w - L - R), hi = nice(Math.max(...PMC.map(p => Math.max(p.ctl, p.atl))), 10), y = v => T + (1 - v / hi) * (mid - T - 10);
+  const tmax = nice(Math.max(...PMC.map(p => Math.abs(p.tsb))), 10), yt = v => mid + 22 + (1 - (v + tmax) / (2 * tmax)) * (h - B - mid - 22);
+  const svg = S("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": "Fitness, fatigue and form over seven weeks" });
+  [0, hi / 2, hi].forEach(v => svg.append(S("line", { x1: L, x2: w - R, y1: y(v), y2: y(v), stroke: css("--grid") }), S("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end" }, v)));
+  svg.append(S("line", { x1: L, x2: w - R, y1: yt(0), y2: yt(0), stroke: css("--line") }), S("text", { x: L - 8, y: yt(0) + 4, "text-anchor": "end" }, "0"), S("text", { x: 0, y: yt(tmax) + 2, class: "lab" }, "Form"));
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  const gid = "pm" + Math.random().toString(36).slice(2, 7);
+  svg.prepend(S("defs", {}, S("linearGradient", { id: gid, x1: 0, x2: 0, y1: 0, y2: 1 }, S("stop", { offset: 0, "stop-color": css("--lift"), "stop-opacity": .55 }), S("stop", { offset: 1, "stop-color": css("--lift"), "stop-opacity": .05 }))));
+  g.append(S("path", { d: `M${x(0)} ${y(0)} ` + PMC.map((p, i) => `L${x(i)} ${y(p.ctl)}`).join(" ") + ` L${x(n - 1)} ${y(0)} Z`, fill: `url(#${gid})` }));
+  g.append(S("path", { d: PMC.map((p, i) => (i ? "L" : "M") + x(i) + " " + y(p.ctl)).join(""), fill: "none", stroke: css("--lift"), "stroke-width": 2 }));
+  g.append(S("path", { d: PMC.map((p, i) => (i ? "L" : "M") + x(i) + " " + y(p.atl)).join(""), fill: "none", stroke: css("--run"), "stroke-width": 2 }));
+  const bw = (w - L - R) / n;
+  PMC.forEach((p, i) => { const y0 = yt(0), y1 = yt(p.tsb); g.append(S("rect", { x: x(i) - bw * .35, y: Math.min(y0, y1), width: bw * .7, height: Math.abs(y1 - y0), rx: 1.5, fill: p.tsb >= 0 ? css("--walk") : css("--red"), opacity: .85 })); });
+  const last = PMC.at(-1);
+  const ya = y(last.ctl), yb = y(last.atl), sep = Math.abs(ya - yb) < 16 ? (16 - Math.abs(ya - yb)) / 2 : 0;
+  [["Fitness", last.ctl, css("--lift"), ya - (ya <= yb ? sep : -sep)], ["Fatigue", last.atl, css("--run"), yb + (ya <= yb ? sep : -sep)]].forEach(([k, v, c, yy]) => svg.append(S("text", { x: w - R + 6, y: yy + 4, style: `fill:${c};font-weight:600;font-size:12px` }, `${k} ${v.toFixed(1)}`)));
+  svg.append(S("text", { x: w - R + 6, y: yt(last.tsb) - 4, style: `fill:${css("--walk")};font-weight:600;font-size:12px` }, `Form +${last.tsb.toFixed(1)}`));
+  ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"].forEach(d => { const i = LOADDAYS.indexOf(d); svg.append(S("text", { x: x(i), y: h - 6, "text-anchor": "middle" }, fmtDay(d))); });
+  const cross = S("line", { y1: T, y2: h - B, stroke: css("--ink"), opacity: 0 }); svg.append(cross);
+  const hit = S("rect", { x: L, y: T, width: w - L - R, height: h - T - B, class: "hit" }); svg.append(hit);
+  hit.addEventListener("pointermove", e => { const b = svg.getBoundingClientRect(), px = (e.clientX - b.left) / b.width * w, i = Math.max(0, Math.min(n - 1, Math.round((px - L) / (w - L - R) * (n - 1)))), p = PMC[i];
+    cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("opacity", .35);
+    showTip(e, `<b>${fmtDay(p.d, { weekday: "short", day: "numeric", month: "short" })}</b>` + row(css("--lift"), "Fitness", p.ctl.toFixed(1)) + row(css("--run"), "Fatigue", p.atl.toFixed(1)) + row(css("--walk"), "Form", (p.tsb >= 0 ? "+" : "") + p.tsb.toFixed(1)) + row(null, "Load that day", Math.round(p.t))); });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("opacity", 0); hideTip(); });
+  return svg;
+}
+
+// ======================================================================
+// READINESS: five-part ring + training mix vs HYROX targets
+// ======================================================================
+const CHECKS = [
+  { id: "Recovery", band: "none", why: "No scored recovery today. WHOOP hasn't synced." },
+  { id: "Form", band: "green", why: `Form +${PMC.at(-1).tsb.toFixed(1)}: fresh. Fitness ${PMC.at(-1).ctl.toFixed(1)}, fatigue ${PMC.at(-1).atl.toFixed(1)}.` },
+  { id: "Specificity", band: "red", why: "0% of 28-day load was running or HYROX. Target is 15% each." },
+  { id: "Sleep", band: "none", why: "Sleep debt needs today's sleep." },
+  { id: "Taper", band: "na", why: "No race date set." }];
+function readiness() {
+  main.append(H("div", { class: "title" }, H("h1", {}, "Readiness"), H("p", {}, "Five checks before a HYROX race block. One red is enough to say not ready.")));
+  const c1 = H("section", { class: "card" }), c2 = H("section", { class: "card" }), c3 = H("section", { class: "card" });
+  main.append(H("div", { class: "grid g2" }, c1, H("div", { class: "grid", style: "align-content:start" }, c2, c3)));
+  c1.append(readyRing(Math.min(widthOf(c1) - 40, 360)));
+  c1.append(H("div", { class: "list", style: "margin-top:12px" }, CHECKS.map(c => H("div", { class: "li" }, H("i", { style: `background:var(--${c.band === "na" ? "none" : c.band})` }), H("div", {}, H("b", {}, c.id), H("br"), H("span", {}, c.why)), H("b", { class: "n" }, { green: "Pass", red: "Fail", none: "No data", na: "—" }[c.band])))));
+  c2.append(H("header", {}, H("div", {}, H("h2", {}, "Is your training HYROX training?"), H("p", { class: "sub" }, "Share of the last 28 days of load. The marks are the 15% each that specificity asks for."))));
+  c2.append(mixBars(widthOf(c2) - 40));
+  c3.append(H("header", {}, H("div", {}, H("h2", {}, "Form going into the block"), H("p", { class: "sub" }, "Positive form means you're fresh. You are, because you've barely trained since Sep 24."))));
+  c3.append(pmc(widthOf(c3) - 40, 250));
+}
+function readyRing(size) {
+  const cx = size / 2, cy = size / 2, ro = size / 2 - 30, ri = ro - 26, n = CHECKS.length, gap = .05;
+  const svg = S("svg", { viewBox: `0 0 ${size} ${size}`, style: `max-width:${size}px;margin:0 auto`, role: "img", "aria-label": "Readiness: not ready. Specificity failed." });
+  const arc = (a0, a1) => { const p = (a, r) => [cx + r * Math.sin(a), cy - r * Math.cos(a)]; const [x0, y0] = p(a0, ro), [x1, y1] = p(a1, ro), [x2, y2] = p(a1, ri), [x3, y3] = p(a0, ri); return `M${x0} ${y0} A${ro} ${ro} 0 0 1 ${x1} ${y1} L${x2} ${y2} A${ri} ${ri} 0 0 0 ${x3} ${y3} Z`; };
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  CHECKS.forEach((c, i) => { const a0 = i / n * 2 * Math.PI + gap, a1 = (i + 1) / n * 2 * Math.PI - gap, am = (a0 + a1) / 2;
+    g.append(hover(S("path", { d: arc(a0, a1), fill: css("--" + (c.band === "na" ? "none" : c.band)), opacity: c.band === "na" ? .5 : 1 }), `<b>${c.id}</b><div>${c.why}</div>`));
+    g.append(S("text", { x: cx + (ro + 16) * Math.sin(am), y: cy - (ro + 16) * Math.cos(am) + 4, "text-anchor": Math.sin(am) > .2 ? "start" : Math.sin(am) < -.2 ? "end" : "middle", class: "lab", style: "font-size:12px" }, c.id)); });
+  svg.append(S("text", { x: cx, y: cy - 2, "text-anchor": "middle", class: "num", style: `font-size:${size * .12}px;font-weight:700;fill:${css("--red")}` }, "Not ready"));
+  svg.append(S("text", { x: cx, y: cy + 22, "text-anchor": "middle", class: "lab", style: "font-size:13px" }, "1 failed · 2 waiting on sync"));
+  return svg;
+}
+function mixBars(w) {
+  const since = addDays(TODAY, -28), items = W.filter(x => x.day >= since), total = items.reduce((a, x) => a + x.trimp, 0) || 1;
+  const share = k => items.filter(x => x.cat === k).reduce((a, x) => a + x.trimp, 0) / total * 100;
+  const rows = [["Running", 0, "run", 15], ["HYROX", 0, "run", 15], ["Lifting", share("lift"), "lift"], ["Walking", share("walk"), "walk"], ["Other cardio", share("cardio"), "cardio"]];
+  const rh = 46, h = rows.length * rh + 24, L = 110, R = 50, x = v => L + v / 100 * (w - L - R);
+  const svg = S("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": "Share of 28-day training load by sport" });
+  [0, 25, 50, 75, 100].forEach(v => svg.append(S("line", { x1: x(v), x2: x(v), y1: 0, y2: h - 20, stroke: css("--grid") }), S("text", { x: x(v), y: h - 4, "text-anchor": "middle" }, v + "%")));
+  const g = S("g", { class: animate ? "draw" : null }); svg.append(g);
+  rows.forEach(([k, v, c, target], i) => { const yy = i * rh + 8;
+    g.append(S("text", { x: 0, y: yy + 19, class: "lab", style: "font-size:13px" }, k));
+    g.append(S("rect", { x: x(0), y: yy + 4, width: w - L - R, height: 22, rx: 6, fill: css("--panel-2") }));
+    if (v > 0) g.append(S("rect", { x: x(0), y: yy + 4, width: x(v) - x(0), height: 22, rx: 6, fill: css("--" + c) }));
+    if (target) { g.append(S("line", { x1: x(target), x2: x(target), y1: yy, y2: yy + 30, stroke: css("--ink"), "stroke-width": 2.5 }), S("text", { x: x(target) + 6, y: yy + 19, style: `fill:${css("--red")};font-weight:600;font-size:12px` }, `${v.toFixed(0)}% · needs ${target}%`)); }
+    else g.append(S("text", { x: x(v) + 6, y: yy + 19, class: "num", style: "font-size:13px" }, v.toFixed(0) + "%")); });
+  return svg;
+}
+
+// ======================================================================
+// AUDIT: what WHOOP's numbers leave out
+// ======================================================================
+function audit() {
+  main.append(H("div", { class: "title" }, H("h1", {}, "Audit"), H("p", {}, "What was flagged, what you changed, and what WHOOP can't measure.")));
+  const c1 = H("section", { class: "card" }, H("header", {}, H("div", {}, H("h2", {}, "Coverage this month"), H("p", { class: "sub" }, "Each square is a recorded workout. Outlined squares are flagged for low heart-rate coverage."))));
+  const c2 = H("section", { class: "card" }, H("header", {}, H("div", {}, H("h2", {}, "Your changes"))),
+    H("table", {}, H("tbody", {}, [["Sun 18 Oct, 7:53 pm", "Logged HYROX Bengaluru, 1:25:30 (test entry)"], ["Sun 18 Oct, 7:52 pm", "Left 79a98b40 out of metrics: bad heart rate"]].map(r => H("tr", {}, H("td", { style: "color:var(--faint);width:150px" }, r[0]), H("td", {}, r[1]))))),
+    H("p", { class: "note" }, "Every change is reviewed before saving, logged here, and never touches WHOOP."));
+  main.append(H("div", { class: "grid g2" }, c1, c2));
+  const items = W.filter(w => w.day >= "2026-09-20"), flagged = new Set(["2026-10-16", "2026-10-15", "2026-10-02", "2026-09-24"]);
+  const w = widthOf(c1) - 40, size = 34, per = Math.floor(w / (size + 8)), h = Math.ceil(items.length / per) * (size + 8) + 4;
+  const svg = S("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": "Recorded workouts this month, six flagged" });
+  items.forEach((it, i) => { const x = (i % per) * (size + 8), y = Math.floor(i / per) * (size + 8), f = flagged.has(it.day);
+    svg.append(hover(S("rect", { x: x + 2, y: y + 2, width: size, height: size, rx: 8, fill: css("--" + it.cat), "fill-opacity": f ? .25 : .85, stroke: f ? css("--yellow") : "none", "stroke-width": 2, "stroke-dasharray": f ? "4 3" : null }),
+      `<b>${it.sport[0].toUpperCase() + it.sport.slice(1)}</b><div>${fmtDay(it.day, { weekday: "short", day: "numeric", month: "short" })}</div>${f ? "<div>Flagged: low heart-rate coverage. Check this; the live API reports coverage as a fraction, which trips the rule.</div>" : ""}`)); });
+  c1.append(svg);
+  const c3 = H("section", { class: "card", style: "margin-top:16px" }, H("header", {}, H("div", {}, H("h2", {}, "What WHOOP can't tell us"))),
+    H("div", { class: "callouts" }, ...[["Most stations", "Sleds, carries, burpees, lunges and wall balls hide inside runs or transitions.", "--z0"], ["Indoor distance", "GPS drift inside a gym is ignored. No pace from indoor runs.", "--z1"], ["Added-up strain", "Strain is logarithmic. Segment strains are never summed.", "--z2"], ["The full curve", "Only average and peak per segment. No second-by-second heart rate.", "--z3"]].map(([b, s, c]) => H("div", { class: "callout", style: `border-color:var(${c})` }, H("b", {}, b), H("span", {}, s)))));
+  main.append(c3);
+}
+
+draw(true);
+</script>
+</body>
+</html>

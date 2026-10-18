@@ -1,0 +1,17 @@
+/* whoop-mcp race dashboard — chart-first redesign tokens (2026-10). Dark primary. */
+:root{
+  --bg:#0c0e13; --panel:#141821; --panel-2:#1b2030; --line:#262c3a; --grid:#1f2431;
+  --ink:#f1f3f7; --ink-2:#b8bfcc; --faint:#7c8597;
+  /* heart-rate intensity ramp, used by every chart; lightness rises with effort */
+  --z0:#3a3f52; --z1:#4f46c8; --z2:#9b3fc4; --z3:#e0457b; --z4:#f7843b; --z5:#ffd84a;
+  --red:#e5484d; --yellow:#f5c518; --green:#30c85e; --none:#3a3f52;  /* WHOOP recovery bands */
+  --lift:#3987e5; --walk:#199e70; --cardio:#9085e9; --run:#d95926;   /* sports, validated */
+  --text:"Archivo",system-ui,sans-serif; --num:"Archivo Narrow","Arial Narrow",sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#eef0f4; --panel:#ffffff; --panel-2:#f3f5f9; --line:#dfe3ea; --grid:#eceff4;
+  --ink:#0f1320; --ink-2:#3d4557; --faint:#6a7386;
+  --z0:#c9cdd8; --z1:#5b52d6; --z2:#9a3cc6; --z3:#d63a70; --z4:#e9711f; --z5:#d9a800;
+  --red:#d7263d; --yellow:#d9a800; --green:#1f9d46; --none:#c9cdd8;
+  --lift:#2a78d6; --walk:#1baf7a; --cardio:#6250d6; --run:#eb6834;
+}
