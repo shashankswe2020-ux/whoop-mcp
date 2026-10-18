@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -13,13 +13,19 @@
     <header class="top">
       <div class="top-inner">
         <div class="masthead">
-          <h1>Race performance</h1>
-          <p class="masthead-meta">HYROX and triathlon · runs on this computer only</p>
+          <h1>Race performance<span class="release-mark">1.0.2</span></h1>
+          <div class="header-actions">
+            <p class="masthead-meta">Local only · evidence, not predictions</p>
+            <button type="button" id="theme" aria-label="Switch to light theme">Light</button>
+          </div>
         </div>
         <nav role="tablist" aria-label="Dashboard views" id="tabs">
           <button role="tab" id="tab-today" aria-controls="main" data-view="today">Today</button>
           <button role="tab" id="tab-session" aria-controls="main" data-view="session">
             Session
+          </button>
+          <button role="tab" id="tab-training" aria-controls="main" data-view="training">
+            Training
           </button>
           <button role="tab" id="tab-hyrox" aria-controls="main" data-view="hyrox">HYROX</button>
           <button role="tab" id="tab-triathlon" aria-controls="main" data-view="triathlon">

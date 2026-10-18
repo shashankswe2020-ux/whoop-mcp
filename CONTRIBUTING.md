@@ -41,6 +41,17 @@ npm run lint      # No lint warnings
 | `npm run format` | Format (Prettier) |
 | `npm run dev` | Run in dev mode (tsx) |
 
+### Dashboard preview
+
+Run `npx tsx scripts/preview-dashboard.ts` to open the production dashboard with
+synthetic data. It prints a loopback URL, uses an isolated temporary performance
+store, never reads WHOOP credentials or calls the real API, and cleans up when
+stopped. Use it for browser checks and public screenshots; the design prototype
+contains personal data and must not be used for marketing assets.
+
+Dashboard fonts are bundled locally under SIL OFL 1.1; their notices and license
+are in `src/dashboard/static/fonts/OFL.txt` and are included in the npm package.
+
 ## Code Conventions
 
 ### Naming

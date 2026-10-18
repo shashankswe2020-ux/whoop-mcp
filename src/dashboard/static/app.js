@@ -3,7 +3,7 @@
 // fragment is stripped immediately. Data is rendered only via text nodes and SVG attributes;
 // no HTML string is ever parsed.
 
-const VIEWS = ["today", "session", "hyrox", "triathlon", "readiness", "audit"];
+const VIEWS = ["today", "session", "training", "hyrox", "triathlon", "readiness", "audit"];
 const HYROX_STATIONS = [
   "skierg",
   "sled_push",
@@ -57,10 +57,17 @@ const refreshButton = document.getElementById("refresh");
 const loadedAt = document.getElementById("loaded-at");
 refreshButton.addEventListener("click", () => void render());
 const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+document.getElementById("theme").addEventListener("click", (event) => {
+  const light = document.documentElement.dataset.theme !== "light";
+  document.documentElement.dataset.theme = light ? "light" : "dark";
+  event.currentTarget.textContent = light ? "Dark" : "Light";
+  event.currentTarget.setAttribute("aria-label", `Switch to ${light ? "dark" : "light"} theme`);
+});
 
 /** Per-view form state survives tab switches. */
 const viewState = {
   session: { date: "" },
+  training: { start: "", end: "" },
   hyrox: { start: "", end: "" },
   triathlon: { start: "", end: "" },
   readiness: { sport: "hyrox", race_date: "" },
@@ -460,6 +467,510 @@ function windowForm(state, onSubmit, extra = []) {
 // Charts (hand-rolled SVG, each with a text alternative)
 // ---------------------------------------------------------------------------
 
+const ZONES = ["zone_zero", "zone_one", "zone_two", "zone_three", "zone_four", "zone_five"];
+
+function intensity(hr, peak) {
+  if (!Number.isFinite(hr) || !peak) return 0;
+  return Math.min(5, Math.max(1, Math.floor((hr / peak - 0.4) * 10)));
+}
+
+function recoveryBand(score) {
+  return score === null ? "grey" : score >= 67 ? "green" : score >= 34 ? "amber" : "red";
+}
+
+function recoveryRing(score) {
+  const value = score === null ? "No score" : `${num(score)}%`;
+  const circumference = 2 * Math.PI * 86;
+  return svg(
+    "svg",
+    {
+      viewBox: "0 0 220 220",
+      class: "chart recovery-ring",
+      role: "img",
+      "aria-label": `Current WHOOP recovery: ${value}`,
+      "data-chart": "recovery-ring",
+    },
+    svg("circle", { cx: 110, cy: 110, r: 86, class: "ring-track" }),
+    score === null
+      ? null
+      : svg("circle", {
+          cx: 110,
+          cy: 110,
+          r: 86,
+          class: `ring-value band-${recoveryBand(score)}`,
+          "stroke-dasharray": `${(circumference * score) / 100} ${circumference}`,
+          transform: "rotate(-90 110 110)",
+        }),
+    svg("text", { x: 110, y: 116, "text-anchor": "middle", class: "ring-number" }, value),
+    svg("text", { x: 110, y: 142, "text-anchor": "middle", class: "axis" }, "WHOOP recovery")
+  );
+}
+
+function arcPath(cx, cy, inner, outer, start, end) {
+  const point = (r, angle) => [cx + r * Math.sin(angle), cy - r * Math.cos(angle)];
+  const [a, b] = point(outer, start);
+  const [c, d] = point(outer, end);
+  const [e, f] = point(inner, end);
+  const [g, h] = point(inner, start);
+  const large = end - start > Math.PI ? 1 : 0;
+  return `M${a} ${b}A${outer} ${outer} 0 ${large} 1 ${c} ${d}L${e} ${f}A${inner} ${inner} 0 ${large} 0 ${g} ${h}Z`;
+}
+
+function segmentRing(segments) {
+  const ring = svg("svg", {
+    viewBox: "0 0 300 300",
+    class: "chart segment-ring",
+    role: "img",
+    "aria-label": `${segments.length} recorded segments. Not official HYROX station coverage.`,
+    "data-chart": "segment-ring",
+  });
+  const total = segments.reduce((sum, row) => sum + row.duration_seconds, 0);
+  let offset = 0;
+  for (const row of segments) {
+    if (!row.duration_seconds || !total) continue;
+    const start = (offset / total) * Math.PI * 2;
+    offset += row.duration_seconds;
+    const end = (offset / total) * Math.PI * 2;
+    ring.append(
+      svg(
+        "path",
+        {
+          d: arcPath(150, 150, 93, 132, start + 0.008, Math.max(start + 0.008, end - 0.008)),
+          class: `segment-arc seg-${row.role}`,
+        },
+        tip(`${row.label}: ${duration(row.duration_seconds)} · ${num(row.avg_hr)} bpm average`)
+      )
+    );
+  }
+  ring.append(
+    svg("text", { x: 150, y: 151, "text-anchor": "middle", class: "ring-number" }, segments.length),
+    svg("text", { x: 150, y: 175, "text-anchor": "middle", class: "axis" }, "recorded segments")
+  );
+  return ring;
+}
+
+function readinessRing(components, verdict) {
+  const ring = svg("svg", {
+    viewBox: "0 0 320 280",
+    class: "chart readiness-ring",
+    role: "img",
+    "aria-label": `${verdict}. ${components.map((row) => `${sentence(row.id)}: ${sentence(row.band)}`).join(". ")}`,
+    "data-chart": "readiness-ring",
+  });
+  components.forEach((row, index) => {
+    const start = (index / components.length) * 2 * Math.PI + 0.035;
+    const end = ((index + 1) / components.length) * 2 * Math.PI - 0.035;
+    ring.append(
+      svg(
+        "path",
+        {
+          d: arcPath(160, 140, 93, 116, start, end),
+          class: `component-arc band-${row.band}`,
+        },
+        tip(`${sentence(row.id)}: ${sentence(row.band)}. ${row.rationale}`)
+      )
+    );
+  });
+  ring.append(
+    svg("text", { x: 160, y: 137, "text-anchor": "middle", class: "ring-verdict" }, verdict),
+    svg(
+      "text",
+      { x: 160, y: 161, "text-anchor": "middle", class: "axis" },
+      "five evidence-backed checks"
+    )
+  );
+  return ring;
+}
+
+function zoneBar(seconds, untracked = 0) {
+  const total = seconds.reduce((sum, value) => sum + value, 0) + untracked;
+  if (!total) return el("p", { class: "empty" }, "No zone durations recorded.");
+  let x = 0;
+  return svg(
+    "svg",
+    {
+      viewBox: "0 0 900 75",
+      class: "chart",
+      role: "img",
+      "aria-label": "Recorded WHOOP heart-rate zone durations. Untracked transitions are separate.",
+      "data-chart": "zone-bar",
+    },
+    ...[...seconds, untracked].map((value, index) => {
+      const width = (value / total) * 900;
+      const start = x;
+      x += width;
+      return svg(
+        "g",
+        {},
+        svg(
+          "rect",
+          {
+            x: start + 1,
+            y: 0,
+            width: Math.max(0, width - 2),
+            height: 30,
+            rx: 4,
+            class: index < 6 ? `intensity-${index}` : "gap",
+          },
+          tip(`${index < 6 ? `Zone ${index}` : "Untracked transitions"}: ${duration(value)}`)
+        ),
+        width > 50
+          ? svg(
+              "text",
+              { x: start + 4, y: 50, class: "axis" },
+              index < 6 ? `Z${index} · ${duration(value)}` : "Untracked"
+            )
+          : null
+      );
+    })
+  );
+}
+
+function runBuild(segments) {
+  const runs = segments.filter((row) => row.role === "run" && Number.isFinite(row.avg_hr));
+  if (!runs.length) return null;
+  const { lo, hi } = niceTicks(
+    Math.min(...runs.map((row) => row.avg_hr)) - 5,
+    Math.max(...runs.map((row) => row.avg_hr)) + 5
+  );
+  const x = (index) => 45 + (index / Math.max(1, runs.length - 1)) * 800;
+  const y = (value) => 130 - ((value - lo) / (hi - lo)) * 100;
+  return svg(
+    "svg",
+    {
+      viewBox: "0 0 900 175",
+      class: "chart",
+      role: "img",
+      "aria-label": "Run-by-run average heart rate. See segment table for exact values.",
+      "data-chart": "run-build",
+    },
+    svg("text", { x: 45, y: 15, class: "axis" }, "Run-by-run average HR"),
+    svg("path", {
+      d: runs.map((row, i) => `${i ? "L" : "M"}${x(i)} ${y(row.avg_hr)}`).join(" "),
+      class: "line line-atl",
+    }),
+    ...runs.map((row, i) =>
+      svg(
+        "g",
+        {},
+        svg(
+          "circle",
+          { cx: x(i), cy: y(row.avg_hr), r: 5, class: "intensity-4" },
+          tip(`${row.label}: ${num(row.avg_hr)} bpm`)
+        ),
+        svg(
+          "text",
+          { x: x(i), y: y(row.avg_hr) - 12, "text-anchor": "middle", class: "axis" },
+          row.avg_hr
+        ),
+        svg("text", { x: x(i), y: 160, "text-anchor": "middle", class: "axis" }, `R${i + 1}`)
+      )
+    )
+  );
+}
+
+function vitalsChart(days) {
+  const W = 820,
+    left = 68,
+    band = (W - left - 12) / days.length;
+  const chart = svg("svg", {
+    viewBox: `0 0 ${W} 530`,
+    class: "chart vitals-chart",
+    role: "img",
+    "aria-label":
+      "Daily recovery, HRV, resting heart rate and sleep stages. Missing days are gaps.",
+    "data-chart": "vitals",
+  });
+  const detail = el(
+    "p",
+    { class: "chart-detail", "aria-live": "polite" },
+    "Hover or focus a day to inspect its measurements."
+  );
+  const metrics = [
+    ["recovery_score", "Recovery %"],
+    ["hrv_rmssd_milli", "HRV ms"],
+    ["resting_heart_rate", "Resting HR"],
+    ["sleep_hours", "Sleep h"],
+  ];
+  for (const [rowIndex, [key, title]] of metrics.entries()) {
+    const top = rowIndex * 122 + 24,
+      bottom = top + 88;
+    chart.append(svg("text", { x: left, y: top - 9, class: "chart-label" }, title));
+    const values = days.map((row) => row[key]).filter(Number.isFinite);
+    const mean = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+    const sd = values.length
+      ? Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length)
+      : 0;
+    const line = key === "hrv_rmssd_milli" || key === "resting_heart_rate";
+    const { lo, hi, ticks } =
+      key === "recovery_score"
+        ? { lo: 0, hi: 100, ticks: [0, 34, 67, 100] }
+        : niceTicks(
+            line ? Math.min(...values, (mean ?? 0) - sd) : 0,
+            Math.max(1, ...values, (mean ?? 0) + sd)
+          );
+    const y = (value) => bottom - ((value - lo) / Math.max(1, hi - lo)) * 78;
+    for (const value of ticks)
+      chart.append(
+        svg("line", { x1: left, x2: W - 12, y1: y(value), y2: y(value), class: "grid" }),
+        svg("text", { x: left - 8, y: y(value) + 4, "text-anchor": "end", class: "axis" }, value)
+      );
+    if (line && values.length >= 7)
+      chart.append(
+        svg("rect", {
+          x: left,
+          y: y(mean + sd),
+          width: W - left - 12,
+          height: Math.max(1, y(mean - sd) - y(mean + sd)),
+          class: "history-band",
+        })
+      );
+    let path = "",
+      pen = false;
+    days.forEach((row, index) => {
+      const value = row[key];
+      const x = left + (index + 0.5) * band;
+      if (!Number.isFinite(value)) {
+        pen = false;
+        chart.append(
+          svg("rect", { x: x - 3, y: bottom - 2, width: 6, height: 2, class: "intensity-0" })
+        );
+        return;
+      }
+      if (line) {
+        path += `${pen ? "L" : "M"}${x} ${y(value)} `;
+        pen = true;
+        chart.append(
+          svg(
+            "circle",
+            { cx: x, cy: y(value), r: 3, class: "vital-dot" },
+            tip(`${row.date}: ${num(value, 1)}`)
+          )
+        );
+      } else if (key === "sleep_hours" && row.sleep_stages) {
+        let offset = 0;
+        ["deep_hours", "rem_hours", "light_hours"].forEach((stage, i) => {
+          const hours = row.sleep_stages[stage];
+          chart.append(
+            svg(
+              "rect",
+              {
+                x: x - band * 0.32,
+                y: y(offset + hours),
+                width: band * 0.64,
+                height: Math.max(0, y(offset) - y(offset + hours)),
+                class: `sleep-stage-${i}`,
+              },
+              tip(`${row.date}: ${sentence(stage)} ${num(hours, 1)} h`)
+            )
+          );
+          offset += hours;
+        });
+      } else
+        chart.append(
+          svg("rect", {
+            x: x - band * 0.32,
+            y: y(value),
+            width: band * 0.64,
+            height: bottom - y(value),
+            rx: 2,
+            class: `recovery-fill-${recoveryBand(value)}`,
+          })
+        );
+    });
+    if (line) chart.append(svg("path", { d: path, class: "line vital-line" }));
+  }
+  const crosshair = svg("line", {
+    x1: 0,
+    x2: 0,
+    y1: 10,
+    y2: 480,
+    class: "crosshair",
+    visibility: "hidden",
+  });
+  chart.append(crosshair);
+  days.forEach((row, index) => {
+    const text = `${row.date} · Recovery ${num(row.recovery_score, 0, "%")} · HRV ${num(row.hrv_rmssd_milli, 1, " ms")} · Resting HR ${num(row.resting_heart_rate, 0, " bpm")} · Sleep ${num(row.sleep_hours, 1, " h")}`;
+    const hit = svg(
+      "rect",
+      {
+        x: left + index * band,
+        y: 0,
+        width: band,
+        height: 485,
+        class: "chart-hit",
+        tabindex: 0,
+        role: "img",
+        "aria-label": text,
+      },
+      tip(text)
+    );
+    const show = () => {
+      detail.textContent = text;
+      crosshair.setAttribute("x1", left + (index + 0.5) * band);
+      crosshair.setAttribute("x2", left + (index + 0.5) * band);
+      crosshair.setAttribute("visibility", "visible");
+    };
+    hit.addEventListener("pointerenter", show);
+    hit.addEventListener("focus", show);
+    chart.append(hit);
+    if (index % 7 === 0)
+      chart.append(
+        svg("text", { x: left + index * band, y: 510, class: "axis" }, row.date.slice(5))
+      );
+  });
+  return el(
+    "figure",
+    { class: "figure" },
+    chart,
+    detail,
+    el(
+      "figcaption",
+      {},
+      "Sleep: deep / REM / light. Dashes indicate missing observations. Historical bands require at least 7 visible measurements."
+    )
+  );
+}
+
+function workoutBubbles(workouts) {
+  const scored = workouts.filter((row) => row.strain !== null);
+  const maxMinutes = Math.max(1, ...scored.map((row) => row.minutes));
+  const x = (row) => 45 + (row.minutes / maxMinutes) * 800;
+  const y = (row) => 230 - (row.strain / 21) * 200;
+  return svg(
+    "svg",
+    {
+      viewBox: "0 0 900 285",
+      class: "chart",
+      role: "img",
+      "data-chart": "workout-bubbles",
+      "aria-label":
+        "Every scored workout: horizontal position and bubble size show duration, vertical position shows strain. Exact values in the workout table.",
+    },
+    ...[0, 7, 14, 21].flatMap((value) => [
+      svg("line", {
+        x1: 45,
+        x2: 870,
+        y1: 230 - (value / 21) * 200,
+        y2: 230 - (value / 21) * 200,
+        class: "grid",
+      }),
+      svg(
+        "text",
+        { x: 30, y: 234 - (value / 21) * 200, "text-anchor": "end", class: "axis" },
+        value
+      ),
+    ]),
+    ...scored.map((row) =>
+      svg(
+        "circle",
+        {
+          cx: x(row),
+          cy: y(row),
+          r: 4 + Math.sqrt(row.minutes / maxMinutes) * 13,
+          class: `workout-bubble c-${["run", "swim", "bike", "hyrox"].includes(row.discipline) ? row.discipline : "multi"}`,
+        },
+        tip(
+          `${day(row.start)} ${sentence(row.sport_name)} · ${num(row.minutes)} min · strain ${num(row.strain, 1)}`
+        )
+      )
+    ),
+    svg("text", { x: 45, y: 270, class: "axis" }, "0 min"),
+    svg("text", { x: 865, y: 270, "text-anchor": "end", class: "axis" }, `${num(maxMinutes)} min`)
+  );
+}
+
+async function renderTraining() {
+  const state = viewState.training;
+  const data = await api("/api/training", { query: state });
+  const weekly = data.weekly.map((row) => ({ ...row }));
+  const zoneFigure = stackedBars(
+    "Recorded minutes per week by HR zone",
+    weekly,
+    ZONES.map((_, index) => ({
+      name: `Z${index}`,
+      cls: `intensity-${index}`,
+      value: (row) => row.zones[index],
+    }))
+  );
+  zoneFigure.querySelector("svg").setAttribute("data-chart", "weekly-zones");
+  return [
+    windowForm(state, () => void render()),
+    storeNotice(data.store),
+    el(
+      "div",
+      { class: "chart-grid training-charts" },
+      section(
+        "Minutes per week by heart-rate zone",
+        el(
+          "p",
+          { class: "lede" },
+          "Recorded WHOOP zone minutes, grouped by UTC week. Empty weeks stay on the axis; no record does not prove a rest week."
+        ),
+        zoneFigure
+      ),
+      section(
+        "Every workout",
+        el(
+          "p",
+          { class: "lede" },
+          "Strain × duration. Bubble size is duration. Unscored workouts remain in the table."
+        ),
+        workoutBubbles(data.workouts)
+      )
+    ),
+    section(
+      "Fitness / fatigue / form",
+      el(
+        "div",
+        { class: "stats" },
+        stat("Fitness CTL", num(data.load.current?.ctl, 1)),
+        stat("Fatigue ATL", num(data.load.current?.atl, 1)),
+        stat("Form TSB", num(data.load.current?.tsb, 1)),
+        stat("History", `${data.load.history_days} days`)
+      ),
+      data.load.status === "insufficient_data"
+        ? el("p", { class: "notice" }, "Not enough history to interpret training load.")
+        : null,
+      data.load.series.length
+        ? loadChart(data.load.series)
+        : el("p", { class: "empty" }, "No scored load history."),
+      el(
+        "p",
+        { class: "lede" },
+        "Edwards TRIMP: zone minutes × zone number. CTL is 42-day, ATL is 7-day and TSB is CTL − ATL. Load uses up to 120 days through today, independently of the chart filter. Strength work may be under-counted; fixed time constants are not individualised."
+      ),
+      data.load.series_truncated
+        ? el("p", { class: "notice" }, "Load chart shows the latest 90 days.")
+        : null
+    ),
+    section(
+      "Workout evidence",
+      table(
+        "Recorded workouts",
+        ["Date", "Sport", "Counts as", "Minutes", "Strain", "TRIMP"],
+        data.workouts.map((row) => [
+          time(row.start),
+          sentence(row.sport_name),
+          sentence(row.discipline),
+          num(row.minutes, 1),
+          num(row.strain, 1),
+          num(row.trimp, 1),
+        ])
+      ),
+      el(
+        "p",
+        { class: "lede" },
+        `Source: ${sentence(data.source.status)}. ${data.source.records_fetched} fetched. Local exclusions apply; flags alone do not exclude records.`
+      ),
+      data.source.truncated
+        ? el("p", { class: "notice" }, "Workout history was truncated; charts may under-count.")
+        : null,
+      el("p", { class: "disclaimer" }, data.disclaimer)
+    ),
+  ];
+}
+
 function sessionTimeline(session, segments) {
   const W = 900;
   const H = 240;
@@ -529,7 +1040,7 @@ function sessionTimeline(session, segments) {
               width,
               y: y(segment.avg_hr),
               height: base - y(segment.avg_hr),
-              class: `seg seg-${segment.role}`,
+              class: `seg intensity-${intensity(segment.avg_hr, session.peak_hr)}`,
             },
             tip(summary)
           )
@@ -786,7 +1297,29 @@ async function renderSession() {
         stat("Energy", num(session.kcal, 0, " kcal")),
         stat("Segments", session.segment_count)
       ),
-      sessionTimeline(session, data.segments),
+      el(
+        "div",
+        { class: "chart-grid session-charts" },
+        section(
+          "Heart-rate profile",
+          el(
+            "p",
+            { class: "lede" },
+            "Segment averages and peak markers, not a continuous HR trace. Colour is relative to this session's observed peak, not WHOOP zone boundaries."
+          ),
+          sessionTimeline(session, data.segments),
+          runBuild(data.segments)
+        ),
+        section(
+          "Recorded segments",
+          segmentRing(data.segments),
+          el(
+            "p",
+            { class: "lede" },
+            "The ring shows recorded activities, not official station splits. WHOOP cannot identify every HYROX station."
+          )
+        )
+      ),
       table(
         "Segments",
         [
@@ -869,6 +1402,7 @@ async function renderSession() {
     nodes.push(
       section(
         "Time in HR zone",
+        zoneBar(Object.values(data.time_in_zone_seconds), session.transition_seconds),
         table(
           "Zones",
           ["Zone 0", "Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"],
@@ -1243,6 +1777,7 @@ async function renderReadiness() {
       el(
         "div",
         { class: "verdict" },
+        readinessRing(data.components, verdictText),
         el(
           "p",
           { class: "verdict-eyebrow" },
@@ -1293,6 +1828,15 @@ async function renderReadiness() {
           )
         : el("p", { class: "empty" }, `Not enough history (${load.history_days} days).`),
       load.series.length ? loadChart(load.series) : null,
+      el("h3", {}, "28-day training mix"),
+      load.load_28d.total > 0
+        ? shareBars(
+            Object.entries(load.load_28d)
+              .filter(([name]) => name !== "total")
+              .map(([name, value]) => [name, value / load.load_28d.total, false]),
+            0
+          )
+        : el("p", { class: "empty" }, "No scored discipline load."),
       table(
         "Load by discipline",
         ["Discipline", "CTL", "ATL", "TSB", "28-day load"],
@@ -1379,6 +1923,35 @@ async function renderAudit() {
   return [
     windowForm(state, () => void render()),
     storeNotice(data.store),
+    section(
+      "Workout review",
+      el("p", { class: "lede" }, "Flagged records need review, not automatic exclusion."),
+      el(
+        "div",
+        { class: "audit-tiles" },
+        data.suspects.map((suspect) =>
+          el(
+            "button",
+            {
+              type: "button",
+              class: "audit-tile",
+              onclick: prefill({
+                workout_id: suspect.workout_id,
+                action: "exclude",
+                reason: suspect.rule === "hr_out_of_range" ? "bad_hr" : "misclassified",
+              }),
+            },
+            el("strong", {}, sentence(suspect.sport_name)),
+            el("span", {}, day(suspect.start)),
+            el("span", {}, sentence(suspect.rule)),
+            el("code", {}, shortId(suspect.workout_id))
+          )
+        )
+      ),
+      data.suspects.length
+        ? null
+        : el("p", { class: "empty" }, "No flagged workouts in this window.")
+    ),
     section(
       "To review",
       el(
@@ -1950,7 +2523,10 @@ function reviewSave(path, body, message, rows, trigger) {
 // ---------------------------------------------------------------------------
 
 async function renderToday() {
-  const data = await api("/api/today");
+  const [data, history] = await Promise.all([
+    api("/api/today"),
+    api("/api/history").catch((error) => ({ error: error.message })),
+  ]);
   const quality = data.data_quality;
   const recovery = quality.sources.recovery.status === "available" ? data.recovery : null;
   const sleep = data.sleep;
@@ -2003,6 +2579,39 @@ async function renderToday() {
     );
   };
   return [
+    el(
+      "div",
+      { class: "chart-grid today-charts" },
+      section(
+        "Your morning",
+        recoveryRing(recovery?.score ?? null),
+        el(
+          "div",
+          { class: "stats compact-stats" },
+          stat("HRV", num(recovery?.hrv_rmssd_milli, 0, " ms")),
+          stat("Resting HR", num(recovery?.resting_heart_rate, 0, " bpm")),
+          stat("Sleep", num(sleep?.asleep_hours, 1, " h")),
+          stat("Cycle strain", num(strain?.day_strain, 1))
+        ),
+        el(
+          "p",
+          { class: "lede" },
+          "Current snapshot only. Missing data never borrows an older score. WHOOP recovery is not a race-readiness verdict."
+        )
+      ),
+      section(
+        "Vitals, last five weeks",
+        el(
+          "p",
+          { class: "lede" },
+          "One timeline. Hover or focus a day for all four measures. Shaded bands show the visible history's mean ± 1 SD, not a clinical normal range."
+        ),
+        history.error
+          ? el("p", { class: "notice notice-error" }, `History unavailable: ${history.error}`)
+          : vitalsChart(history.days),
+        history.error ? null : trustFooter(history)
+      )
+    ),
     section(
       "Daily overview",
       el(
@@ -2066,6 +2675,7 @@ async function renderToday() {
 const RENDERERS = {
   today: renderToday,
   session: renderSession,
+  training: renderTraining,
   hyrox: renderHyrox,
   triathlon: renderTriathlon,
   readiness: renderReadiness,

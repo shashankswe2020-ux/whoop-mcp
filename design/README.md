@@ -37,7 +37,36 @@ effort). Recovery keeps WHOOP's red/yellow/green. Sports use a validated four-co
 Every chart has hover detail. One reveal animation on load; respects reduced motion.
 Dark is primary; light is a selected set.
 
-## Porting into `src/dashboard/static`
+## Production integration in `src/dashboard/static`
+
+### Shipped in 1.0.2
+
+The production renderer now uses this chart-first visual system, including
+Today history, Session charts, Training, Readiness and Audit, with dark/light
+themes and bundled OFL fonts. README/site screenshots come from the production
+app using `scripts/preview-dashboard.ts`, never this prototype's personal data.
+Session remains the default; HYROX and Triathlon views remain available.
+
+The production session ring counts recorded segments, not inferred station
+coverage. HR colours are relative to the observed session peak, not WHOOP zone
+boundaries. Historical bands describe visible observations, not medical norms.
+
+### Integration constraints
+
+Port the chart-first visual system into the production DOM renderer, using only
+validated WHOOP sources and existing local performance state. Keep Session as the
+default and retain HYROX/Triathlon tools, review dialogs, keyboard navigation,
+evidence, missing-source states and the strict local-server CSP. Add Training as
+a separate view; dark is default with an explicit light toggle. History must
+preserve missing days and training charts must preserve empty weeks. Never infer
+continuous HR, station splits or WHOOP sync times from summary records.
+
+Implement and test data contracts first, then visual rendering and local font
+serving, then browser-check every view with synthetic fixtures and capture those
+production views for README/site. Verify with `npm test`, `npm run lint`,
+`npm run typecheck`, `npm run format:check`, `npm run build`, `npm audit` and a
+packaged-artifact check before publishing 1.0.2. No new runtime dependencies,
+WHOOP endpoints, token storage or OAuth changes.
 
 The prototype is plain DOM + inline SVG, same as `app.js`, so it ports function by function:
 
@@ -53,10 +82,10 @@ Static assets stay within the CSP (`style-src 'self'`, no external fonts): copy
 `redesign/fonts/` next to `style.css` and add the `@font-face` rules, and add the seven woff2
 files to `STATIC_FILES` in `src/dashboard/server.ts` (the allowlist serves nothing else).
 
-Two data bugs found while testing against live records, both needed for the redesign to be truthful:
+Data issues identified while testing against live records:
 
-1. `percent_recorded` arrives as a fraction (0.99999) from the live API; `suspect-detector.ts` compares it with 80, flagging every workout as low coverage. Normalise at the schema boundary.
-2. Weekly series are built from a `Map` keyed by workouts, so rest weeks vanish. Generate weeks from the period and zero-fill.
+1. `percent_recorded` can arrive as a fraction (0.99999). Production analytics now normalise 0–1 values to percentages before coverage checks, while preserving older 0–100 values above 1. Public MCP record schemas remain transform-free and expose the original records.
+2. Training's new weekly series generates every UTC week and zero-fills missing weeks. The older HYROX/Triathlon weekly series have not been changed.
 
 ## Placeholders and caveats
 

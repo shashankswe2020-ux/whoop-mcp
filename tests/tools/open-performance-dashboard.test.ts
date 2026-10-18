@@ -39,11 +39,12 @@ function tokenOf(url: string): string {
 }
 
 describe("open_performance_dashboard", () => {
-  it("accepts the daily overview as a starting view", async () => {
-    const params = openPerformanceDashboardInputSchema.parse({ view: "today" });
+  it.each(["today", "training"])("accepts %s as a starting view", async (view) => {
+    const params = openPerformanceDashboardInputSchema.parse({ view });
     const result = await make(vi.fn()).open(params);
-    expect(result.view).toBe("today");
-    expect(result.url).toContain("/?view=today#");
+    expect(result.view).toBe(view);
+    expect(result.url).toContain(`/?view=${view}#`);
+    expect(openPerformanceDashboardOutputSchema.parse(result)).toEqual(result);
   });
   it("starts a loopback server, opens the browser and keeps the token in the fragment", async () => {
     const openBrowser = vi.fn();

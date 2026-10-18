@@ -27,6 +27,7 @@ import {
   recoveryRecordSchema,
   sleepRecordSchema,
   workoutRecordSchema,
+  normalizeWorkoutCoverage,
 } from "../api/record-schemas.js";
 import {
   asleepHours,
@@ -291,6 +292,7 @@ export async function getToday(
         )
       : undefined;
   const workouts = parseRecords(workoutData.records, workoutRecordSchema, workoutData.quality)
+    .map(normalizeWorkoutCoverage)
     .filter(
       (record) =>
         Date.parse(record.end) <= now.getTime() && Date.parse(record.end) > Date.parse(record.start)

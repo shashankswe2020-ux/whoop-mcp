@@ -89,6 +89,58 @@ afterEach(async () => {
 });
 
 describe("dashboard interactions", () => {
+  it("ships the chart-first theme toggle without changing API data or losing form inputs", async () => {
+    await open("audit");
+    fill("workout_id", "run-4");
+    expect(window.document.documentElement.dataset.theme).toBe("dark");
+    click("Light");
+    expect(window.document.documentElement.dataset.theme).toBe("light");
+    expect(window.document.querySelector<HTMLInputElement>('[name="workout_id"]')?.value).toBe(
+      "run-4"
+    );
+    click("Dark");
+    expect(window.document.documentElement.dataset.theme).toBe("dark");
+  });
+
+  it("renders the new Training view from API-backed zone, workout and load charts", async () => {
+    await open("training");
+    expect(window.document.querySelector("#main")?.textContent).toContain("Every workout");
+    expect(window.document.querySelector('[data-chart="weekly-zones"]')).not.toBeNull();
+    expect(window.document.querySelector('[data-chart="workout-bubbles"]')).not.toBeNull();
+    expect(window.document.querySelector("#main")?.textContent).toContain("Fitness");
+  });
+
+  it("shows the real redesigned Session and Readiness charts, not prototype fixture content", async () => {
+    await open("session");
+    expect(window.document.querySelector('[data-chart="segment-ring"]')).not.toBeNull();
+    expect(window.document.querySelector('[data-chart="run-build"]')).not.toBeNull();
+    expect(window.document.querySelector('[data-chart="zone-bar"]')).not.toBeNull();
+    expect(window.document.body.textContent).toContain("not official station splits");
+    click("Readiness");
+    await idle();
+    expect(window.document.querySelector('[data-chart="readiness-ring"]')).not.toBeNull();
+    expect(window.document.body.textContent).not.toContain("WHOOP last synced");
+  });
+
+  it("uses a shared keyboard-inspectable vitals crosshair and preserves missing measurements", async () => {
+    const { sleep, recovery } = night({ day: "2026-10-20", recovery: 0 });
+    await open("today", {
+      sleep: [sleep],
+      recovery: [recovery],
+      cycles: [{ ...cycle("2026-10-20", 0), end: null }],
+    });
+    const chart = window.document.querySelector('[data-chart="vitals"]');
+    expect(chart).not.toBeNull();
+    const hits = chart?.querySelectorAll<HTMLElement>(".chart-hit");
+    expect(hits?.length).toBe(35);
+    hits?.[34]?.dispatchEvent(new window.Event("focus"));
+    expect(window.document.querySelector(".chart-detail")?.textContent).toContain("Recovery 0%");
+    expect(chart?.querySelector(".crosshair")?.getAttribute("visibility")).toBe("visible");
+    expect(window.document.querySelector('[data-chart="recovery-ring"]')?.textContent).toContain(
+      "0%"
+    );
+  });
+
   it("previews corrections without writing; edit/cancel restores focus and values", async () => {
     await open("audit");
     fill("workout_id", "run-4");

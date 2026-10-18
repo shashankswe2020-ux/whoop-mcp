@@ -38,6 +38,17 @@ const STATIC_FILES: Readonly<Record<string, { file: string; type: string }>> = {
   "/index.html": { file: "index.html", type: "text/html; charset=utf-8" },
   "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
   "/style.css": { file: "style.css", type: "text/css; charset=utf-8" },
+  ...Object.fromEntries(
+    [
+      "archivo-latin-400-normal.woff2",
+      "archivo-latin-500-normal.woff2",
+      "archivo-latin-600-normal.woff2",
+      "archivo-latin-700-normal.woff2",
+      "archivo-narrow-latin-500-normal.woff2",
+      "archivo-narrow-latin-600-normal.woff2",
+      "archivo-narrow-latin-700-normal.woff2",
+    ].map((file) => [`/fonts/${file}`, { file: `fonts/${file}`, type: "font/woff2" }])
+  ),
 };
 
 export const DEFAULT_STATIC_DIR = fileURLToPath(new URL("./static/", import.meta.url));

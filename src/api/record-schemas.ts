@@ -111,3 +111,15 @@ export const workoutRecordSchema = z
       .nullish(),
   })
   .passthrough();
+
+/** Normalize live 0–1 fractions for analytics without transforming the public MCP schema. */
+export function normalizeWorkoutCoverage(
+  record: z.infer<typeof workoutRecordSchema>
+): z.infer<typeof workoutRecordSchema> {
+  if (!record.score) return record;
+  const value = record.score.percent_recorded;
+  return {
+    ...record,
+    score: { ...record.score, percent_recorded: value <= 1 ? value * 100 : value },
+  };
+}

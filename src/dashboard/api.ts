@@ -49,6 +49,13 @@ import {
   verifyClaimOutputSchema,
 } from "../tools/verify-claim.js";
 import { getToday, todayOutputSchema } from "../tools/get-today.js";
+import {
+  dashboardHistorySchema,
+  dashboardTrainingInputSchema,
+  dashboardTrainingSchema,
+  getDashboardHistory,
+  getDashboardTraining,
+} from "./data.js";
 
 export interface DashboardApiOptions {
   client: WhoopClient;
@@ -136,6 +143,15 @@ export function createDashboardApi(options: DashboardApiOptions): DashboardApi {
     actor: "dashboard",
   });
   const routes: Readonly<Record<string, Route>> = {
+    "/api/history": route("GET", z.object({}), dashboardHistorySchema, (_input, deps) =>
+      getDashboardHistory(client, deps)
+    ),
+    "/api/training": route(
+      "GET",
+      dashboardTrainingInputSchema,
+      dashboardTrainingSchema,
+      (input, deps) => getDashboardTraining(client, input, deps)
+    ),
     "/api/today": route("GET", z.object({}), todayOutputSchema, (_input, deps) =>
       getToday(client, deps.now)
     ),

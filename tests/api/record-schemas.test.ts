@@ -3,6 +3,7 @@ import {
   recoveryRecordSchema,
   sleepRecordSchema,
   workoutRecordSchema,
+  normalizeWorkoutCoverage,
 } from "../../src/api/record-schemas.js";
 
 // ---------------------------------------------------------------------------
@@ -186,6 +187,22 @@ describe("workoutRecordSchema", () => {
       },
     },
   };
+
+  it.each([
+    [0, 0],
+    [0.99999, 99.999],
+    [1, 100],
+    [79.9, 79.9],
+    [100, 100],
+  ])("normalizes recorded coverage %s to percentage %s", (raw, expected) => {
+    const result = normalizeWorkoutCoverage(
+      workoutRecordSchema.parse({
+        ...validWorkoutBase,
+        score: { ...validWorkoutBase.score, percent_recorded: raw },
+      })
+    );
+    expect(result.score?.percent_recorded).toBeCloseTo(expected);
+  });
 
   it("accepts distance_meter/altitude_gain_meter/altitude_change_meter: null (non-GPS workout)", () => {
     const result = workoutRecordSchema.safeParse({

@@ -40,11 +40,13 @@ describe("dashboard static assets", () => {
     expect(paths.sort()).toEqual([
       "/api/annotate",
       "/api/audit",
+      "/api/history",
       "/api/hyrox",
       "/api/race-result",
       "/api/readiness",
       "/api/session-report",
       "/api/today",
+      "/api/training",
       "/api/triathlon",
       "/api/verify-claim",
     ]);
@@ -55,6 +57,12 @@ describe("dashboard static assets", () => {
 
   it("style.css loads no external resources", async () => {
     const css = await read("style.css");
-    expect(css).not.toMatch(/@import|url\(/);
+    expect(css).not.toMatch(/@import|https?:|url\(["']?(?:\/\/|data:)/);
+    const fonts = [...css.matchAll(/url\("\/(fonts\/[^"]+)"\)/g)];
+    expect(fonts).toHaveLength(7);
+    for (const [, path] of fonts)
+      expect((await readFile(join(DEFAULT_STATIC_DIR, path!))).subarray(0, 4).toString()).toBe(
+        "wOF2"
+      );
   });
 });

@@ -12,6 +12,7 @@ import {
 export const DASHBOARD_VIEWS = [
   "today",
   "session",
+  "training",
   "hyrox",
   "triathlon",
   "readiness",

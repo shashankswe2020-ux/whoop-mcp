@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type { DashboardApi } from "../../src/dashboard/api.js";
 import {
   CONTENT_SECURITY_POLICY,
+  DEFAULT_STATIC_DIR,
   MAX_BODY_BYTES,
   startDashboardServer,
   type DashboardServer,
@@ -84,6 +85,15 @@ const bearer = (s: DashboardServer): Record<string, string> => ({
 });
 
 describe("startDashboardServer", () => {
+  it("serves bundled chart-first fonts under the same strict CSP and blocks arbitrary paths", async () => {
+    server = await startDashboardServer({ api, staticDir: DEFAULT_STATIC_DIR });
+    const font = await raw(server.port, { path: "/fonts/archivo-latin-400-normal.woff2" });
+    expect(font.status).toBe(200);
+    expect(font.headers["content-type"]).toBe("font/woff2");
+    expect(font.headers["content-security-policy"]).toBe(CONTENT_SECURITY_POLICY);
+    expect(font.body.slice(0, 4)).toBe("wOF2");
+    expect((await raw(server.port, { path: "/fonts/not-allowed.woff2" })).status).toBe(404);
+  });
   it("binds to 127.0.0.1 on an ephemeral port with a 256-bit token", async () => {
     const s = await start();
     expect(s.origin).toBe(`http://127.0.0.1:${s.port}`);

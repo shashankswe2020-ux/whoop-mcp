@@ -6,6 +6,7 @@ import {
   recoveryRecordSchema,
   sleepRecordSchema,
   workoutRecordSchema,
+  normalizeWorkoutCoverage,
 } from "../api/record-schemas.js";
 import type { Workout } from "../api/types.js";
 import {
@@ -146,7 +147,7 @@ export async function loadWorkouts(
   const source = await loadAnalyticsSource(client, ENDPOINT_WORKOUT, period, workoutRecordSchema);
   if (source.quality.status === "fetch_failed")
     throw new WhoopNetworkError("Workout source unavailable");
-  const records: Workout[] = source.records;
+  const records: Workout[] = source.records.map(normalizeWorkoutCoverage);
   source.quality.records_used = records.length;
   if (records.length) source.quality.status = "available";
   return { records, quality: source.quality };
@@ -163,6 +164,12 @@ export interface WellnessDay {
   sleep_performance_pct: number | null;
   respiratory_rate: number | null;
   standing_sleep_debt_hours: number | null;
+  sleep_stages?: {
+    light_hours: number;
+    deep_hours: number;
+    rem_hours: number;
+    awake_hours: number;
+  };
 }
 
 /**
@@ -196,6 +203,12 @@ export async function loadWellness(
       sleep_performance_pct: night.score.sleep_performance_percentage ?? null,
       respiratory_rate: night.score.respiratory_rate ?? null,
       standing_sleep_debt_hours: night.score.sleep_needed.need_from_sleep_debt_milli / 3_600_000,
+      sleep_stages: {
+        light_hours: night.score.stage_summary.total_light_sleep_time_milli / 3_600_000,
+        deep_hours: night.score.stage_summary.total_slow_wave_sleep_time_milli / 3_600_000,
+        rem_hours: night.score.stage_summary.total_rem_sleep_time_milli / 3_600_000,
+        awake_hours: night.score.stage_summary.total_awake_time_milli / 3_600_000,
+      },
     });
   }
   for (const quality of [sleep.quality, recovery.quality])
