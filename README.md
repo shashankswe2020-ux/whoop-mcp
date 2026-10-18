@@ -117,12 +117,24 @@ Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two w
 </table>
 <p align="center"><sub>Screenshots use synthetic sample data.</sub></p>
 
-<details>
-<summary><strong>Daily overview preview</strong></summary>
+### New in 1.0.1: daily overview and safer local saves
+
+Ask your assistant to **"Open my performance dashboard"** to launch it locally.
+The **Today** tab shows recovery, HRV, resting heart rate, primary sleep, cycle
+strain and the latest workout, with evidence and explicit missing-data states.
+Session remains the default view.
+
+- **Review before saving.** Inspect workout corrections and race results, then
+  edit, cancel or confirm. Failed saves preserve your entries.
+- **Keep your context.** Filters survive switching views; last-7-day and
+  last-28-day presets use completed UTC days.
+- **Refresh honestly.** Refresh and retry controls report when a view loaded,
+  not when WHOOP synced. Reads may use cached data.
+
 <p align="center">
 	<img src="images/readme/dashboard-today.png" width="880" alt="Daily overview showing WHOOP recovery, primary sleep, cycle strain and explicit unavailable-workout status, with evidence disclosures and refresh controls. Synthetic sample data.">
+	<br><sub>Today view with synthetic sample data. WHOOP recovery is not a race-readiness verdict; local workout corrections apply to race views, not this overview.</sub>
 </p>
-</details>
 
 The race log, workout corrections and dashboard are available only when the server runs locally (stdio). Details: [race performance tools](references/tools.md#race-performance-hyrox-and-triathlon) and [local data](references/privacy.md#race-performance-data-and-the-local-dashboard).
 

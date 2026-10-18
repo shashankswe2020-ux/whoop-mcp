@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-19
+
 ### Added
 - Dashboard Today view reuses `get_today` for recovery, primary sleep, cycle
   strain and the latest workout, with source status and evidence. The default
@@ -17,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Completed-UTC-day presets for the last 7 or 28 days, persistent view filters,
   and refresh/retry controls. Load times are explicitly separate from WHOOP
   sync times; cached reads remain possible.
+
+### Changed
+- README and website highlight the daily overview and dashboard workflow, using
+  synthetic sample screenshots. Session remains the default view.
+
+### Verification
+- 1187 tests across 72 files pass.
+- Lint, formatting, typecheck, build, full dependency audit (0 vulnerabilities)
+  and package dry-run pass.
 
 ## [1.0.0] - 2026-10-18
 

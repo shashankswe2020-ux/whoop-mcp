@@ -1,6 +1,6 @@
 {
   "name": "whoop-ai-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "mcpName": "io.github.shashankswe2020-ux/whoop",
   "description": "Read-only WHOOP MCP server for recovery, sleep, HRV, strain, workouts, and personal health analytics in AI assistants",
   "type": "module",
