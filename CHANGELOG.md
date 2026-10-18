@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-19
+
+### Added
+- Production chart-first dashboard from the main-branch redesign, with dark/light
+  themes and locally bundled Archivo fonts (SIL OFL 1.1). The design prototype
+  itself and its personal data are not shipped.
+- Today recovery ring and 35-day shared-timeline vitals: recovery, HRV, resting
+  heart rate and scored sleep stages. Missing/pending/calibrating data stays
+  missing; historical mean ± SD bands are descriptive, not clinical ranges.
+- Training view and MCP deep link: recorded WHOOP zone minutes by UTC week,
+  zero-filled empty weeks, workout strain/duration bubbles, and existing
+  Edwards TRIMP fitness/fatigue/form calculations. Local corrections apply.
+- Session recorded-segment ring, run-by-run HR build and WHOOP time-in-zone
+  bar; five-part Readiness ring and training mix; Audit workout review tiles.
+- Synthetic production-dashboard preview for repeatable browser checks and
+  README/website screenshots without credentials or live WHOOP calls.
+
+### Fixed
+- The newest dashboard design now ships in the actual npm app. Version 1.0.1
+  updated the older dashboard but left the chart-first design in `design/`.
+- Fractional WHOOP recorded-coverage values are normalized for analytics, avoiding
+  false low-coverage flags while retaining transform-free public MCP schemas.
+- Training filtering and weekly grouping compare UTC instants correctly across
+  timezone offsets.
+
+### Changed
+- README and website show the working chart-first production views using
+  synthetic data. Session remains the default; HYROX/Triathlon views,
+  evidence, strict local-server security, filters and review-before-save remain.
+- Session graphics explicitly describe recorded segments and summary HR, never
+  inferred official station coverage or continuous heart-rate traces.
+
+### Verification
+- 1202 tests across 73 files pass; lint, typecheck, formatting and build pass.
+- All seven views checked at 320, 768, 1024 and 1440 px without horizontal
+  overflow, console errors or failed requests. Full dependency audit: 0 vulnerabilities.
+
 ## [1.0.1] - 2026-10-19
 
 ### Added
@@ -453,7 +490,9 @@ No WHOOP API, OAuth, token-storage or telemetry-policy behavior changes.
 - **CLI entry point** — `npx whoop-mcp` with environment variable configuration
 - **202 tests** with full coverage of auth, API client, tools, and error handling
 
-[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.9.1...v1.0.0
 [0.9.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.8.4...v0.9.0

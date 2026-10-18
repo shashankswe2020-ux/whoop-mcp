@@ -104,26 +104,33 @@ Ask "How did yesterday's HYROX sim go?" or "Am I ready for my triathlon in two w
 - Track weekly running and HYROX load, swim/bike/run balance and bricks, plus logged races with station and leg splits and PRs.
 - Give a **readiness** band from recovery, training form, specificity, sleep debt and taper. Every component shows its evidence; there's no opaque score.
 - Let you **audit** the numbers: suspect workouts are flagged, you can relabel or exclude workouts, every change is logged, and `verify_claim` recomputes a number your assistant told you.
-- Open a **local dashboard** (`open_performance_dashboard`) on `127.0.0.1` with daily overview, session, HYROX, triathlon, readiness and audit views. Review corrections and race results before confirming a local save.
+- Open a **chart-first local dashboard** (`open_performance_dashboard`) on `127.0.0.1` with Today, Session, Training, HYROX, Triathlon, Readiness and Audit views. Dark/light themes, local fonts, and review-before-save controls are included.
 
 <p align="center">
-	<img src="images/readme/dashboard-session.png" width="880" alt="Dashboard Session view: a HYROX sim rebuilt from nine WHOOP workouts, with span, tracked time, transition time, peak heart rate, energy and a segment timeline showing average and peak heart rate for each run and erg, with transition gaps shaded">
+	<img src="images/readme/dashboard-session.png" width="880" alt="Chart-first Session view: nine recorded run and erg segments, an average and peak heart-rate profile, run-by-run build and recorded-segment ring. Synthetic sample data.">
 </p>
 <table>
 	<tr>
-		<td width="50%"><img src="images/readme/dashboard-readiness.png" alt="Dashboard Readiness view: a large Not ready verdict with a one-line summary of which components are red or amber, then one row per component (recovery, form, specificity, sleep, taper) with its band and rationale; the recovery row's Evidence panel lists its value, method, window and records used"></td>
-		<td width="50%"><img src="images/readme/dashboard-audit.png" alt="Dashboard Audit view: automatically flagged records grouped by rule (implausible pace, overlap, indoor distance), each row with a Correct button that prefills the correction form; long groups such as Overlap start collapsed"></td>
+		<td width="50%"><img src="images/readme/dashboard-readiness.png" alt="Readiness view: a five-part evidence ring, Not ready verdict, component bands, rationale and evidence disclosures. Synthetic sample data."></td>
+		<td width="50%"><img src="images/readme/dashboard-audit.png" alt="Audit view: flagged workout tiles, rule-based findings and correction controls. Flags never automatically exclude workouts. Synthetic sample data."></td>
 	</tr>
 </table>
 <p align="center"><sub>Screenshots use synthetic sample data.</sub></p>
 
-### New in 1.0.1: daily overview and safer local saves
+### New in 1.0.2: the chart-first dashboard
 
 Ask your assistant to **"Open my performance dashboard"** to launch it locally.
-The **Today** tab shows recovery, HRV, resting heart rate, primary sleep, cycle
-strain and the latest workout, with evidence and explicit missing-data states.
-Session remains the default view.
+The design from the latest main-branch redesign is now part of the **working
+dashboard**, not just a prototype. Dark is the default, with a Light/Dark toggle
+that preserves unsaved forms. Session remains the default view.
 
+- **Today:** recovery ring and five weeks of recovery, HRV, resting HR and sleep
+  stages on one timeline with a shared crosshair. Missing days remain gaps;
+  historical bands describe your visible data, not medical norms.
+- **Training:** WHOOP zone minutes by UTC week, including empty weeks, workout
+  strain/duration bubbles and fitness/fatigue/form charts. Local corrections apply.
+- **Session and Readiness:** recorded-segment and five-component rings, summary
+  HR charts and evidence. No invented continuous HR traces or HYROX station splits.
 - **Review before saving.** Inspect workout corrections and race results, then
   edit, cancel or confirm. Failed saves preserve your entries.
 - **Keep your context.** Filters survive switching views; last-7-day and
@@ -132,8 +139,12 @@ Session remains the default view.
   not when WHOOP synced. Reads may use cached data.
 
 <p align="center">
-	<img src="images/readme/dashboard-today.png" width="880" alt="Daily overview showing WHOOP recovery, primary sleep, cycle strain and explicit unavailable-workout status, with evidence disclosures and refresh controls. Synthetic sample data.">
+	<img src="images/readme/dashboard-today.png" width="880" alt="Dark chart-first Today dashboard: recovery ring and shared-timeline recovery, HRV, resting heart rate and sleep-stage charts, with gaps and historical bands. Synthetic sample data.">
 	<br><sub>Today view with synthetic sample data. WHOOP recovery is not a race-readiness verdict; local workout corrections apply to race views, not this overview.</sub>
+</p>
+
+<p align="center">
+	<img src="images/readme/dashboard-training.png" width="880" alt="Training dashboard showing weekly recorded WHOOP zone minutes, strain and duration workout bubbles, and fitness, fatigue and form. Synthetic sample data.">
 </p>
 
 The race log, workout corrections and dashboard are available only when the server runs locally (stdio). Details: [race performance tools](references/tools.md#race-performance-hyrox-and-triathlon) and [local data](references/privacy.md#race-performance-data-and-the-local-dashboard).
