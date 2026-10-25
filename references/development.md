@@ -64,7 +64,7 @@ src/
 ├── index.ts              # CLI dispatch, auth, telemetry and transport startup
 ├── server.ts             # MCP server + tool/resource/prompt registration
 ├── privacy.ts            # Process-level disclosure policy
-├── cli/                  # Four-client setup, consent and local diagnostics
+├── cli/                  # Multi-client setup, consent and local diagnostics
 ├── cache/                # Process-local LRU/TTL cache
 ├── logging/              # Structured stderr logging
 ├── telemetry/            # Optional bounded metadata sender

@@ -7,12 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-25
+
 ### Added
 - Matching multi-client setup targets for Gemini CLI, Cursor, VS Code, OpenClaw
   and Perplexity's macOS app, plus a `claude` alias for Claude Desktop.
 - Guidance-only setup for Claude web/mobile, ChatGPT and Grok's xAI API, with
   explicit hosting, authentication and compatibility limitations. Existing
   transports, OAuth and token storage are unchanged.
+
+### Security
+- Update Zod, Vitest, Happy DOM and compatible transitive dependencies to clear
+  all advisories reported by the release dependency audit.
 
 ## [1.0.2] - 2026-10-19
 
@@ -497,7 +503,8 @@ No WHOOP API, OAuth, token-storage or telemetry-policy behavior changes.
 - **CLI entry point** — `npx whoop-mcp` with environment variable configuration
 - **202 tests** with full coverage of auth, API client, tools, and error handling
 
-[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/shashankswe2020-ux/whoop-mcp/compare/v0.9.1...v1.0.0

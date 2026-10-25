@@ -1,6 +1,6 @@
 {
   "name": "whoop-ai-mcp",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "mcpName": "io.github.shashankswe2020-ux/whoop",
   "description": "Read-only WHOOP MCP server for recovery, sleep, HRV, strain, workouts, and personal health analytics in AI assistants",
   "type": "module",
@@ -59,19 +59,19 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.5.0",
     "@typescript-eslint/eslint-plugin": "^8.32.0",
     "@typescript-eslint/parser": "^8.32.0",
-    "@vitest/coverage-v8": "^5.0.2",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.2.1",
-    "happy-dom": "^21.0.3",
+    "happy-dom": "^21.0.4",
     "prettier": "^3.5.3",
     "tsx": "^4.19.4",
     "typescript": "~5.8.3",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.5"
   }
 }

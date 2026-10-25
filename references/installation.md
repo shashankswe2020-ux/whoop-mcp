@@ -209,11 +209,12 @@ requests and prints the returned profile; do not paste that output into public r
 
 ### Additional clients
 
-**Release status:** the new targets are unreleased. From this source checkout,
-run `npm run build`, then `node dist/index.js setup --client=<target>`.
-After publication, use `npx -y whoop-ai-mcp@latest setup --client=<target>`.
-The Rust checkout accepts the same targets with `cargo run -- setup --client=<target>`;
-after its release use `whoop-mcp setup --client=<target>`.
+Available in **npm 1.1.0+** and **Rust 0.2.0+**. Use
+`npx -y whoop-ai-mcp@latest setup --client=<target>` or
+`whoop-mcp setup --client=<target>`.
+For an npm source checkout, run `npm run build`, then
+`node dist/index.js setup --client=<target>`. The Rust checkout accepts
+the same targets with `cargo run -- setup --client=<target>`.
 
 | Client | Target | Setup result / limitation |
 |---|---|---|

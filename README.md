@@ -63,7 +63,7 @@ Statistics describe your recorded history. They aren't medical diagnoses or pred
 
    For Claude Code, Codex and VS Code/Copilot, run the registration command that setup prints. For Gemini CLI, Cursor and OpenClaw, merge the printed config; for Perplexity, paste the printed launch command into its local connector. Nothing is installed globally, and optional usage telemetry defaults to **No**.
 
-   **Unreleased:** the additional targets (including the `claude` alias for Desktop) are available in source. Until published, build this checkout and use `node dist/index.js setup --client=<target>` instead of the npm commands above. Generated npm launch entries still use the published server package.
+   These targets, including the `claude` alias for Desktop, require **1.1.0 or later**. For a source build, use `node dist/index.js setup --client=<target>`.
 
 2. **Authorize.** Fully quit and reopen your assistant. The first time the server starts, WHOOP opens in your browser so you can approve access.
 
@@ -92,8 +92,8 @@ cargo install whoop-mcp
 whoop-mcp setup --client=claude-desktop
 ```
 
-The additional Rust targets are also unreleased; use `cargo run -- setup --client=<target>`
-from its source checkout until the next crate release.
+The additional Rust targets require **0.2.0 or later**. For a source build,
+use `cargo run -- setup --client=<target>` in the Rust checkout.
 
 </details>
 
