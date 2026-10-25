@@ -14,6 +14,7 @@ import {
   generateClaudeDesktopEntry,
   generateCodexCommand,
   generateCopilotCommand,
+  generateLocalSetupInstructions,
   mergeClaudeDesktopConfig,
 } from "../../src/cli/config-generators.js";
 import { parseSetupArgs, runSetup } from "../../src/cli/setup.js";
@@ -176,7 +177,52 @@ describe("generateCopilotCommand", () => {
 // parseSetupArgs
 // ---------------------------------------------------------------------------
 
+describe("additional local client instructions", () => {
+  const env = {
+    WHOOP_CLIENT_ID: "id",
+    WHOOP_CLIENT_SECRET: "s'cret with spaces",
+    WHOOP_MCP_TELEMETRY: "0",
+  };
+
+  it.each(["gemini-cli", "cursor", "openclaw"] as const)(
+    "emits the documented %s JSON shape with credentials and consent",
+    (target) => {
+      const text = generateLocalSetupInstructions(target, env) ?? "";
+      const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
+      const entry = generateClaudeDesktopEntry(env);
+      expect(JSON.parse(json)).toEqual(
+        target === "openclaw"
+          ? { mcp: { servers: { whoop: { transport: "stdio", ...entry } } } }
+          : { mcpServers: { whoop: entry } }
+      );
+    }
+  );
+
+  it("quotes credentials in the Perplexity macOS launch command", () => {
+    const text = generateLocalSetupInstructions("perplexity", env);
+    expect(text).toContain("env WHOOP_CLIENT_ID='id'");
+    expect(text).toContain("WHOOP_CLIENT_SECRET='s'\\''cret with spaces'");
+    expect(text).toContain("WHOOP_MCP_TELEMETRY='0' npx -y whoop-ai-mcp");
+    expect(text).toContain("macOS");
+  });
+});
+
 describe("parseSetupArgs", () => {
+  it.each([
+    "claude",
+    "claude-web",
+    "chatgpt",
+    "grok",
+    "perplexity",
+    "gemini-cli",
+    "cursor",
+    "vscode",
+    "openclaw",
+  ])("accepts the %s client target", (client) => {
+    expect(parseSetupArgs([`--client=${client}`]).client).toBe(client);
+    expect(parseSetupArgs(["--client", client]).client).toBe(client);
+  });
+
   it("returns empty options for empty argv", () => {
     expect(parseSetupArgs([])).toEqual({});
   });
@@ -294,6 +340,86 @@ describe("runSetup — non-interactive", () => {
   beforeEach(() => {
     delete process.env.WHOOP_CLIENT_ID;
     delete process.env.WHOOP_CLIENT_SECRET;
+  });
+
+  it.each(["claude-web", "chatgpt", "grok"])(
+    "prints %s remote guidance without credentials, filesystem writes, or verification",
+    async (client) => {
+      const { io, output } = makeIo();
+      const fake = makeFakeFs();
+      const authenticate = vi.fn();
+      const confirmTelemetry = vi.fn();
+      const consent = await runSetup(parseSetupArgs([`--client=${client}`]), {
+        io,
+        fs: fake.fs,
+        authenticate,
+        confirmTelemetry,
+      });
+      expect(output()).toContain("https://YOUR_HOST/mcp");
+      expect(output()).toContain("not deployed or verified");
+      expect(output()).not.toContain("WHOOP Client Secret");
+      expect(output()).toContain(client === "grok" ? "xAI API" : "OAuth");
+      expect(fake.files.size).toBe(0);
+      expect(authenticate).not.toHaveBeenCalled();
+      expect(confirmTelemetry).not.toHaveBeenCalled();
+      expect(consent).toEqual({ WHOOP_MCP_TELEMETRY: "0" });
+      expectSponsorRequestLast(output());
+    }
+  );
+
+  it.each([
+    "--verify",
+    "--client-id=id",
+    "--client-secret=secret",
+    "--config-path=x",
+    "--telemetry=on",
+  ])("rejects local-only option %s for remote guidance", async (flag) => {
+    await expect(
+      runSetup(parseSetupArgs(["--client=chatgpt", flag]), {
+        io: makeIo().io,
+        fs: makeFakeFs().fs,
+      })
+    ).rejects.toThrow("only apply to local");
+  });
+
+  it.each([
+    ["gemini-cli", "~/.gemini/settings.json"],
+    ["cursor", "~/.cursor/mcp.json"],
+    ["openclaw", "openclaw mcp doctor whoop --probe"],
+    ["perplexity", "PerplexityXPC"],
+    ["vscode", "code --add-mcp"],
+  ])("prints %s configuration without changing files", async (client, expected) => {
+    const { io, output } = makeIo();
+    const fake = makeFakeFs();
+    await runSetup(
+      parseSetupArgs([
+        `--client=${client}`,
+        "--client-id=id",
+        "--client-secret=secret",
+        "--telemetry=off",
+      ]),
+      { io, fs: fake.fs }
+    );
+    expect(output()).toContain(expected);
+    expect(output()).toContain("WHOOP_CLIENT_ID");
+    expect(output()).toContain("WHOOP_MCP_TELEMETRY");
+    expect(fake.files.size).toBe(0);
+    expectSponsorRequestLast(output());
+  });
+
+  it("treats claude as the Claude Desktop alias", async () => {
+    const fake = makeFakeFs();
+    await runSetup(
+      parseSetupArgs([
+        "--client=claude",
+        "--client-id=id",
+        "--client-secret=secret",
+        "--config-path=/fake/claude.json",
+        "--telemetry=off",
+      ]),
+      { io: makeIo().io, fs: fake.fs }
+    );
+    expect(fake.files.get("/fake/claude.json")).toContain('"mcpServers"');
   });
 
   it("writes a fresh Claude Desktop config when none exists", async () => {

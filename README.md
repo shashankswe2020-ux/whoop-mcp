@@ -12,7 +12,7 @@
 	<a href="https://buymeacoffee.com/shashanksw9"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-support-FFDD00?logo=buymeacoffee&logoColor=000000" alt="Buy me a coffee to support whoop-ai-mcp"></a>
 </p>
 
-**whoop-ai-mcp** is a read-only [WHOOP](https://www.whoop.com/) [MCP server](https://modelcontextprotocol.io/) for Claude Desktop, Claude Code, Codex and GitHub Copilot. Ask about your recovery, compare weeks of sleep, or check today against your own baseline, without exporting the data yourself.
+**whoop-ai-mcp** is a read-only [WHOOP](https://www.whoop.com/) [MCP server](https://modelcontextprotocol.io/) for Claude, Gemini CLI, Cursor, VS Code, OpenClaw, Perplexity on macOS, and other MCP clients. Ask about your recovery, compare weeks of sleep, or check today against your own baseline, without exporting the data yourself. ChatGPT, Claude web/mobile, and the Grok xAI API require a remote deployment; see the [client setup guide](references/installation.md#additional-clients).
 
 ```bash
 npx -y whoop-ai-mcp@latest setup --client=claude-desktop
@@ -55,8 +55,15 @@ Statistics describe your recorded history. They aren't medical diagnoses or pred
    | Claude Code | `npx -y whoop-ai-mcp@latest setup --client=claude-code` |
    | Codex | `npx -y whoop-ai-mcp@latest setup --client=codex` |
    | GitHub Copilot | `npx -y whoop-ai-mcp@latest setup --client=copilot` |
+   | Gemini CLI | `npx -y whoop-ai-mcp@latest setup --client=gemini-cli` |
+   | Cursor | `npx -y whoop-ai-mcp@latest setup --client=cursor` |
+   | VS Code | `npx -y whoop-ai-mcp@latest setup --client=vscode` |
+   | OpenClaw | `npx -y whoop-ai-mcp@latest setup --client=openclaw` |
+   | Perplexity (macOS app + helper) | `npx -y whoop-ai-mcp@latest setup --client=perplexity` |
 
-   For Claude Code, Codex and Copilot, run the registration command that setup prints. Nothing is installed globally, and optional usage telemetry defaults to **No**.
+   For Claude Code, Codex and VS Code/Copilot, run the registration command that setup prints. For Gemini CLI, Cursor and OpenClaw, merge the printed config; for Perplexity, paste the printed launch command into its local connector. Nothing is installed globally, and optional usage telemetry defaults to **No**.
+
+   **Unreleased:** the additional targets (including the `claude` alias for Desktop) are available in source. Until published, build this checkout and use `node dist/index.js setup --client=<target>` instead of the npm commands above. Generated npm launch entries still use the published server package.
 
 2. **Authorize.** Fully quit and reopen your assistant. The first time the server starts, WHOOP opens in your browser so you can approve access.
 
@@ -64,16 +71,29 @@ Statistics describe your recorded history. They aren't medical diagnoses or pred
 
 Need manual configuration, environment variables or a remote deployment? See the [full setup guide](references/installation.md).
 
+### Claude web/mobile and ChatGPT quick setup
+
+Run `setup --client=claude-web` or `setup --client=chatgpt` with either implementation
+to print remote deployment and connector instructions. These are **guidance-only**
+targets, not one-click hosting: provide a public HTTPS `/mcp` endpoint, complete
+WHOOP authorization on the host, and configure compatible connector OAuth.
+Availability depends on the client account/workspace. `setup --client=grok` prints
+an **xAI API** MCP tool example; consumer Grok chat integration is not verified.
+No remote credentials are collected and no client connection is tested.
+
 <details>
 <summary><strong>Prefer a native binary?</strong></summary>
 <br>
 
-The [Rust implementation](https://github.com/shashankswe2020-ux/whoop-mcp-rs) supports the same four assistants without a Node.js runtime. It needs Rust 1.88 or later:
+The [Rust implementation](https://github.com/shashankswe2020-ux/whoop-mcp-rs) offers the same client targets and limitations without a Node.js runtime for the server. It needs Rust 1.88 or later:
 
 ```bash
 cargo install whoop-mcp
 whoop-mcp setup --client=claude-desktop
 ```
+
+The additional Rust targets are also unreleased; use `cargo run -- setup --client=<target>`
+from its source checkout until the next crate release.
 
 </details>
 

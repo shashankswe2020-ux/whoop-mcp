@@ -11,6 +11,8 @@
  *        - claude-code:    prints the `claude mcp add ...` command to run
  *        - codex:          prints the `codex mcp add ...` command to run
  *        - copilot:        prints the `code --add-mcp ...` command to run
+ *        - other local clients: prints configuration / registration instructions
+ *        - remote clients: prints deployment guidance without collecting secrets
  *
  * No new runtime dependencies — uses only Node's built-in modules.
  * All output goes to stdout; errors throw and surface via the dispatcher.
@@ -30,10 +32,13 @@ import { getProfile } from "../tools/get-profile.js";
 
 import {
   claudeDesktopConfigPath,
+  CLIENT_TARGETS,
   generateClaudeCodeCommand,
   generateClaudeDesktopEntry,
   generateCodexCommand,
   generateCopilotCommand,
+  generateLocalSetupInstructions,
+  remoteSetupInstructions,
   mergeClaudeDesktopConfig,
   type ClaudeDesktopConfig,
   type ClientTarget,
@@ -66,7 +71,7 @@ export interface SetupOptions {
  * Supported flags:
  *   --client-id=<value> | --client-id <value>
  *   --client-secret=<value> | --client-secret <value>
- *   --client=<claude-desktop|claude-code|codex|copilot>
+ *   --client=<target>       (see CLIENT_TARGETS)
  *   --verify
  *   --config-path=<value>   (test hook)
  */
@@ -111,7 +116,7 @@ export function parseSetupArgs(argv: readonly string[]): SetupOptions {
         const v = valueAt();
         if (!isClientTarget(v)) {
           throw new Error(
-            `Invalid --client value: "${v}". Must be "claude-desktop", "claude-code", "codex", or "copilot".`
+            `Invalid --client value: "${v}". Must be one of: ${CLIENT_TARGETS.join(", ")}.`
           );
         }
         out.client = v;
@@ -139,13 +144,6 @@ function splitFlag(arg: string): [string, string | undefined] {
   if (eq === -1) return [arg, undefined];
   return [arg.slice(0, eq), arg.slice(eq + 1)];
 }
-
-const CLIENT_TARGETS: readonly ClientTarget[] = [
-  "claude-desktop",
-  "claude-code",
-  "codex",
-  "copilot",
-];
 
 function isClientTarget(value: string): value is ClientTarget {
   return (CLIENT_TARGETS as readonly string[]).includes(value);
@@ -314,14 +312,33 @@ export async function runSetup(
   out.write("------------------------\n\n");
 
   // --- Resolve target client first so we can peek at any existing config. ---
-  const target: ClientTarget =
+  const requestedTarget =
     options.client ??
-    (((await promptText(
+    ((await promptText(
       merged.io,
-      "Target client (claude-desktop / claude-code / codex / copilot) [claude-desktop]: "
-    )) || "claude-desktop") as ClientTarget);
-  if (!isClientTarget(target)) {
-    throw new Error(`Invalid client target: "${target}"`);
+      `Target client (${CLIENT_TARGETS.join(" / ")}) [claude-desktop]: `
+    )) ||
+      "claude-desktop");
+  if (!isClientTarget(requestedTarget)) {
+    throw new Error(`Invalid client target: "${requestedTarget}"`);
+  }
+  const target = requestedTarget === "claude" ? "claude-desktop" : requestedTarget;
+  const remoteInstructions = remoteSetupInstructions(target);
+  if (remoteInstructions !== undefined) {
+    if (
+      options.verify ||
+      options.clientId !== undefined ||
+      options.clientSecret !== undefined ||
+      options.configPath !== undefined ||
+      options.telemetry !== undefined
+    ) {
+      throw new Error(
+        "Credential, --verify, --config-path and --telemetry options only apply to local client setup."
+      );
+    }
+    out.write(remoteInstructions);
+    writeSponsorRequest(out);
+    return { WHOOP_MCP_TELEMETRY: "0" };
   }
 
   // --- Existing claude-desktop config short-circuit. ---
@@ -436,9 +453,16 @@ export async function runSetup(
     return consent;
   }
 
-  if (target === "copilot") {
+  if (target === "copilot" || target === "vscode") {
     out.write("\nRun this command to register the server with GitHub Copilot in VS Code:\n\n");
     out.write(`  ${generateCopilotCommand(env)}\n\n`);
+    writeSponsorRequest(out);
+    return consent;
+  }
+
+  const localInstructions = generateLocalSetupInstructions(target, env);
+  if (localInstructions !== undefined) {
+    out.write(`\n${localInstructions}\n`);
     writeSponsorRequest(out);
     return consent;
   }

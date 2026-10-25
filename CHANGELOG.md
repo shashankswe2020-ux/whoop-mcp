@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Matching multi-client setup targets for Gemini CLI, Cursor, VS Code, OpenClaw
+  and Perplexity's macOS app, plus a `claude` alias for Claude Desktop.
+- Guidance-only setup for Claude web/mobile, ChatGPT and Grok's xAI API, with
+  explicit hosting, authentication and compatibility limitations. Existing
+  transports, OAuth and token storage are unchanged.
+
 ## [1.0.2] - 2026-10-19
 
 ### Added
