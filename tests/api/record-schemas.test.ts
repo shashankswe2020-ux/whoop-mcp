@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   recoveryRecordSchema,
   sleepRecordSchema,
+  cycleRecordSchema,
   workoutRecordSchema,
+  offsetSchema,
   normalizeWorkoutCoverage,
 } from "../../src/api/record-schemas.js";
 
@@ -234,5 +236,34 @@ describe("workoutRecordSchema", () => {
   it("still accepts these fields omitted entirely", () => {
     const result = workoutRecordSchema.safeParse(validWorkoutBase);
     expect(result.success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// timezone_offset
+//
+// Since October 2026 the WHOOP v2 API sends `timezone_offset: "Z"` for UTC on
+// sleep, cycle and workout records instead of "+00:00" (issue #303). The schema
+// must accept it and, like the rest of the public record schemas, pass the
+// original value through unchanged.
+// ---------------------------------------------------------------------------
+
+describe("offsetSchema", () => {
+  it.each(["Z", "+00:00", "-07:00", "+05:30", "+14:00", "-12:00"])("accepts %s", (offset) => {
+    expect(offsetSchema.parse(offset)).toBe(offset);
+  });
+
+  it.each(["z", "UTC", "+5:00", "+0000", "+15:00", "Z+00:00", ""])("rejects %j", (offset) => {
+    expect(offsetSchema.safeParse(offset).success).toBe(false);
+  });
+
+  it.each([
+    ["sleep", sleepRecordSchema, { id: "sleep-1", cycle_id: 123, nap: false }],
+    ["cycle", cycleRecordSchema, { id: 123 }],
+    ["workout", workoutRecordSchema, { id: "workout-1", sport_name: "running" }],
+  ] as const)("accepts a %s record with timezone_offset Z", (_name, schema, fields) => {
+    const result = schema.safeParse({ ...baseActivity, ...fields, timezone_offset: "Z" });
+    expect(result.success).toBe(true);
+    expect(result.data?.timezone_offset).toBe("Z");
   });
 });

@@ -3,7 +3,8 @@ import { z } from "zod";
 const nonnegative = z.number().finite().nonnegative();
 const percentage = nonnegative.max(100);
 export const timestampSchema = z.string().datetime({ offset: true });
-export const offsetSchema = z.string().regex(/^[+-](?:0\d|1[0-4]):[0-5]\d$/);
+// WHOOP sends "Z" for UTC on some records instead of "+00:00".
+export const offsetSchema = z.string().regex(/^(?:Z|[+-](?:0\d|1[0-4]):[0-5]\d)$/);
 const common = {
   user_id: z.number().int(),
   created_at: timestampSchema,
