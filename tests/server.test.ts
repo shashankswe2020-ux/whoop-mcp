@@ -611,6 +611,51 @@ describe("createWhoopServer", () => {
 });
 
 // ---------------------------------------------------------------------------
+// WHOOP sends timezone_offset "Z" for UTC (issue #303)
+// ---------------------------------------------------------------------------
+
+describe("createWhoopServer (timezone_offset Z)", () => {
+  const utc = { timezone_offset: "Z" };
+  const fixtures: Record<string, unknown> = {
+    "/v2/activity/sleep": { records: [{ ...SLEEP_FIXTURE.records[0], ...utc }] },
+    "/v2/activity/workout": { records: [{ ...WORKOUT_FIXTURE.records[0], ...utc }] },
+    "/v2/cycle": { records: [{ ...CYCLE_FIXTURE.records[0], ...utc }] },
+  };
+  let client: Client;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    const whoopClient: WhoopClient = {
+      get: async <T>(path: string): Promise<T> => fixtures[path.split("?")[0]] as T,
+    };
+    const { server } = createWhoopServer(whoopClient);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    client = new Client({ name: "utc-offset-test-client", version: "1.0.0" });
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+    cleanup = async () => {
+      await client.close();
+      await server.close();
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  it.each(["get_sleep_collection", "get_workout_collection", "get_cycle_collection"])(
+    "%s passes the output contract and returns the record unchanged",
+    async (name) => {
+      const result = await client.callTool({ name, arguments: {} });
+
+      expect(result.isError).toBeFalsy();
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0].text) as { records: Array<{ timezone_offset: string }> };
+      expect(parsed.records[0].timezone_offset).toBe("Z");
+    }
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Task 8d: Tool-level error handling
 // ---------------------------------------------------------------------------
 

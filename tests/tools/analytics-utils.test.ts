@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 import { percentile, circularStats } from "../../src/tools/stats-utils.js";
-import { localDay, loadAnalyticsSource } from "../../src/tools/analytics-utils.js";
+import { localDay, localTime, loadAnalyticsSource } from "../../src/tools/analytics-utils.js";
 import type { WhoopClient } from "../../src/api/client.js";
 
 describe("analytics primitives", () => {
@@ -26,6 +26,13 @@ describe("analytics primitives", () => {
     expect(localDay("2026-09-10T01:00:00Z", "-05:00")).toBe("2026-09-09");
     expect(localDay("2026-03-08T06:30:00Z", "-05:00")).toBe("2026-03-08");
     expect(localDay("2026-11-01T06:30:00Z", "-04:00")).toBe("2026-11-01");
+  });
+  it("treats a Z offset as UTC", () => {
+    expect(localTime("2026-10-05T23:30:00.000Z", "Z")).toEqual(
+      localTime("2026-10-05T23:30:00.000Z", "+00:00")
+    );
+    expect(localDay("2026-10-05T23:30:00.000Z", "Z")).toBe("2026-10-05");
+    expect(() => localTime("2026-10-05T23:30:00.000Z", "UTC")).toThrow();
   });
 });
 

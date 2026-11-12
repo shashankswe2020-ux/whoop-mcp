@@ -352,6 +352,23 @@ describe("getToday", () => {
     expect(result.strain!.last_workout!.strain).toBe(12.5);
   });
 
+  it("reads sleep, cycle and workout records whose timezone_offset is Z", async () => {
+    const utc = { timezone_offset: "Z" };
+    const result = await getToday(
+      createMockClient({
+        "/v2/recovery": { records: [mockRecovery] },
+        "/v2/activity/sleep": { records: [{ ...mockSleep, ...utc }] },
+        "/v2/cycle": { records: [{ ...mockCycle, ...utc }] },
+        "/v2/activity/workout": { records: [{ ...mockWorkout, ...utc }] },
+      })
+    );
+
+    expect(result.recovery?.score).toBe(72);
+    expect(result.sleep?.total_hours).toBeCloseTo(7.5, 1);
+    expect(result.strain?.day_strain).toBe(8.4);
+    expect(result.strain?.last_workout?.sport_name).toBe("Running");
+  });
+
   it("includes a human-readable summary", async () => {
     const client = createMockClient({
       "/v2/recovery": { records: [mockRecovery], next_token: undefined },

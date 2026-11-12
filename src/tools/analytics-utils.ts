@@ -60,7 +60,10 @@ export function exclude(quality: SourceQuality, reason: string): void {
 export function localTime(timestamp: string, offset: string): Date {
   offsetSchema.parse(offset);
   const minutes =
-    (Number(offset.slice(1, 3)) * 60 + Number(offset.slice(4, 6))) * (offset[0] === "-" ? -1 : 1);
+    offset === "Z"
+      ? 0
+      : (Number(offset.slice(1, 3)) * 60 + Number(offset.slice(4, 6))) *
+        (offset[0] === "-" ? -1 : 1);
   return new Date(Date.parse(timestamp) + minutes * 60_000);
 }
 
